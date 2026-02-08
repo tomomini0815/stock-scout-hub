@@ -7,12 +7,18 @@ export default {
   theme: {
     container: {
       center: true,
-      padding: "2rem",
+      padding: "1rem",
       screens: {
         "2xl": "1400px",
       },
     },
     extend: {
+      fontFamily: {
+        sans: ['"Noto Sans JP"', 'sans-serif'],
+      },
+      fontSize: {
+        'xxs': '0.65rem',
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -47,6 +53,24 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        "stock-up": "hsl(var(--stock-up))",
+        "stock-down": "hsl(var(--stock-down))",
+        "stock-unchanged": "hsl(var(--stock-unchanged))",
+        "stock-up-bg": "hsl(var(--stock-up-bg))",
+        "stock-down-bg": "hsl(var(--stock-down-bg))",
+        "header-bg": "hsl(var(--header-bg))",
+        "header-foreground": "hsl(var(--header-foreground))",
+        "header-accent": "hsl(var(--header-accent))",
+        "nav-bg": "hsl(var(--nav-bg))",
+        "nav-foreground": "hsl(var(--nav-foreground))",
+        "nav-hover": "hsl(var(--nav-hover))",
+        "table-header-bg": "hsl(var(--table-header-bg))",
+        "table-stripe": "hsl(var(--table-stripe))",
+        "table-border": "hsl(var(--table-border))",
+        "chart-bg": "hsl(var(--chart-bg))",
+        "chart-grid": "hsl(var(--chart-grid))",
+        "badge-hot": "hsl(var(--badge-hot))",
+        "badge-new": "hsl(var(--badge-new))",
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",
@@ -65,25 +89,22 @@ export default {
       },
       keyframes: {
         "accordion-down": {
-          from: {
-            height: "0",
-          },
-          to: {
-            height: "var(--radix-accordion-content-height)",
-          },
+          from: { height: "0" },
+          to: { height: "var(--radix-accordion-content-height)" },
         },
         "accordion-up": {
-          from: {
-            height: "var(--radix-accordion-content-height)",
-          },
-          to: {
-            height: "0",
-          },
+          from: { height: "var(--radix-accordion-content-height)" },
+          to: { height: "0" },
+        },
+        "ticker-scroll": {
+          "0%": { transform: "translateX(0)" },
+          "100%": { transform: "translateX(-50%)" },
         },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "ticker-scroll": "ticker-scroll 30s linear infinite",
       },
     },
   },
