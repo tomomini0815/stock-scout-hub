@@ -22,7 +22,7 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <SiteHeader />
+      <SiteHeader activeTab="トップ" />
       <MarketTicker indices={marketIndices} />
 
       <main className="container mx-auto px-4 py-3">
