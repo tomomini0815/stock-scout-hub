@@ -1,7 +1,25 @@
 import { Search } from "lucide-react";
 import { useState } from "react";
+import { Link } from "react-router-dom";
 
-const SiteHeader = () => {
+interface SiteHeaderProps {
+  activeTab?: string;
+}
+
+const navItems = [
+  { label: "トップ", path: "/" },
+  { label: "市況", path: "/market" },
+  { label: "個別銘柄", path: "/stocks" },
+  { label: "ランキング", path: "/ranking" },
+  { label: "決算速報", path: "/earnings" },
+  { label: "IPO", path: "/ipo" },
+  { label: "テーマ", path: "/themes" },
+  { label: "スクリーニング", path: "/screening" },
+  { label: "チャート", path: "/chart" },
+  { label: "ニュース", path: "/news" },
+];
+
+const SiteHeader = ({ activeTab = "トップ" }: SiteHeaderProps) => {
   const [searchQuery, setSearchQuery] = useState("");
 
   return (
@@ -10,9 +28,9 @@ const SiteHeader = () => {
       <div className="bg-header-bg text-header-foreground">
         <div className="container mx-auto flex items-center justify-between px-4 py-2">
           <div className="flex items-center gap-3">
-            <h1 className="text-xl font-black tracking-tight">
+            <Link to="/" className="text-xl font-black tracking-tight">
               <span className="text-header-accent">株</span>ナビ
-            </h1>
+            </Link>
             <span className="hidden text-xxs opacity-60 sm:inline">
               株式投資の総合情報サイト
             </span>
@@ -39,28 +57,18 @@ const SiteHeader = () => {
       <nav className="bg-nav-bg">
         <div className="container mx-auto px-4">
           <ul className="flex items-center gap-0 overflow-x-auto text-xs">
-            {[
-              "トップ",
-              "市況",
-              "個別銘柄",
-              "ランキング",
-              "決算速報",
-              "IPO",
-              "テーマ",
-              "スクリーニング",
-              "チャート",
-              "ニュース",
-            ].map((item, i) => (
-              <li key={item}>
-                <button
-                  className={`whitespace-nowrap px-3 py-2 font-medium transition-colors hover:bg-nav-hover ${
-                    i === 0
+            {navItems.map((item) => (
+              <li key={item.label}>
+                <Link
+                  to={item.path}
+                  className={`block whitespace-nowrap px-3 py-2 font-medium transition-colors hover:bg-nav-hover ${
+                    activeTab === item.label
                       ? "border-b-2 border-header-accent text-header-accent"
                       : "text-nav-foreground"
                   }`}
                 >
-                  {item}
-                </button>
+                  {item.label}
+                </Link>
               </li>
             ))}
           </ul>
