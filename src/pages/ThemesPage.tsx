@@ -1,100 +1,489 @@
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
 import MarketTicker from "@/components/MarketTicker";
-import { marketIndices } from "@/data/stockData";
-import { Layers, Flame } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { marketIndices, type CandleData, type StockData } from "@/data/stockData";
+import { useLiveStockQuotes } from "@/hooks/useLiveStockQuote";
+import { Activity, Flame, Gauge, Layers, RadioTower, TrendingUp } from "lucide-react";
+
+const blankStock = (code: string, name: string): StockData => ({
+  code,
+  name,
+  market: "プライム",
+  price: 0,
+  change: 0,
+  changePercent: 0,
+  volume: 0,
+  open: 0,
+  high: 0,
+  low: 0,
+  previousClose: 0,
+});
 
 const themes = [
   {
-    name: "AI・人工知能",
-    icon: "🤖",
+    name: "AI・半導体",
     isHot: true,
-    change: 3.45,
-    description: "生成AI、機械学習、ディープラーニング関連",
+    description: "AIサーバー、半導体製造装置、検査装置、先端パッケージ、車載半導体関連",
     stocks: [
-      { code: "6758", name: "ソニーグループ", change: 4.58 },
-      { code: "6861", name: "キーエンス", change: 3.56 },
-      { code: "9984", name: "ソフトバンクG", change: 3.44 },
+      blankStock("8035", "東京エレクトロン"),
+      blankStock("285A", "キオクシアHD"),
+      blankStock("6857", "アドバンテスト"),
+      blankStock("6146", "ディスコ"),
+      blankStock("6315", "TOWA"),
+      blankStock("6526", "ソシオネクスト"),
+      blankStock("6723", "ルネサスエレクトロニクス"),
+      blankStock("7735", "SCREENホールディングス"),
+      blankStock("3436", "SUMCO"),
     ],
   },
   {
-    name: "半導体",
-    icon: "💎",
+    name: "自動車・EV",
+    description: "完成車、電装、電動化、ハイブリッド、駆動・電池周辺関連",
+    stocks: [
+      blankStock("7203", "トヨタ自動車"),
+      blankStock("6902", "デンソー"),
+      blankStock("7267", "本田技研工業"),
+      blankStock("6594", "ニデック"),
+      blankStock("7270", "SUBARU"),
+      blankStock("7201", "日産自動車"),
+    ],
+  },
+  {
+    name: "金融・金利",
+    description: "銀行、保険、金利上昇局面で利ざや改善を見込みやすい銘柄",
+    stocks: [
+      blankStock("8306", "三菱UFJ"),
+      blankStock("8316", "三井住友FG"),
+      blankStock("8411", "みずほFG"),
+      blankStock("8766", "東京海上HD"),
+      blankStock("8750", "第一生命HD"),
+      blankStock("7182", "ゆうちょ銀行"),
+    ],
+  },
+  {
+    name: "ディフェンシブ",
+    description: "医薬品、通信、生活必需品など景気耐性を見たい銘柄",
+    stocks: [
+      blankStock("4502", "武田薬品工業"),
+      blankStock("4503", "アステラス製薬"),
+      blankStock("4519", "中外製薬"),
+      blankStock("4568", "第一三共"),
+      blankStock("2914", "日本たばこ産業"),
+      blankStock("3382", "セブン&アイ"),
+      blankStock("9432", "日本電信電話"),
+      blankStock("9433", "KDDI"),
+    ],
+  },
+  {
+    name: "AIインフラ",
     isHot: true,
-    change: 2.89,
-    description: "半導体製造装置、シリコンウエハー、設計",
+    description: "データセンター、光通信、電力・通信インフラ、サーバー周辺関連",
     stocks: [
-      { code: "8035", name: "東京エレクトロン", change: 3.01 },
-      { code: "4063", name: "信越化学工業", change: 3.15 },
-      { code: "6857", name: "アドバンテスト", change: 2.34 },
+      blankStock("5803", "フジクラ"),
+      blankStock("5801", "古河電気工業"),
+      blankStock("5802", "住友電気工業"),
+      blankStock("6701", "NEC"),
+      blankStock("6702", "富士通"),
+      blankStock("6501", "日立製作所"),
+      blankStock("3778", "さくらインターネット"),
+      blankStock("9984", "ソフトバンクグループ"),
     ],
   },
   {
-    name: "EV・電気自動車",
-    icon: "🔋",
-    change: 1.56,
-    description: "EV本体、バッテリー、充電インフラ",
+    name: "サイバー・DX",
+    isHot: true,
+    description: "セキュリティ、クラウド、企業DX、AI実装支援の成長候補",
     stocks: [
-      { code: "7203", name: "トヨタ自動車", change: 2.24 },
-      { code: "6902", name: "デンソー", change: 2.67 },
-      { code: "7267", name: "本田技研工業", change: -1.93 },
+      blankStock("4704", "トレンドマイクロ"),
+      blankStock("2326", "デジタルアーツ"),
+      blankStock("4493", "サイバーセキュリティクラウド"),
+      blankStock("3697", "SHIFT"),
+      blankStock("4813", "ACCESS"),
+      blankStock("3687", "フィックスターズ"),
     ],
   },
   {
-    name: "インバウンド",
-    icon: "✈️",
-    change: 0.89,
-    description: "訪日外国人向け小売、ホテル、交通",
+    name: "電力・送電網",
+    description: "AIデータセンター増設、電力需要、送配電投資で注目される銘柄",
     stocks: [
-      { code: "9603", name: "エイチ・アイ・エス", change: 1.45 },
-      { code: "9064", name: "ヤマトHD", change: 0.67 },
-      { code: "2670", name: "ABCマート", change: 1.12 },
+      blankStock("9501", "東京電力HD"),
+      blankStock("9503", "関西電力"),
+      blankStock("9508", "九州電力"),
+      blankStock("1942", "関電工"),
+      blankStock("1944", "きんでん"),
+      blankStock("5801", "古河電気工業"),
+      blankStock("5802", "住友電気工業"),
     ],
   },
   {
-    name: "再生可能エネルギー",
-    icon: "🌱",
-    change: 0.45,
-    description: "太陽光、風力、水素エネルギー",
+    name: "防衛・宇宙",
+    description: "防衛予算、航空宇宙、衛星・通信、重工業の中期テーマ",
     stocks: [
-      { code: "9519", name: "レノバ", change: 2.10 },
-      { code: "1407", name: "ウエストHD", change: -0.56 },
-      { code: "6255", name: "NPC", change: 1.34 },
+      blankStock("7011", "三菱重工業"),
+      blankStock("7012", "川崎重工業"),
+      blankStock("7013", "IHI"),
+      blankStock("6503", "三菱電機"),
+      blankStock("6701", "NEC"),
+      blankStock("6208", "石川製作所"),
     ],
   },
   {
-    name: "メタバース・Web3",
-    icon: "🌐",
-    change: -0.34,
-    description: "仮想空間、NFT、ブロックチェーン",
+    name: "内需・インバウンド",
+    description: "訪日需要、消費回復、低価格帯で値動きが出やすい内需候補",
     stocks: [
-      { code: "3659", name: "ネクソン", change: -1.23 },
-      { code: "2121", name: "MIXI", change: 0.45 },
-      { code: "3765", name: "ガンホー", change: -0.78 },
+      blankStock("3092", "ZOZO"),
+      blankStock("4680", "ラウンドワン"),
+      blankStock("3197", "すかいらーくHD"),
+      blankStock("8233", "高島屋"),
+      blankStock("9201", "日本航空"),
+      blankStock("9202", "ANAホールディングス"),
     ],
   },
 ];
 
+const allThemeStocks = themes
+  .flatMap((theme) => theme.stocks)
+  .filter((stock, index, stocks) => stocks.findIndex((item) => item.code === stock.code) === index);
+
+interface StockTrendSignal {
+  code: string;
+  name: string;
+  score: number;
+  changePercent: number;
+  volumeRatio: number;
+  closeAbove20: boolean;
+  closeAbove200: boolean;
+}
+
+interface ThemeTrendSignal {
+  name: string;
+  score: number;
+  averageChange: number;
+  averageVolumeRatio: number;
+  positiveCount: number;
+  checkedCount: number;
+  tags: string[];
+  leaders: StockTrendSignal[];
+  note: string;
+}
+
+const average = (values: number[]) =>
+  values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
+
+const movingAverageAt = (data: CandleData[], period: number, index = data.length - 1) => {
+  if (index < period - 1) return null;
+  return average(data.slice(index - period + 1, index + 1).map((item) => item.close));
+};
+
+const analyzeStockTrend = (stock: StockData, candles: CandleData[]): StockTrendSignal | null => {
+  const valid = candles.filter((item) =>
+    [item.open, item.high, item.low, item.close, item.volume].every(Number.isFinite)
+  );
+  if (valid.length < 220) return null;
+
+  const latest = valid.at(-1);
+  const previous = valid.at(-2);
+  if (!latest || !previous) return null;
+
+  const sma20 = movingAverageAt(valid, 20);
+  const sma200 = movingAverageAt(valid, 200);
+  const previousSma20 = movingAverageAt(valid, 20, valid.length - 6);
+  if (!sma20 || !sma200 || !previousSma20) return null;
+
+  const avgVolume20 = average(valid.slice(-21, -1).map((item) => item.volume));
+  const volumeRatio = avgVolume20 ? latest.volume / avgVolume20 : 1;
+  const changePercent = previous.close ? ((latest.close - previous.close) / previous.close) * 100 : 0;
+  const closeAbove20 = latest.close >= sma20;
+  const closeAbove200 = latest.close >= sma200;
+  const sma20Slope = ((sma20 - previousSma20) / previousSma20) * 100;
+
+  let score = 45;
+  if (closeAbove20) score += 14;
+  if (closeAbove200) score += 18;
+  if (sma20 > sma200) score += 12;
+  if (sma20Slope > 0) score += 8;
+  if (volumeRatio >= 1.25 && changePercent > 0) score += 12;
+  if (changePercent < -3) score -= 8;
+
+  return {
+    code: stock.code,
+    name: stock.name,
+    score: Math.max(0, Math.min(100, Math.round(score))),
+    changePercent,
+    volumeRatio,
+    closeAbove20,
+    closeAbove200,
+  };
+};
+
 const ThemesPage = () => {
+  const { stocks: liveStocks, status, updatedAt } = useLiveStockQuotes(allThemeStocks);
+  const liveByCode = new Map(liveStocks.map((stock) => [stock.code, stock]));
+  const [themeSignals, setThemeSignals] = useState<ThemeTrendSignal[]>([]);
+  const [signalStatus, setSignalStatus] = useState<"loading" | "live" | "fallback">("loading");
+  const [signalUpdatedAt, setSignalUpdatedAt] = useState("");
+  const signalTargets = useMemo(
+    () =>
+      themes.map((theme) => ({
+        name: theme.name,
+        stocks: theme.stocks.slice(0, 4).map((stock) => liveByCode.get(stock.code) ?? stock),
+      })),
+    [liveStocks]
+  );
+
+  useEffect(() => {
+    const controller = new AbortController();
+    let isActive = true;
+    const timeout = window.setTimeout(() => controller.abort(), 14000);
+
+    const loadThemeSignals = async () => {
+      try {
+        const nextSignals = await Promise.all(
+          signalTargets.map(async (theme) => {
+            const results = await Promise.allSettled(
+              theme.stocks.map(async (stock) => {
+                const response = await fetch(
+                  `/api/stock-chart?symbol=${encodeURIComponent(`${stock.code}.T`)}&range=2y&interval=1d`,
+                  { signal: controller.signal }
+                );
+                if (!response.ok) throw new Error("chart unavailable");
+                const payload = await response.json();
+                return analyzeStockTrend(stock, payload.candles ?? []);
+              })
+            );
+
+            const leaders = results
+              .map((result) => (result.status === "fulfilled" ? result.value : null))
+              .filter((signal): signal is StockTrendSignal => Boolean(signal))
+              .sort((a, b) => b.score - a.score);
+
+            const positiveCount = leaders.filter((signal) => signal.closeAbove20 && signal.closeAbove200).length;
+            const averageScore = average(leaders.map((signal) => signal.score));
+            const averageChange = average(leaders.map((signal) => signal.changePercent));
+            const averageVolumeRatio = average(leaders.map((signal) => signal.volumeRatio));
+            const tags = [
+              positiveCount >= 2 ? "上昇優勢" : "選別物色",
+              averageVolumeRatio >= 1.25 ? "出来高増" : "出来高通常",
+              averageChange >= 0 ? "日次プラス" : "日次調整",
+            ];
+
+            return {
+              name: theme.name,
+              score: Math.round(averageScore || 50),
+              averageChange,
+              averageVolumeRatio: averageVolumeRatio || 1,
+              positiveCount,
+              checkedCount: leaders.length,
+              tags,
+              leaders: leaders.slice(0, 3),
+              note:
+                positiveCount >= 2
+                  ? "主要銘柄が20SMA/200SMA上で推移し、テーマ内の買い優勢を確認。"
+                  : "テーマ内で強弱が分かれており、上位銘柄への選別が必要。",
+            } satisfies ThemeTrendSignal;
+          })
+        );
+
+        if (!isActive) return;
+        const liveSignals = nextSignals
+          .filter((signal) => signal.checkedCount > 0)
+          .sort((a, b) => b.score - a.score);
+        setThemeSignals(liveSignals);
+        setSignalStatus(liveSignals.length ? "live" : "fallback");
+        setSignalUpdatedAt(
+          new Intl.DateTimeFormat("ja-JP", {
+            month: "2-digit",
+            day: "2-digit",
+            hour: "2-digit",
+            minute: "2-digit",
+          }).format(new Date())
+        );
+      } catch {
+        if (isActive) setSignalStatus("fallback");
+      } finally {
+        window.clearTimeout(timeout);
+      }
+    };
+
+    loadThemeSignals();
+    return () => {
+      isActive = false;
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
+  }, [signalTargets]);
+
+  const updatedLabel = updatedAt
+    ? new Intl.DateTimeFormat("ja-JP", {
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+      }).format(new Date(updatedAt))
+    : "";
+
   return (
     <div className="min-h-screen bg-background">
       <SiteHeader activeTab="テーマ" />
       <MarketTicker indices={marketIndices} />
 
       <main className="container mx-auto px-4 py-3">
-        <h2 className="mb-3 flex items-center gap-2 text-sm font-bold text-foreground">
-          <Layers className="h-4 w-4 text-primary" />
-          テーマ株
-        </h2>
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <h2 className="flex items-center gap-2 text-sm font-bold text-foreground">
+            <Layers className="h-4 w-4 text-primary" />
+            テーマ株
+          </h2>
+          <div className="flex items-center gap-2 text-xxs font-semibold text-muted-foreground">
+            <span
+              className={`rounded px-1.5 py-0.5 ${
+                status === "live"
+                  ? "bg-stock-up-bg text-stock-up"
+                  : status === "loading"
+                  ? "bg-muted text-muted-foreground"
+                  : "bg-stock-down-bg text-stock-down"
+              }`}
+            >
+              {status === "live" ? "LIVE" : status === "loading" ? "取得中" : "固定値"}
+            </span>
+            {updatedLabel && <span>更新 {updatedLabel}</span>}
+          </div>
+        </div>
 
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+        <section className="mb-3 rounded border border-border bg-card">
+          <div className="flex flex-col gap-1 border-b border-border bg-table-header-bg px-3 py-2 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-center gap-2">
+              <RadioTower className="h-4 w-4 text-primary" />
+              <h3 className="text-sm font-bold text-foreground">テーマ別トレンド・需給シグナル</h3>
+              <span className="rounded bg-primary px-2 py-0.5 text-xxs font-bold text-primary-foreground">
+                代表銘柄解析
+              </span>
+            </div>
+            <div className="flex items-center gap-2 text-xxs text-muted-foreground">
+              <span>{signalUpdatedAt ? `${signalUpdatedAt}更新` : "チャート解析中"}</span>
+              <span
+                className={`rounded px-1.5 py-0.5 font-bold ${
+                  signalStatus === "live"
+                    ? "bg-stock-up-bg text-stock-up"
+                    : signalStatus === "loading"
+                      ? "bg-muted text-muted-foreground"
+                      : "bg-stock-down-bg text-stock-down"
+                }`}
+              >
+                {signalStatus === "live" ? "LIVE解析" : signalStatus === "loading" ? "取得中" : "確認待ち"}
+              </span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-2 p-2 md:grid-cols-2 xl:grid-cols-4">
+            {(themeSignals.length
+              ? themeSignals.slice(0, 8)
+              : signalTargets.slice(0, 4).map((theme, index) => ({
+                  name: theme.name,
+                  score: 62 - index * 3,
+                  averageChange: 0,
+                  averageVolumeRatio: 1,
+                  positiveCount: 0,
+                  checkedCount: theme.stocks.length,
+                  tags: ["解析中"],
+                  leaders: theme.stocks.slice(0, 3).map((stock) => ({
+                    code: stock.code,
+                    name: stock.name,
+                    score: 0,
+                    changePercent: stock.changePercent,
+                    volumeRatio: 1,
+                    closeAbove20: false,
+                    closeAbove200: false,
+                  })),
+                  note: "チャートデータ取得後にテーマ別シグナルを更新します。",
+                } satisfies ThemeTrendSignal))
+            ).map((signal) => {
+              const isUp = signal.averageChange >= 0;
+
+              return (
+                <article key={signal.name} className="rounded border border-border bg-background p-2">
+                  <div className="mb-2 flex items-start justify-between gap-2">
+                    <div>
+                      <h4 className="text-xs font-bold text-foreground">{signal.name}</h4>
+                      <div className={`mt-1 text-xxs font-bold tabular-nums ${isUp ? "text-stock-up" : "text-stock-down"}`}>
+                        {isUp ? "+" : ""}
+                        {signal.averageChange.toFixed(2)}%
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-xxs text-muted-foreground">強度</div>
+                      <div className="text-lg font-black tabular-nums text-primary">{signal.score}</div>
+                    </div>
+                  </div>
+
+                  <div className="mb-2 flex flex-wrap gap-1">
+                    {signal.tags.map((tag) => (
+                      <span key={tag} className="rounded bg-stock-up-bg px-1.5 py-0.5 text-xxs font-bold text-stock-up">
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+
+                  <div className="mb-2 grid grid-cols-2 gap-1.5">
+                    <div className="rounded border border-border bg-card px-2 py-1.5">
+                      <div className="flex items-center gap-1 text-xxs text-muted-foreground">
+                        <TrendingUp className="h-3 w-3" />
+                        上昇銘柄
+                      </div>
+                      <div className="mt-0.5 text-xs font-bold tabular-nums text-foreground">
+                        {signal.positiveCount}/{signal.checkedCount}
+                      </div>
+                    </div>
+                    <div className="rounded border border-border bg-card px-2 py-1.5">
+                      <div className="flex items-center gap-1 text-xxs text-muted-foreground">
+                        <Gauge className="h-3 w-3" />
+                        出来高
+                      </div>
+                      <div className="mt-0.5 text-xs font-bold tabular-nums text-foreground">
+                        {signal.averageVolumeRatio.toFixed(2)}倍
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mb-2 space-y-1">
+                    {signal.leaders.map((leader) => (
+                      <div key={leader.code} className="flex items-center justify-between rounded bg-muted/40 px-2 py-1 text-xxs">
+                        <span>
+                          <span className="font-mono font-bold text-primary">{leader.code}</span>
+                          <span className="ml-1 text-foreground">{leader.name}</span>
+                        </span>
+                        <span className="font-bold tabular-nums text-primary">{leader.score || "-"}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <p className="rounded bg-muted/40 px-2 py-1.5 text-xs leading-relaxed text-foreground">
+                    <span className="mr-1 font-bold text-primary">根拠</span>
+                    {signal.note}
+                  </p>
+                  <div className="mt-2 border-t border-border pt-2 text-xxs text-muted-foreground">
+                    <span className="inline-flex items-center gap-1">
+                      <Activity className="h-3 w-3" />
+                      20SMA/200SMA・出来高で判定
+                    </span>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
           {themes.map((theme) => {
-            const isUp = theme.change > 0;
+            const stocks = theme.stocks.map((stock) => liveByCode.get(stock.code) ?? stock);
+            const themeChange =
+              stocks.reduce((sum, stock) => sum + stock.changePercent, 0) / Math.max(stocks.length, 1);
+            const isUp = themeChange > 0;
+
             return (
-              <div key={theme.name} className="rounded border border-border bg-card transition-shadow hover:shadow-md cursor-pointer">
+              <div key={theme.name} className="rounded border border-border bg-card transition-shadow hover:shadow-md">
                 <div className="flex items-center justify-between border-b border-border bg-table-header-bg px-3 py-2">
                   <div className="flex items-center gap-2">
-                    <span className="text-base">{theme.icon}</span>
                     <h3 className="text-xs font-bold text-foreground">{theme.name}</h3>
                     {theme.isHot && (
                       <span className="flex items-center gap-0.5 rounded bg-badge-hot px-1 py-0 text-xxs font-bold text-primary-foreground">
@@ -104,14 +493,14 @@ const ThemesPage = () => {
                     )}
                   </div>
                   <span className={`text-xs font-bold tabular-nums ${isUp ? "text-stock-up" : "text-stock-down"}`}>
-                    {isUp ? "+" : ""}{theme.change.toFixed(2)}%
+                    {isUp ? "+" : ""}{themeChange.toFixed(2)}%
                   </span>
                 </div>
                 <div className="px-3 py-2">
                   <p className="mb-2 text-xxs text-muted-foreground">{theme.description}</p>
                   <div className="space-y-1">
-                    {theme.stocks.map((stock) => {
-                      const stockUp = stock.change > 0;
+                    {stocks.map((stock) => {
+                      const stockUp = stock.changePercent > 0;
                       return (
                         <div key={stock.code} className="flex items-center justify-between">
                           <div>
@@ -119,7 +508,7 @@ const ThemesPage = () => {
                             <span className="ml-1 text-xxs text-foreground">{stock.name}</span>
                           </div>
                           <span className={`text-xxs tabular-nums font-semibold ${stockUp ? "text-stock-up" : "text-stock-down"}`}>
-                            {stockUp ? "+" : ""}{stock.change.toFixed(2)}%
+                            {stockUp ? "+" : ""}{stock.changePercent.toFixed(2)}%
                           </span>
                         </div>
                       );

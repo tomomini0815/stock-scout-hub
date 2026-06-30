@@ -1,38 +1,479 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
 import MarketTicker from "@/components/MarketTicker";
-import { marketIndices, newsItems } from "@/data/stockData";
-import { Newspaper, Flame, Sparkles } from "lucide-react";
+import { marketIndices, type NewsItem } from "@/data/stockData";
+import { Newspaper, Flame, Sparkles, ExternalLink } from "lucide-react";
 
-const categories = ["すべて", "市況", "決算", "企業", "M&A", "金融", "医薬品"];
+const categories = ["すべて", "市況", "半導体", "AI", "金融", "個別株", "投資戦略"];
+const NEWS_CACHE_KEY = "stock-scout-live-news-v1";
+const NEWS_CACHE_MS = 30 * 60 * 1000;
 
-const extendedNews = [
-  ...newsItems,
-  { id: 13, time: "12:20", title: "半導体関連株が軒並み上昇、AI需要期待が継続", category: "市況", isHot: true },
-  { id: 14, time: "12:00", title: "HOYA、コンタクトレンズ事業の拡大戦略を発表", category: "企業" },
-  { id: 15, time: "11:45", title: "三井不動産、都心再開発プロジェクトの概要を公表", category: "企業" },
-  { id: 16, time: "11:30", title: "デンソー、自動運転技術で米テック企業と提携", category: "企業", isNew: true },
-  { id: 17, time: "11:15", title: "アステラス製薬、がん免疫療法の新薬承認申請へ", category: "医薬品" },
-  { id: 18, time: "11:00", title: "日経平均、前場は400円超の上昇で39000円台を回復", category: "市況" },
-  { id: 19, time: "10:45", title: "任天堂、次世代ゲーム機の発売時期について言及", category: "企業", isHot: true },
-  { id: 20, time: "10:30", title: "みずほFG、フィンテック子会社の設立を発表", category: "金融", isNew: true },
-];
+interface GdeltArticle {
+  url: string;
+  title: string;
+  seendate: string;
+  domain: string;
+  sourcecountry: string;
+}
+
+interface NewsSourceSummary {
+  provider: string;
+  count: number;
+  status: "live" | "missing-key" | "empty" | "error";
+}
+
+interface NewsApiArticle {
+  title?: string;
+  url?: string;
+  publishedAt?: string;
+  description?: string;
+  source?: {
+    name?: string;
+  };
+}
+
+interface FinnhubArticle {
+  headline?: string;
+  url?: string;
+  datetime?: number;
+  summary?: string;
+  source?: string;
+}
+
+interface MarketauxArticle {
+  title?: string;
+  url?: string;
+  published_at?: string;
+  description?: string;
+  source?: string;
+}
+
+const formatGdeltDateTime = (seenDate: string) => {
+  const normalized = seenDate.replace(
+    /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z$/,
+    "$1-$2-$3T$4:$5:$6Z"
+  );
+  const date = new Date(normalized);
+  if (Number.isNaN(date.getTime())) return { date: "", time: "" };
+
+  return {
+    date: new Intl.DateTimeFormat("ja-JP", {
+      timeZone: "Asia/Tokyo",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(date),
+    time: new Intl.DateTimeFormat("ja-JP", {
+      timeZone: "Asia/Tokyo",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).format(date),
+  };
+};
+
+const inferCategory = (title: string) => {
+  if (/半導体|AI|人工知能|エヌビディア|NVIDIA|Micron|メモリ|メモリー|東京エレクトロン|アドバンテスト|ディスコ/.test(title)) {
+    return /AI|人工知能|NVIDIA|エヌビディア/.test(title) ? "AI" : "半導体";
+  }
+  if (/円|為替|金利|日銀|銀行|金融|ドル/.test(title)) return "金融";
+  if (/決算|業績|上方修正|下方修正|買収|提携|株式分割/.test(title)) return "個別株";
+  if (/投資|相場|見通し|戦略|リスク/.test(title)) return "投資戦略";
+  return "市況";
+};
+
+const buildSummary = (title: string, category: string, source: string) => {
+  const base = title.replace(/\s+/g, " ").trim();
+  if (category === "半導体" || category === "AI") {
+    return `${base}。AI・半導体関連の需給や投資テーマに関わるニュースとして、関連銘柄の物色動向を確認したい材料です。`;
+  }
+  if (category === "金融") {
+    return `${base}。為替、金利、金融株への影響を確認したいニュースです。出典は${source}です。`;
+  }
+  if (category === "個別株") {
+    return `${base}。個別企業の業績・資本政策・事業戦略に関わる可能性があり、該当銘柄の値動きに注意が必要です。`;
+  }
+  return `${base}。日本株全体の地合い、日経平均、東証上場銘柄への波及を確認したいニュースです。`;
+};
+
+const formatDateTime = (value: string | number | Date) => {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return { date: "", time: "" };
+
+  return {
+    date: new Intl.DateTimeFormat("ja-JP", {
+      timeZone: "Asia/Tokyo",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(date),
+    time: new Intl.DateTimeFormat("ja-JP", {
+      timeZone: "Asia/Tokyo",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).format(date),
+  };
+};
+
+const mapGdeltArticles = (articles: GdeltArticle[]): NewsItem[] => {
+  const seen = new Set<string>();
+  return articles
+    .filter((article) => article.url && article.title && !seen.has(article.url) && seen.add(article.url))
+    .slice(0, 20)
+    .map((article, index) => {
+      const { date, time } = formatGdeltDateTime(article.seendate);
+      const category = inferCategory(article.title);
+      const source = article.domain.replace(/^www\./, "");
+
+      return {
+        id: index + 1,
+        date,
+        time,
+        title: article.title.replace(/\s+/g, " ").trim(),
+        category,
+        source,
+        provider: "GDELT",
+        url: article.url,
+        summary: buildSummary(article.title, category, source),
+        isHot: index < 3,
+        isNew: index < 2,
+      };
+    });
+};
+
+const mapRssNews = (xmlText: string, provider: string, fallbackSource: string, limit = 24): NewsItem[] => {
+  const doc = new DOMParser().parseFromString(xmlText, "text/xml");
+  const items = Array.from(doc.querySelectorAll("item"));
+
+  return items.slice(0, limit).map((item, index) => {
+    const rawTitle = item.querySelector("title")?.textContent ?? "";
+    const source = item.querySelector("source")?.textContent ?? fallbackSource;
+    const url = item.querySelector("link")?.textContent ?? "";
+    const pubDate = item.querySelector("pubDate")?.textContent ?? "";
+    const formatted = formatDateTime(pubDate);
+    const title = rawTitle.replace(/\s+-\s+[^-]+$/, "").trim();
+    const category = inferCategory(title);
+
+    return {
+      id: index + 1,
+      date: formatted.date,
+      time: formatted.time,
+      title,
+      category,
+      source,
+      provider,
+      url,
+      summary: buildSummary(title, category, source),
+      isHot: index < 3,
+      isNew: index < 2,
+    };
+  });
+};
+
+const mapNewsApiArticles = (articles: NewsApiArticle[]): NewsItem[] =>
+  articles
+    .filter((article) => article.title && article.url)
+    .slice(0, 24)
+    .map((article, index) => {
+      const title = article.title?.trim() ?? "";
+      const source = article.source?.name ?? "NewsAPI";
+      const category = inferCategory(title);
+      const formatted = formatDateTime(article.publishedAt ?? "");
+
+      return {
+        id: index + 1,
+        date: formatted.date,
+        time: formatted.time,
+        title,
+        category,
+        source,
+        provider: "NewsAPI",
+        url: article.url,
+        summary: article.description || buildSummary(title, category, source),
+        isHot: index < 3,
+        isNew: index < 2,
+      };
+    });
+
+const mapFinnhubArticles = (articles: FinnhubArticle[]): NewsItem[] =>
+  articles
+    .filter((article) => article.headline && article.url)
+    .slice(0, 24)
+    .map((article, index) => {
+      const title = article.headline?.trim() ?? "";
+      const source = article.source || "Finnhub";
+      const category = inferCategory(title);
+      const formatted = formatDateTime(article.datetime ? article.datetime * 1000 : "");
+
+      return {
+        id: index + 1,
+        date: formatted.date,
+        time: formatted.time,
+        title,
+        category,
+        source,
+        provider: "Finnhub",
+        url: article.url,
+        summary: article.summary || buildSummary(title, category, source),
+        isHot: index < 3,
+        isNew: index < 2,
+      };
+    });
+
+const mapMarketauxArticles = (articles: MarketauxArticle[]): NewsItem[] =>
+  articles
+    .filter((article) => article.title && article.url)
+    .slice(0, 24)
+    .map((article, index) => {
+      const title = article.title?.trim() ?? "";
+      const source = article.source || "Marketaux";
+      const category = inferCategory(title);
+      const formatted = formatDateTime(article.published_at ?? "");
+
+      return {
+        id: index + 1,
+        date: formatted.date,
+        time: formatted.time,
+        title,
+        category,
+        source,
+        provider: "Marketaux",
+        url: article.url,
+        summary: article.description || buildSummary(title, category, source),
+        isHot: index < 3,
+        isNew: index < 2,
+      };
+    });
+
+const normalizeNewsKey = (value = "") =>
+  value
+    .toLowerCase()
+    .replace(/^https?:\/\/(www\.)?/, "")
+    .replace(/[?#].*$/, "")
+    .replace(/\s+/g, "");
+
+const mergeNewsItems = (items: NewsItem[]) => {
+  const seen = new Set<string>();
+  return items
+    .filter((item) => {
+      const key = item.url ? normalizeNewsKey(item.url) : normalizeNewsKey(item.title);
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .sort((a, b) => {
+      const left = new Date(`${a.date ?? ""} ${a.time ?? ""}`).getTime();
+      const right = new Date(`${b.date ?? ""} ${b.time ?? ""}`).getTime();
+      if (Number.isNaN(left) || Number.isNaN(right)) return 0;
+      return right - left;
+    })
+    .slice(0, 60)
+    .map((item, index) => ({
+      ...item,
+      id: index + 1,
+      isHot: index < 5,
+      isNew: index < 3,
+    }));
+};
+
+const loadCachedNews = () => {
+  try {
+    const raw = localStorage.getItem(NEWS_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { savedAt: number; news: NewsItem[] };
+    if (!parsed.news?.length || Date.now() - parsed.savedAt > NEWS_CACHE_MS) return null;
+    return parsed.news;
+  } catch {
+    return null;
+  }
+};
+
+const saveCachedNews = (news: NewsItem[]) => {
+  try {
+    localStorage.setItem(NEWS_CACHE_KEY, JSON.stringify({ savedAt: Date.now(), news }));
+  } catch {
+    // Cache failure should not block the news page.
+  }
+};
 
 const NewsPage = () => {
   const [selectedCategory, setSelectedCategory] = useState("すべて");
+  const [liveNews, setLiveNews] = useState<NewsItem[]>(() => loadCachedNews() ?? []);
+  const [status, setStatus] = useState<"loading" | "live" | "cached" | "fallback">(
+    loadCachedNews() ? "cached" : "loading"
+  );
+  const [lastUpdated, setLastUpdated] = useState("");
+  const [sourceSummary, setSourceSummary] = useState<NewsSourceSummary[]>([]);
 
-  const filtered = selectedCategory === "すべて"
-    ? extendedNews
-    : extendedNews.filter((n) => n.category === selectedCategory);
+  useEffect(() => {
+    const controller = new AbortController();
+    let isMounted = true;
+    const timeout = window.setTimeout(() => controller.abort(), 18000);
+
+    const fetchJson = async (url: string) => {
+      const response = await fetch(url, { signal: controller.signal });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      return response.json();
+    };
+
+    const fetchText = async (url: string) => {
+      const response = await fetch(url, { signal: controller.signal });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      return response.text();
+    };
+
+    const fetchLiveNews = async () => {
+      const rssParams = new URLSearchParams({
+        q: "日本株 OR 日経平均 OR 東証 OR 半導体 OR AI OR 為替 OR 金利 when:3d",
+        hl: "ja",
+        gl: "JP",
+        ceid: "JP:ja",
+      });
+      const gdeltParams = new URLSearchParams({
+        query: "(Japan stocks OR Nikkei OR Tokyo Stock Exchange OR Japanese shares OR semiconductor OR AI OR yen OR Bank of Japan) sourceCountry:JA",
+        mode: "artlist",
+        format: "json",
+        maxrecords: "40",
+        sort: "hybrid",
+        timespan: "3d",
+      });
+      const newsApiParams = new URLSearchParams({
+        q: "日本株 OR 日経平均 OR 東証 OR 半導体 OR AI OR 為替 OR 金利",
+        pageSize: "30",
+      });
+      const marketauxParams = new URLSearchParams({
+        search: "Japan stocks Nikkei Tokyo Stock Exchange semiconductor AI yen Bank of Japan",
+        limit: "30",
+      });
+
+      const sources = [
+        {
+          provider: "Google News RSS",
+          load: async () => ({
+            news: mapRssNews(await fetchText(`/api/google-news?${rssParams.toString()}`), "Google News RSS", "Google News"),
+          }),
+        },
+        {
+          provider: "Yahoo!ニュースRSS",
+          load: async () => ({
+            news: mapRssNews(await fetchText("/api/yahoo-business-rss"), "Yahoo!ニュースRSS", "Yahoo!ニュース", 30),
+          }),
+        },
+        {
+          provider: "GDELT",
+          load: async () => {
+            const payload = await fetchJson(`/api/gdelt?${gdeltParams.toString()}`);
+            return { news: mapGdeltArticles(payload.articles ?? []) };
+          },
+        },
+        {
+          provider: "NewsAPI",
+          load: async () => {
+            const payload = await fetchJson(`/api/newsapi?${newsApiParams.toString()}`);
+            return {
+              news: mapNewsApiArticles(payload.articles ?? []),
+              status: payload.sourceStatus === "missing-key" ? "missing-key" : undefined,
+            };
+          },
+        },
+        {
+          provider: "Finnhub",
+          load: async () => {
+            const payload = await fetchJson("/api/finnhub-news");
+            return {
+              news: mapFinnhubArticles(payload.articles ?? []),
+              status: payload.sourceStatus === "missing-key" ? "missing-key" : undefined,
+            };
+          },
+        },
+        {
+          provider: "Marketaux",
+          load: async () => {
+            const payload = await fetchJson(`/api/marketaux-news?${marketauxParams.toString()}`);
+            return {
+              news: mapMarketauxArticles(payload.data ?? []),
+              status: payload.sourceStatus === "missing-key" ? "missing-key" : undefined,
+            };
+          },
+        },
+      ];
+
+      try {
+        const results = await Promise.all(
+          sources.map(async (source) => {
+            try {
+              const result = await source.load();
+              return {
+                provider: source.provider,
+                news: result.news,
+                status: result.status ?? (result.news.length ? "live" : "empty"),
+              } as const;
+            } catch {
+              return {
+                provider: source.provider,
+                news: [],
+                status: "error",
+              } as const;
+            }
+          })
+        );
+        const news = mergeNewsItems(results.flatMap((result) => result.news));
+
+        if (!isMounted) return;
+        setSourceSummary(
+          results
+            .filter((result) => result.status !== "missing-key")
+            .map((result) => ({
+              provider: result.provider,
+              count: result.news.length,
+              status: result.status,
+            }))
+        );
+
+        if (news.length) {
+          setLiveNews(news);
+          setStatus("live");
+          setLastUpdated(
+            new Intl.DateTimeFormat("ja-JP", {
+              timeZone: "Asia/Tokyo",
+              month: "2-digit",
+              day: "2-digit",
+              hour: "2-digit",
+              minute: "2-digit",
+            }).format(new Date())
+          );
+          saveCachedNews(news);
+          return;
+        }
+
+        setStatus(loadCachedNews() ? "cached" : "fallback");
+      } finally {
+        window.clearTimeout(timeout);
+      }
+    };
+
+    fetchLiveNews();
+    return () => {
+      isMounted = false;
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
+  }, []);
+
+  const filtered = useMemo(
+    () => selectedCategory === "すべて" ? liveNews : liveNews.filter((n) => n.category === selectedCategory),
+    [liveNews, selectedCategory]
+  );
 
   const categoryColors: Record<string, string> = {
     市況: "bg-primary text-primary-foreground",
-    決算: "bg-stock-up text-primary-foreground",
-    企業: "bg-muted text-muted-foreground",
-    "M&A": "bg-header-accent text-foreground",
+    半導体: "bg-stock-up text-primary-foreground",
+    AI: "bg-header-accent text-foreground",
     金融: "bg-stock-down text-primary-foreground",
-    医薬品: "bg-muted text-foreground",
+    個別株: "bg-muted text-foreground",
+    投資戦略: "bg-muted text-muted-foreground",
   };
 
   return (
@@ -45,6 +486,37 @@ const NewsPage = () => {
           <Newspaper className="h-4 w-4 text-primary" />
           ニュース
         </h2>
+
+        <div className="mb-3 rounded border border-border bg-card px-3 py-2">
+          <div className="flex flex-wrap items-center gap-2 text-xs font-bold text-foreground">
+            毎日最新ニュースを自動取得
+            <span className="rounded bg-primary px-2 py-0.5 text-xxs text-primary-foreground">
+              {status === "live" ? "LIVE" : status === "loading" ? "取得中" : status === "cached" ? "CACHE" : "FALLBACK"}
+            </span>
+          </div>
+          <p className="mt-1 text-xxs leading-relaxed text-muted-foreground">
+            GoogleニュースRSS、Yahoo!ニュースRSS、GDELTを並列取得し、追加APIが設定されている場合だけ自動で統合します。
+            {lastUpdated ? ` 最終取得: ${lastUpdated}` : " 取得できない場合は保存済みニュースを表示します。"}
+          </p>
+          {sourceSummary.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1">
+              {sourceSummary.map((source) => (
+                <span
+                  key={source.provider}
+                  className={`rounded px-2 py-0.5 text-xxs font-semibold ${
+                    source.status === "live"
+                      ? "bg-stock-up/10 text-stock-up"
+                      : source.status === "error"
+                        ? "bg-stock-down/10 text-stock-down"
+                        : "bg-muted text-muted-foreground"
+                  }`}
+                >
+                  {source.provider}: {source.count}件
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
 
         {/* Category Filter */}
         <div className="mb-3 flex flex-wrap gap-1">
@@ -72,39 +544,65 @@ const NewsPage = () => {
           </div>
           <div className="divide-y divide-border">
             {filtered.map((item) => (
-              <div
+              <a
                 key={item.id}
-                className="flex items-start gap-2 px-3 py-2.5 transition-colors hover:bg-muted/50 cursor-pointer"
+                href={item.url}
+                target="_blank"
+                rel="noreferrer"
+                className="block px-3 py-2.5 transition-colors hover:bg-muted/50"
               >
-                <span className="mt-0.5 shrink-0 tabular-nums text-xxs font-medium text-muted-foreground">
-                  {item.time}
-                </span>
-                <span
-                  className={`mt-0.5 shrink-0 rounded px-1 py-0 text-xxs font-bold ${
-                    categoryColors[item.category] || "bg-muted text-muted-foreground"
-                  }`}
-                >
-                  {item.category}
-                </span>
-                <span className="flex-1 text-xs leading-relaxed text-foreground hover:text-primary">
-                  {item.title}
-                </span>
-                <div className="flex shrink-0 items-center gap-1">
-                  {item.isHot && (
-                    <span className="flex items-center gap-0.5 rounded bg-badge-hot px-1 py-0 text-xxs font-bold text-primary-foreground">
-                      <Flame className="h-2.5 w-2.5" />
-                      注目
-                    </span>
-                  )}
-                  {item.isNew && (
-                    <span className="flex items-center gap-0.5 rounded bg-badge-new px-1 py-0 text-xxs font-bold text-primary-foreground">
-                      <Sparkles className="h-2.5 w-2.5" />
-                      NEW
-                    </span>
-                  )}
+                <div className="flex items-start gap-2">
+                  <span className="mt-0.5 shrink-0 tabular-nums text-xxs font-medium text-muted-foreground">
+                    {item.date} {item.time}
+                  </span>
+                  <span
+                    className={`mt-0.5 shrink-0 rounded px-1 py-0 text-xxs font-bold ${
+                      categoryColors[item.category] || "bg-muted text-muted-foreground"
+                    }`}
+                  >
+                    {item.category}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start gap-1">
+                      <span className="text-xs font-bold leading-relaxed text-foreground hover:text-primary">
+                        {item.title}
+                      </span>
+                      <ExternalLink className="mt-0.5 h-3 w-3 shrink-0 text-muted-foreground" />
+                    </div>
+                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                      {item.summary}
+                    </p>
+                    <div className="mt-1 flex flex-wrap gap-1 text-xxs font-semibold">
+                      <span className="text-primary">出典: {item.source}</span>
+                      {item.provider && (
+                        <span className="rounded bg-muted px-1 text-muted-foreground">
+                          API: {item.provider}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1">
+                    {item.isHot && (
+                      <span className="flex items-center gap-0.5 rounded bg-badge-hot px-1 py-0 text-xxs font-bold text-primary-foreground">
+                        <Flame className="h-2.5 w-2.5" />
+                        注目
+                      </span>
+                    )}
+                    {item.isNew && (
+                      <span className="flex items-center gap-0.5 rounded bg-badge-new px-1 py-0 text-xxs font-bold text-primary-foreground">
+                        <Sparkles className="h-2.5 w-2.5" />
+                        NEW
+                      </span>
+                    )}
+                  </div>
                 </div>
-              </div>
+              </a>
             ))}
+            {filtered.length === 0 && (
+              <div className="px-3 py-6 text-center text-xs text-muted-foreground">
+                該当するニュースはありません。
+              </div>
+            )}
           </div>
         </div>
       </main>

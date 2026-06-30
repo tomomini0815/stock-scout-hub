@@ -1,20 +1,25 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
 import MarketTicker from "@/components/MarketTicker";
-import CandlestickChart from "@/components/CandlestickChart";
-import { marketIndices, generateCandleData, featuredStock, topGainers } from "@/data/stockData";
+import RealStockChart from "@/components/RealStockChart";
+import TradingViewPanel from "@/components/TradingViewPanel";
+import { marketIndices, featuredStock, stockUniverse } from "@/data/stockData";
+import { useLiveStockQuotes } from "@/hooks/useLiveStockQuote";
 import { BarChart3, Search } from "lucide-react";
 
-const chartStocks = [featuredStock, ...topGainers.slice(0, 4)];
+const chartStocks = [
+  featuredStock,
+  ...stockUniverse.filter((stock) => stock.code !== featuredStock.code).slice(0, 8),
+];
 
 const ChartPage = () => {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
-  const candleData = useMemo(() => generateCandleData(), []);
-  const selected = chartStocks[selectedIndex];
+  const { stocks: liveChartStocks } = useLiveStockQuotes(chartStocks);
+  const selected = liveChartStocks[selectedIndex] ?? chartStocks[selectedIndex];
 
-  const filteredStocks = chartStocks.filter(
+  const filteredStocks = liveChartStocks.filter(
     (s) => s.name.includes(searchQuery) || s.code.includes(searchQuery)
   );
 
@@ -51,7 +56,7 @@ const ChartPage = () => {
               <div className="max-h-[400px] overflow-y-auto">
                 {filteredStocks.map((stock) => {
                   const isUp = stock.change > 0;
-                  const originalIdx = chartStocks.indexOf(stock);
+                  const originalIdx = liveChartStocks.findIndex((item) => item.code === stock.code);
                   return (
                     <button
                       key={stock.code}
@@ -81,9 +86,13 @@ const ChartPage = () => {
 
           {/* Chart area */}
           <div className="lg:col-span-3">
-            <CandlestickChart data={candleData} title={selected.name} code={selected.code} />
+            <RealStockChart
+              code={selected.code}
+              name={selected.name}
+              chartSymbol={`TSE:${selected.code}`}
+              chartApiSymbol={`${selected.code}.T`}
+            />
 
-            {/* Chart info */}
             <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
               {[
                 { label: "始値", value: selected.open.toLocaleString() },
@@ -96,6 +105,10 @@ const ChartPage = () => {
                   <div className="text-sm font-bold tabular-nums text-foreground">{item.value}</div>
                 </div>
               ))}
+            </div>
+
+            <div className="mt-3">
+              <TradingViewPanel stock={selected} />
             </div>
           </div>
         </div>

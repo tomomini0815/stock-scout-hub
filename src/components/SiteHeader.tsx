@@ -1,6 +1,7 @@
 import { Search } from "lucide-react";
+import { type FormEvent } from "react";
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 interface SiteHeaderProps {
   activeTab?: string;
@@ -21,6 +22,20 @@ const navItems = [
 
 const SiteHeader = ({ activeTab = "トップ" }: SiteHeaderProps) => {
   const [searchQuery, setSearchQuery] = useState("");
+  const navigate = useNavigate();
+  const todayLabel = new Intl.DateTimeFormat("ja-JP", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    weekday: "short",
+  }).format(new Date());
+
+  const handleSearch = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const query = searchQuery.trim();
+    if (!query) return;
+    navigate(`/stocks?q=${encodeURIComponent(query)}`);
+  };
 
   return (
     <header>
@@ -28,26 +43,33 @@ const SiteHeader = ({ activeTab = "トップ" }: SiteHeaderProps) => {
       <div className="bg-header-bg text-header-foreground">
         <div className="container mx-auto flex items-center justify-between px-4 py-2">
           <div className="flex items-center gap-3">
-            <Link to="/" className="text-xl font-black tracking-tight">
-              <span className="text-header-accent">株</span>ナビ
+            <Link to="/" className="inline-flex items-baseline font-black tracking-[0.08em]">
+              <span className="text-xl text-header-accent">株</span>
+              <span className="text-lg">ナビ</span>
             </Link>
             <span className="hidden text-xxs opacity-60 sm:inline">
               株式投資の総合情報サイト
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="relative">
+            <form onSubmit={handleSearch} className="flex items-center gap-1">
               <input
                 type="text"
                 placeholder="銘柄コード・名称で検索"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="h-7 w-36 rounded bg-nav-bg pl-7 pr-2 text-xs text-nav-foreground placeholder:text-nav-foreground/50 focus:outline-none focus:ring-1 focus:ring-header-accent sm:w-52"
+                className="h-7 w-36 rounded bg-nav-bg px-2 text-xs text-nav-foreground placeholder:text-nav-foreground/50 focus:outline-none focus:ring-1 focus:ring-header-accent sm:w-52"
               />
-              <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-nav-foreground/50" />
-            </div>
+              <button
+                type="submit"
+                aria-label="銘柄検索"
+                className="inline-flex h-7 w-7 items-center justify-center rounded bg-nav-bg text-nav-foreground/70 transition-colors hover:bg-nav-hover hover:text-header-accent focus:outline-none focus:ring-1 focus:ring-header-accent"
+              >
+                <Search className="h-3.5 w-3.5" />
+              </button>
+            </form>
             <span className="hidden text-xxs opacity-60 md:inline">
-              2026年2月8日(土) 15:30
+              {todayLabel}
             </span>
           </div>
         </div>

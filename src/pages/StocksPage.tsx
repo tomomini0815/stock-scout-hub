@@ -1,24 +1,39 @@
-import { useState, useMemo } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
 import MarketTicker from "@/components/MarketTicker";
-import CandlestickChart from "@/components/CandlestickChart";
+import RealStockChart from "@/components/RealStockChart";
 import StockDetailPanel from "@/components/StockDetailPanel";
-import { marketIndices, featuredStock, generateCandleData, topGainers, topLosers } from "@/data/stockData";
+import TradingViewPanel from "@/components/TradingViewPanel";
+import { marketIndices, featuredStock, stockUniverse } from "@/data/stockData";
+import { useLiveStockQuotes } from "@/hooks/useLiveStockQuote";
 import { Search } from "lucide-react";
 
-const allStocks = [...topGainers, ...topLosers].filter(
-  (stock, i, arr) => arr.findIndex((s) => s.code === stock.code) === i
-);
+const allStocks = stockUniverse;
 
 const StocksPage = () => {
+  const [searchParams] = useSearchParams();
+  const queryFromUrl = searchParams.get("q") ?? "";
   const [selectedStock, setSelectedStock] = useState(featuredStock);
-  const [search, setSearch] = useState("");
-  const candleData = useMemo(() => generateCandleData(), []);
+  const [search, setSearch] = useState(queryFromUrl);
+  const { stocks: liveStocks } = useLiveStockQuotes(allStocks);
+  const displaySelected =
+    liveStocks.find((stock) => stock.code === selectedStock.code) ?? selectedStock;
 
-  const filteredStocks = allStocks.filter(
+  const filteredStocks = liveStocks.filter(
     (s) => s.name.includes(search) || s.code.includes(search)
   );
+
+  useEffect(() => {
+    setSearch(queryFromUrl);
+  }, [queryFromUrl]);
+
+  useEffect(() => {
+    if (!search || !filteredStocks.length) return;
+    if (filteredStocks.some((stock) => stock.code === selectedStock.code)) return;
+    setSelectedStock(filteredStocks[0]);
+  }, [filteredStocks, search, selectedStock.code]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -45,11 +60,11 @@ const StocksPage = () => {
         {/* Stock List + Detail */}
         <div className="mb-3 grid grid-cols-1 gap-3 lg:grid-cols-4">
           <div className="lg:col-span-1">
-            <div className="rounded border border-border bg-card">
+            <div className="flex h-full min-h-[500px] flex-col rounded border border-border bg-card">
               <div className="border-b border-border bg-table-header-bg px-3 py-1.5">
                 <h3 className="text-xs font-bold text-foreground">銘柄一覧</h3>
               </div>
-              <div className="max-h-[500px] overflow-y-auto">
+              <div className="max-h-[500px] flex-1 overflow-y-auto lg:max-h-none">
                 {filteredStocks.map((stock) => {
                   const isUp = stock.change > 0;
                   const isSelected = stock.code === selectedStock.code;
@@ -82,9 +97,17 @@ const StocksPage = () => {
 
           <div className="lg:col-span-3">
             <div className="mb-3">
-              <CandlestickChart data={candleData} title={selectedStock.name} code={selectedStock.code} />
+              <RealStockChart
+                code={displaySelected.code}
+                name={displaySelected.name}
+                chartSymbol={`TSE:${displaySelected.code}`}
+                chartApiSymbol={`${displaySelected.code}.T`}
+              />
             </div>
-            <StockDetailPanel stock={selectedStock} />
+            <StockDetailPanel stock={displaySelected} />
+            <div className="mt-3">
+              <TradingViewPanel stock={displaySelected} />
+            </div>
           </div>
         </div>
       </main>

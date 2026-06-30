@@ -1,19 +1,56 @@
 import { type StockData } from "@/data/stockData";
+import { useLiveStockQuotes } from "@/hooks/useLiveStockQuote";
+import { ChevronDown } from "lucide-react";
+import { useState } from "react";
 
 interface StockRankingTableProps {
   title: string;
   stocks: StockData[];
   type: "gainers" | "losers" | "active";
+  limit?: number;
 }
 
-const StockRankingTable = ({ title, stocks, type }: StockRankingTableProps) => {
+const StockRankingTable = ({ title, stocks, type, limit }: StockRankingTableProps) => {
+  const [expanded, setExpanded] = useState(false);
+  const {
+    stocks: liveStocks,
+    status,
+    updatedAt,
+  } = useLiveStockQuotes(stocks);
+  const sortedStocks = [...liveStocks].sort((a, b) => {
+    if (type === "active") return b.volume - a.volume;
+    if (type === "losers") return a.changePercent - b.changePercent;
+    return b.changePercent - a.changePercent;
+  });
+  const displayLimit = expanded ? 20 : limit;
+  const displayStocks = sortedStocks.slice(0, displayLimit);
+  const updatedLabel = updatedAt
+    ? new Intl.DateTimeFormat("ja-JP", {
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+      }).format(new Date(updatedAt))
+    : "";
+
   return (
     <div className="rounded border border-border bg-card">
       <div className="flex items-center justify-between border-b border-border bg-table-header-bg px-3 py-1.5">
         <h3 className="text-xs font-bold text-foreground">{title}</h3>
-        <button className="text-xxs text-muted-foreground hover:text-foreground transition-colors">
-          もっと見る →
-        </button>
+        <div className="flex items-center gap-2 text-xxs font-semibold text-muted-foreground">
+          <span
+            className={`rounded px-1.5 py-0.5 ${
+              status === "live"
+                ? "bg-stock-up-bg text-stock-up"
+                : status === "loading"
+                ? "bg-muted text-muted-foreground"
+                : "bg-stock-down-bg text-stock-down"
+            }`}
+          >
+            {status === "live" ? "LIVE" : status === "loading" ? "取得中" : "固定値"}
+          </span>
+          {updatedLabel && <span className="hidden sm:inline">更新 {updatedLabel}</span>}
+        </div>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-xs">
@@ -40,7 +77,7 @@ const StockRankingTable = ({ title, stocks, type }: StockRankingTableProps) => {
             </tr>
           </thead>
           <tbody>
-            {stocks.map((stock, i) => {
+            {displayStocks.map((stock, i) => {
               const isUp = stock.change > 0;
               const isDown = stock.change < 0;
               return (
@@ -97,6 +134,16 @@ const StockRankingTable = ({ title, stocks, type }: StockRankingTableProps) => {
           </tbody>
         </table>
       </div>
+      {limit && sortedStocks.length > limit && (
+        <button
+          type="button"
+          onClick={() => setExpanded((value) => !value)}
+          className="flex w-full items-center justify-center gap-1 border-t border-border px-3 py-2 text-xs font-semibold text-primary transition-colors hover:bg-muted/50"
+        >
+          {expanded ? "5位までに戻す" : "もっと見る（20位まで）"}
+          <ChevronDown className={`h-3.5 w-3.5 transition-transform ${expanded ? "rotate-180" : ""}`} />
+        </button>
+      )}
     </div>
   );
 };

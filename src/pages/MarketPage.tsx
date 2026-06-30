@@ -1,34 +1,33 @@
-import { useMemo } from "react";
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
 import MarketTicker from "@/components/MarketTicker";
 import MarketOverview from "@/components/MarketOverview";
-import CandlestickChart from "@/components/CandlestickChart";
-import { marketIndices, generateCandleData } from "@/data/stockData";
-import { Globe, DollarSign, TrendingUp } from "lucide-react";
+import RealStockChart from "@/components/RealStockChart";
+import { marketIndices, type StockData } from "@/data/stockData";
+import { useLiveStockQuotes } from "@/hooks/useLiveStockQuote";
+import { Globe, TrendingUp } from "lucide-react";
 
-const sectorPerformance = [
-  { name: "電気機器", change: 2.34, representative: "ソニーG" },
-  { name: "輸送用機器", change: 1.89, representative: "トヨタ" },
-  { name: "精密機器", change: 1.56, representative: "キーエンス" },
-  { name: "化学", change: 1.12, representative: "信越化学" },
-  { name: "銀行業", change: 0.45, representative: "三菱UFJ" },
-  { name: "医薬品", change: -1.23, representative: "武田薬品" },
-  { name: "食料品", change: -0.87, representative: "味の素" },
-  { name: "小売業", change: -2.15, representative: "セブン&アイ" },
-  { name: "通信業", change: -0.98, representative: "KDDI" },
-  { name: "不動産業", change: 0.67, representative: "三井不動産" },
-];
-
-const worldIndices = [
-  { name: "上海総合", value: 3089.45, change: 15.23, changePercent: 0.50 },
-  { name: "ハンセン", value: 20312.67, change: -89.45, changePercent: -0.44 },
-  { name: "FTSE100", value: 7654.32, change: 34.56, changePercent: 0.45 },
-  { name: "DAX", value: 17234.56, change: 123.45, changePercent: 0.72 },
+const sectorRepresentatives: Array<StockData & { sector: string }> = [
+  { sector: "電気機器", code: "6758", name: "ソニーG", market: "プライム", price: 0, change: 0, changePercent: 0, volume: 0, open: 0, high: 0, low: 0, previousClose: 0 },
+  { sector: "輸送用機器", code: "7203", name: "トヨタ", market: "プライム", price: 0, change: 0, changePercent: 0, volume: 0, open: 0, high: 0, low: 0, previousClose: 0 },
+  { sector: "精密機器", code: "6861", name: "キーエンス", market: "プライム", price: 0, change: 0, changePercent: 0, volume: 0, open: 0, high: 0, low: 0, previousClose: 0 },
+  { sector: "化学", code: "4063", name: "信越化学", market: "プライム", price: 0, change: 0, changePercent: 0, volume: 0, open: 0, high: 0, low: 0, previousClose: 0 },
+  { sector: "銀行業", code: "8306", name: "三菱UFJ", market: "プライム", price: 0, change: 0, changePercent: 0, volume: 0, open: 0, high: 0, low: 0, previousClose: 0 },
+  { sector: "医薬品", code: "4502", name: "武田薬品", market: "プライム", price: 0, change: 0, changePercent: 0, volume: 0, open: 0, high: 0, low: 0, previousClose: 0 },
+  { sector: "小売業", code: "3382", name: "セブン&アイ", market: "プライム", price: 0, change: 0, changePercent: 0, volume: 0, open: 0, high: 0, low: 0, previousClose: 0 },
+  { sector: "通信業", code: "9433", name: "KDDI", market: "プライム", price: 0, change: 0, changePercent: 0, volume: 0, open: 0, high: 0, low: 0, previousClose: 0 },
 ];
 
 const MarketPage = () => {
-  const nikkeiCandle = useMemo(() => generateCandleData(), []);
+  const { stocks: liveSectors, status, updatedAt } = useLiveStockQuotes(sectorRepresentatives);
+  const updatedLabel = updatedAt
+    ? new Intl.DateTimeFormat("ja-JP", {
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+      }).format(new Date(updatedAt))
+    : "";
 
   return (
     <div className="min-h-screen bg-background">
@@ -45,74 +44,58 @@ const MarketPage = () => {
           <MarketOverview indices={marketIndices} />
         </div>
 
-        {/* Nikkei Chart */}
         <div className="mb-3">
-          <CandlestickChart data={nikkeiCandle} title="日経平均株価" code="N225" />
+          <RealStockChart
+            code="N225"
+            name="日経平均株価"
+            chartSymbol="NIKKEI:NI225"
+            chartApiSymbol="^N225"
+          />
         </div>
 
-        <div className="mb-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
-          {/* World Indices */}
+        <div className="mb-3">
           <div className="rounded border border-border bg-card">
-            <div className="border-b border-border bg-table-header-bg px-3 py-1.5">
-              <h3 className="flex items-center gap-1 text-xs font-bold text-foreground">
-                <DollarSign className="h-3 w-3" />
-                海外主要指数
-              </h3>
-            </div>
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="border-b border-border bg-muted/30">
-                  <th className="px-3 py-1.5 text-left font-semibold text-muted-foreground">指数</th>
-                  <th className="px-3 py-1.5 text-right font-semibold text-muted-foreground">値</th>
-                  <th className="px-3 py-1.5 text-right font-semibold text-muted-foreground">前日比</th>
-                  <th className="px-3 py-1.5 text-right font-semibold text-muted-foreground">騰落率</th>
-                </tr>
-              </thead>
-              <tbody>
-                {worldIndices.map((idx, i) => {
-                  const isUp = idx.change > 0;
-                  return (
-                    <tr key={idx.name} className={`border-b border-border ${i % 2 === 1 ? "bg-table-stripe" : ""}`}>
-                      <td className="px-3 py-1.5 font-medium text-foreground">{idx.name}</td>
-                      <td className="px-3 py-1.5 text-right tabular-nums font-semibold">{idx.value.toLocaleString()}</td>
-                      <td className={`px-3 py-1.5 text-right tabular-nums font-semibold ${isUp ? "text-stock-up" : "text-stock-down"}`}>
-                        {isUp ? "+" : ""}{idx.change.toFixed(2)}
-                      </td>
-                      <td className={`px-3 py-1.5 text-right tabular-nums font-semibold ${isUp ? "text-stock-up" : "text-stock-down"}`}>
-                        {isUp ? "+" : ""}{idx.changePercent.toFixed(2)}%
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Sector Performance */}
-          <div className="rounded border border-border bg-card">
-            <div className="border-b border-border bg-table-header-bg px-3 py-1.5">
+            <div className="flex items-center justify-between gap-2 border-b border-border bg-table-header-bg px-3 py-1.5">
               <h3 className="flex items-center gap-1 text-xs font-bold text-foreground">
                 <TrendingUp className="h-3 w-3" />
-                業種別騰落率
+                業種代表銘柄の騰落率
               </h3>
+              <div className="flex items-center gap-2 text-xxs font-semibold text-muted-foreground">
+                <span
+                  className={`rounded px-1.5 py-0.5 ${
+                    status === "live"
+                      ? "bg-stock-up-bg text-stock-up"
+                      : status === "loading"
+                      ? "bg-muted text-muted-foreground"
+                      : "bg-stock-down-bg text-stock-down"
+                  }`}
+                >
+                  {status === "live" ? "LIVE" : status === "loading" ? "取得中" : "固定値"}
+                </span>
+                {updatedLabel && <span>更新 {updatedLabel}</span>}
+              </div>
             </div>
             <table className="w-full text-xs">
               <thead>
                 <tr className="border-b border-border bg-muted/30">
                   <th className="px-3 py-1.5 text-left font-semibold text-muted-foreground">業種</th>
                   <th className="px-3 py-1.5 text-left font-semibold text-muted-foreground">代表銘柄</th>
+                  <th className="px-3 py-1.5 text-right font-semibold text-muted-foreground">株価</th>
                   <th className="px-3 py-1.5 text-right font-semibold text-muted-foreground">騰落率</th>
                 </tr>
               </thead>
               <tbody>
-                {sectorPerformance.map((sector, i) => {
-                  const isUp = sector.change > 0;
+                {liveSectors.map((stock, i) => {
+                  const isUp = stock.changePercent > 0;
                   return (
-                    <tr key={sector.name} className={`border-b border-border ${i % 2 === 1 ? "bg-table-stripe" : ""}`}>
-                      <td className="px-3 py-1.5 font-medium text-foreground">{sector.name}</td>
-                      <td className="px-3 py-1.5 text-muted-foreground">{sector.representative}</td>
+                    <tr key={stock.code} className={`border-b border-border ${i % 2 === 1 ? "bg-table-stripe" : ""}`}>
+                      <td className="px-3 py-1.5 font-medium text-foreground">{sectorRepresentatives[i]?.sector}</td>
+                      <td className="px-3 py-1.5 text-muted-foreground">{stock.name}</td>
+                      <td className="px-3 py-1.5 text-right tabular-nums font-semibold text-foreground">
+                        {stock.price.toLocaleString(undefined, { maximumFractionDigits: 1 })}
+                      </td>
                       <td className={`px-3 py-1.5 text-right tabular-nums font-semibold ${isUp ? "text-stock-up" : "text-stock-down"}`}>
-                        {isUp ? "+" : ""}{sector.change.toFixed(2)}%
+                        {isUp ? "+" : ""}{stock.changePercent.toFixed(2)}%
                       </td>
                     </tr>
                   );

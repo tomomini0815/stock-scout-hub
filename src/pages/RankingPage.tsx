@@ -3,13 +3,13 @@ import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
 import MarketTicker from "@/components/MarketTicker";
 import StockRankingTable from "@/components/StockRankingTable";
-import { marketIndices, topGainers, topLosers, activeStocks } from "@/data/stockData";
+import { marketIndices, stockUniverse } from "@/data/stockData";
 import { Trophy } from "lucide-react";
 
 const tabs = [
-  { key: "gainers", label: "📈 値上がり", stocks: topGainers, type: "gainers" as const },
-  { key: "losers", label: "📉 値下がり", stocks: topLosers, type: "losers" as const },
-  { key: "active", label: "🔥 売買代金", stocks: activeStocks, type: "active" as const },
+  { key: "gainers", label: "値上がり", stocks: stockUniverse, type: "gainers" as const },
+  { key: "losers", label: "値下がり", stocks: stockUniverse, type: "losers" as const },
+  { key: "active", label: "売買代金", stocks: stockUniverse, type: "active" as const },
 ];
 
 const RankingPage = () => {
@@ -51,17 +51,6 @@ const RankingPage = () => {
           type={current.type}
         />
 
-        {/* All rankings side by side */}
-        <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-3">
-          {tabs.map((tab) => (
-            <StockRankingTable
-              key={tab.key}
-              title={`${tab.label}ランキング`}
-              stocks={tab.stocks.slice(0, 5)}
-              type={tab.type}
-            />
-          ))}
-        </div>
       </main>
       <SiteFooter />
     </div>

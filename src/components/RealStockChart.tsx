@@ -1,0 +1,390 @@
+import { useEffect, useMemo, useState } from "react";
+import { BarChart3, ExternalLink } from "lucide-react";
+import { type CandleData } from "@/data/stockData";
+
+interface RealStockChartProps {
+  code: string;
+  name: string;
+  chartSymbol: string;
+  chartApiSymbol: string;
+}
+
+type ChartState =
+  | { status: "loading"; data: CandleData[] }
+  | { status: "ready"; data: CandleData[]; currency: string }
+  | { status: "error"; data: CandleData[] };
+
+type ChartPoint = CandleData & {
+  sma20?: number;
+  sma200?: number;
+};
+
+const fallbackProfiles: Record<string, { start: number; drift: number; volatility: number; volume: number; seed: number }> = {
+  "7203.T": { start: 2820, drift: 4.2, volatility: 34, volume: 23600000, seed: 11 },
+  "6758.T": { start: 3630, drift: 7.5, volatility: 58, volume: 13200000, seed: 23 },
+  "8035.T": { start: 27800, drift: 92, volatility: 470, volume: 4200000, seed: 37 },
+  "6857.T": { start: 6900, drift: 34, volatility: 175, volume: 12400000, seed: 41 },
+  "6146.T": { start: 38200, drift: 145, volatility: 980, volume: 2600000, seed: 53 },
+  "5803.T": { start: 5250, drift: 31, volatility: 155, volume: 9600000, seed: 67 },
+  "6723.T": { start: 2600, drift: 9, volatility: 68, volume: 17000000, seed: 73 },
+  "6315.T": { start: 2850, drift: 12, volatility: 92, volume: 4300000, seed: 79 },
+  "5801.T": { start: 3600, drift: 18, volatility: 130, volume: 6800000, seed: 83 },
+  "5802.T": { start: 2850, drift: 8, volatility: 72, volume: 9500000, seed: 89 },
+  "9432.T": { start: 150, drift: 0.2, volatility: 2.8, volume: 180000000, seed: 97 },
+  "3687.T": { start: 2350, drift: 10, volatility: 88, volume: 1800000, seed: 101 },
+  "285A.T": { start: 2400, drift: 26, volatility: 190, volume: 24000000, seed: 107 },
+  "^N225": { start: 39000, drift: 55, volatility: 520, volume: 0, seed: 71 },
+};
+
+const pseudoRandom = (seed: number) => {
+  const value = Math.sin(seed * 999) * 10000;
+  return value - Math.floor(value);
+};
+
+const generateFallbackData = (symbol: string): CandleData[] => {
+  const profile = fallbackProfiles[symbol] ?? { start: 3000, drift: 6, volatility: 40, volume: 8000000, seed: 7 };
+  const data: CandleData[] = [];
+  const startDate = new Date(2026, 2, 24);
+  let close = profile.start;
+
+  for (let day = 0; data.length < 520; day++) {
+    const date = new Date(startDate);
+    date.setDate(startDate.getDate() + day);
+    if (date.getDay() === 0 || date.getDay() === 6) continue;
+
+    const index = data.length;
+    const cycle = Math.sin(index / 5 + profile.seed) * profile.volatility * 0.22;
+    const noise = (pseudoRandom(profile.seed + index * 3) - 0.48) * profile.volatility;
+    const open = close + (pseudoRandom(profile.seed + index * 5) - 0.5) * profile.volatility * 0.6;
+    close = Math.max(1, open + profile.drift + cycle + noise * 0.42);
+    const high = Math.max(open, close) + profile.volatility * (0.18 + pseudoRandom(profile.seed + index * 7) * 0.35);
+    const low = Math.min(open, close) - profile.volatility * (0.18 + pseudoRandom(profile.seed + index * 11) * 0.35);
+    const volume = profile.volume * (0.75 + pseudoRandom(profile.seed + index * 13) * 0.65);
+
+    data.push({
+      date: `${date.getMonth() + 1}/${date.getDate()}`,
+      open: Math.round(open * 10) / 10,
+      high: Math.round(high * 10) / 10,
+      low: Math.round(low * 10) / 10,
+      close: Math.round(close * 10) / 10,
+      volume: Math.round(volume),
+    });
+  }
+
+  return data;
+};
+
+const formatChartDate = (timestamp: number) => {
+  const date = new Date(timestamp * 1000);
+  return `${date.getMonth() + 1}/${date.getDate()}`;
+};
+
+const compactVolume = (volume: number) => {
+  if (volume >= 100000000) return `${(volume / 100000000).toFixed(1)}億`;
+  if (volume >= 10000) return `${Math.round(volume / 10000)}万`;
+  return volume.toLocaleString();
+};
+
+const appendMovingAverages = (data: CandleData[]): ChartPoint[] => {
+  const closes = data.map((item) => item.close);
+
+  return data.map((item, index) => {
+    const withAverage: ChartPoint = { ...item };
+
+    if (index >= 19) {
+      const values = closes.slice(index - 19, index + 1);
+      withAverage.sma20 = values.reduce((sum, value) => sum + value, 0) / values.length;
+    }
+
+    if (index >= 199) {
+      const values = closes.slice(index - 199, index + 1);
+      withAverage.sma200 = values.reduce((sum, value) => sum + value, 0) / values.length;
+    }
+
+    return withAverage;
+  });
+};
+
+const buildLinePath = (
+  data: ChartPoint[],
+  valueKey: "sma20" | "sma200",
+  xScale: (index: number) => number,
+  yScale: (value: number) => number
+) =>
+  data.reduce((path, item, index) => {
+    const value = item[valueKey];
+    if (!Number.isFinite(value)) return path;
+    const command = path ? "L" : "M";
+    return `${path} ${command}${xScale(index).toFixed(2)},${yScale(value as number).toFixed(2)}`.trim();
+  }, "");
+
+const RealStockChart = ({ code, name, chartSymbol, chartApiSymbol }: RealStockChartProps) => {
+  const [state, setState] = useState<ChartState>({
+    status: "loading",
+    data: generateFallbackData(chartApiSymbol),
+  });
+
+  useEffect(() => {
+    const controller = new AbortController();
+    let isActive = true;
+    const timeout = window.setTimeout(() => controller.abort(), 8000);
+
+    const loadChart = async () => {
+      try {
+        const endpoint = `/api/stock-chart?symbol=${encodeURIComponent(chartApiSymbol)}&range=2y&interval=1d`;
+        const response = await fetch(endpoint, { signal: controller.signal });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+        const payload = await response.json();
+        const data = (payload?.candles ?? [])
+          .filter((item: CandleData) =>
+            [item.open, item.high, item.low, item.close].every(Number.isFinite)
+          )
+          .slice(-520);
+
+        if (!data.length) throw new Error("有効なOHLCがありません");
+        if (isActive) setState({ status: "ready", data, currency: payload?.currency ?? "JPY" });
+      } catch {
+        if (isActive) setState({ status: "error", data: generateFallbackData(chartApiSymbol) });
+      } finally {
+        window.clearTimeout(timeout);
+      }
+    };
+
+    loadChart();
+    return () => {
+      isActive = false;
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
+  }, [chartApiSymbol]);
+
+  const chart = useMemo(() => {
+    const data = appendMovingAverages(state.data).slice(-120);
+    const width = 980;
+    const height = 360;
+    const padding = { top: 18, right: 58, bottom: 34, left: 8 };
+    const volumeHeight = 62;
+    const priceHeight = height - padding.top - padding.bottom - volumeHeight;
+
+    const prices = data.flatMap((item) => [item.high, item.low, item.sma20, item.sma200]).filter(Number.isFinite);
+    const priceMin = Math.min(...prices);
+    const priceMax = Math.max(...prices);
+    const pricePadding = Math.max(1, (priceMax - priceMin) * 0.035);
+    const yMin = priceMin - pricePadding;
+    const yMax = priceMax + pricePadding;
+    const maxVolume = Math.max(...data.map((item) => item.volume), 1);
+    const candleWidth = Math.max(2, Math.min(8, (width - padding.left - padding.right) / Math.max(data.length, 1) - 2));
+
+    const xScale = (index: number) =>
+      padding.left + (index / Math.max(data.length - 1, 1)) * (width - padding.left - padding.right);
+    const yScale = (value: number) =>
+      padding.top + priceHeight - ((value - yMin) / Math.max(yMax - yMin, 1)) * priceHeight;
+    const volumeScale = (value: number) =>
+      height - padding.bottom - (value / maxVolume) * volumeHeight;
+
+    return {
+      candleWidth,
+      data,
+      height,
+      padding,
+      volumeHeight,
+      volumeScale,
+      width,
+      xScale,
+      yScale,
+      yMax,
+      yMin,
+      sma20Path: buildLinePath(data, "sma20", xScale, yScale),
+      sma200Path: buildLinePath(data, "sma200", xScale, yScale),
+    };
+  }, [state.data]);
+
+  const latest = state.data.at(-1);
+  const previous = state.data.at(-2);
+  const latestWithAverage = appendMovingAverages(state.data).at(-1);
+  const change = latest && previous ? latest.close - previous.close : 0;
+  const isUp = change >= 0;
+
+  return (
+    <div className="mb-3 overflow-hidden rounded border border-border bg-background">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-2 py-1.5">
+        <div className="flex items-center gap-1.5 text-xs font-bold text-foreground">
+          <BarChart3 className="h-3.5 w-3.5 text-primary" />
+          実チャート
+          <span className="font-mono text-xxs text-muted-foreground">{chartSymbol}</span>
+        </div>
+        <div className="flex items-center gap-2 text-xxs text-muted-foreground">
+          {state.status === "ready" ? "Yahoo Finance日足・表示約1年" : state.status === "loading" ? "取得中" : "取得失敗時の参考チャート"}
+          <a
+            href={`https://finance.yahoo.com/quote/${chartApiSymbol}/chart`}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1 font-semibold text-primary hover:underline"
+          >
+            詳細
+            <ExternalLink className="h-3 w-3" />
+          </a>
+        </div>
+      </div>
+
+      {state.data.length ? (
+        <div className="p-2">
+          <div className="mb-1 flex items-baseline justify-between gap-2">
+            <div>
+              <div className="text-xs font-bold text-foreground">
+                {code} {name}
+              </div>
+              <div className="text-xxs text-muted-foreground">
+                {state.status === "ready" ? "外部データ取得済み" : "直近日足OHLC"}・20SMA/200SMA
+              </div>
+            </div>
+            {latest && (
+              <div className="text-right">
+                <div className={`text-sm font-black tabular-nums ${isUp ? "text-stock-up" : "text-stock-down"}`}>
+                  {latest.close.toLocaleString(undefined, { maximumFractionDigits: 1 })}
+                </div>
+                <div className={`text-xxs font-bold tabular-nums ${isUp ? "text-stock-up" : "text-stock-down"}`}>
+                  {isUp ? "+" : ""}
+                  {change.toFixed(1)}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="mb-1 flex flex-wrap gap-2 text-xxs font-semibold">
+            <span className="inline-flex items-center gap-1 text-sky-600">
+              <span className="h-0.5 w-4 rounded bg-sky-500" />
+              20SMA {latestWithAverage?.sma20?.toLocaleString(undefined, { maximumFractionDigits: 1 }) ?? "-"}
+            </span>
+            <span className="inline-flex items-center gap-1 text-amber-600">
+              <span className="h-0.5 w-4 rounded bg-amber-500" />
+              200SMA {latestWithAverage?.sma200?.toLocaleString(undefined, { maximumFractionDigits: 1 }) ?? "-"}
+            </span>
+          </div>
+
+          <div>
+            <svg
+              viewBox={`0 0 ${chart.width} ${chart.height}`}
+              preserveAspectRatio="none"
+              className="h-[260px] w-full md:h-[300px]"
+            >
+              {[0, 0.25, 0.5, 0.75, 1].map((ratio) => {
+                const price = chart.yMax - (chart.yMax - chart.yMin) * ratio;
+                const y = chart.yScale(price);
+                return (
+                  <g key={ratio}>
+                    <line
+                      x1={chart.padding.left}
+                      x2={chart.width - chart.padding.right}
+                      y1={y}
+                      y2={y}
+                      className="stroke-chart-grid"
+                      strokeDasharray="2,2"
+                      strokeWidth={0.5}
+                    />
+                    <text x={chart.width - chart.padding.right + 5} y={y + 3} className="fill-muted-foreground text-[8px]">
+                      {price.toFixed(0)}
+                    </text>
+                  </g>
+                );
+              })}
+
+              <line
+                x1={chart.padding.left}
+                x2={chart.width - chart.padding.right}
+                y1={chart.height - chart.padding.bottom - chart.volumeHeight}
+                y2={chart.height - chart.padding.bottom - chart.volumeHeight}
+                className="stroke-border"
+                strokeWidth={0.5}
+              />
+
+              {chart.data.map((item, index) => {
+                const x = chart.xScale(index);
+                const candleUp = item.close >= item.open;
+                const bodyTop = chart.yScale(Math.max(item.open, item.close));
+                const bodyBottom = chart.yScale(Math.min(item.open, item.close));
+                const bodyHeight = Math.max(1, bodyBottom - bodyTop);
+                const color = candleUp ? "hsl(var(--chart-candle-up))" : "hsl(var(--chart-candle-down))";
+                const volumeColor = candleUp
+                  ? "hsl(var(--chart-candle-up) / 0.35)"
+                  : "hsl(var(--chart-candle-down) / 0.35)";
+
+                return (
+                  <g key={`${item.date}-${index}`}>
+                    <line x1={x} x2={x} y1={chart.yScale(item.high)} y2={chart.yScale(item.low)} stroke={color} strokeWidth={1} />
+                    <rect
+                      x={x - chart.candleWidth / 2}
+                      y={bodyTop}
+                      width={chart.candleWidth}
+                      height={bodyHeight}
+                      fill={color}
+                      stroke={color}
+                      strokeWidth={0.5}
+                    />
+                    <rect
+                      x={x - chart.candleWidth / 2}
+                      y={chart.volumeScale(item.volume)}
+                      width={chart.candleWidth}
+                      height={chart.height - chart.padding.bottom - chart.volumeScale(item.volume)}
+                      fill={volumeColor}
+                    />
+                  </g>
+                );
+              })}
+
+              {chart.sma20Path && (
+                <path
+                  d={chart.sma20Path}
+                  fill="none"
+                  stroke="rgb(14 165 233)"
+                  strokeWidth={1.6}
+                  strokeLinejoin="round"
+                  strokeLinecap="round"
+                />
+              )}
+              {chart.sma200Path && (
+                <path
+                  d={chart.sma200Path}
+                  fill="none"
+                  stroke="rgb(245 158 11)"
+                  strokeWidth={1.6}
+                  strokeLinejoin="round"
+                  strokeLinecap="round"
+                />
+              )}
+
+              {chart.data
+                .filter((_, index) => index % Math.ceil(chart.data.length / 8) === 0)
+                .map((item) => {
+                  const index = chart.data.indexOf(item);
+                  return (
+                    <text
+                      key={`${item.date}-label`}
+                      x={chart.xScale(index)}
+                      y={chart.height - chart.padding.bottom + 17}
+                      textAnchor="middle"
+                      className="fill-muted-foreground text-[8px]"
+                    >
+                      {item.date}
+                    </text>
+                  );
+                })}
+              {latest && (
+                <text x={chart.width - chart.padding.right + 5} y={chart.height - chart.padding.bottom - chart.volumeHeight + 12} className="fill-muted-foreground text-[8px]">
+                  {compactVolume(latest.volume)}
+                </text>
+              )}
+            </svg>
+          </div>
+        </div>
+      ) : (
+        <div className="p-6 text-center text-xs text-muted-foreground">
+          チャートデータを取得できませんでした。
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default RealStockChart;

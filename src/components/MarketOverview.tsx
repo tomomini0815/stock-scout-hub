@@ -1,4 +1,5 @@
 import { type MarketIndex } from "@/data/stockData";
+import { useLiveMarketData } from "@/hooks/useLiveMarketData";
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
 
 interface MarketOverviewProps {
@@ -6,13 +7,42 @@ interface MarketOverviewProps {
 }
 
 const MarketOverview = ({ indices }: MarketOverviewProps) => {
+  const {
+    indices: displayIndices,
+    status,
+    updatedAt,
+  } = useLiveMarketData(indices);
+
+  const updatedLabel = updatedAt
+    ? new Intl.DateTimeFormat("ja-JP", {
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+      }).format(new Date(updatedAt))
+    : "";
+
   return (
     <div className="rounded border border-border bg-card">
-      <div className="border-b border-border bg-table-header-bg px-3 py-1.5">
+      <div className="flex items-center justify-between gap-2 border-b border-border bg-table-header-bg px-3 py-1.5">
         <h3 className="text-xs font-bold text-foreground">主要指数</h3>
+        <div className="flex items-center gap-2 text-xxs font-semibold text-muted-foreground">
+          <span
+            className={`rounded px-1.5 py-0.5 ${
+              status === "live"
+                ? "bg-stock-up-bg text-stock-up"
+                : status === "cached"
+                ? "bg-muted text-muted-foreground"
+                : "bg-stock-down-bg text-stock-down"
+            }`}
+          >
+            {status === "live" ? "LIVE" : status === "cached" ? "前回値" : "固定値"}
+          </span>
+          {updatedLabel && <span>更新 {updatedLabel}</span>}
+        </div>
       </div>
-      <div className="grid grid-cols-2 gap-0 lg:grid-cols-4">
-        {indices.map((index, i) => {
+      <div className="grid grid-cols-2 gap-0 md:grid-cols-4">
+        {displayIndices.map((index, i) => {
           const isUp = index.change > 0;
           const isDown = index.change < 0;
           return (
