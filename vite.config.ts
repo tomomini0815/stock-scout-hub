@@ -53,6 +53,79 @@ const sendText = (res, text: string, contentType = "text/plain; charset=utf-8", 
   res.end(text);
 };
 
+const decodeHtmlEntities = (value: string) =>
+  value
+    .replace(/&#x([0-9a-f]+);/gi, (_, code) => String.fromCharCode(parseInt(code, 16)))
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;|&apos;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">");
+
+const stripHtml = (value: string) =>
+  decodeHtmlEntities(value.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim());
+
+const getTagAttr = (tag: string, name: string) => {
+  const match = tag.match(new RegExp(`${name}\\s*=\\s*["']([^"']*)["']`, "i"));
+  return match ? decodeHtmlEntities(match[1]).trim() : "";
+};
+
+const getMetaContent = (html: string, names: string[]) => {
+  const wanted = new Set(names.map((name) => name.toLowerCase()));
+  const metaTags = html.match(/<meta\b[^>]*>/gi) ?? [];
+
+  for (const tag of metaTags) {
+    const key = (getTagAttr(tag, "name") || getTagAttr(tag, "property")).toLowerCase();
+    const content = getTagAttr(tag, "content");
+    if (wanted.has(key) && content) return content;
+  }
+
+  return "";
+};
+
+const normalizeArticleText = (value: string) =>
+  value
+    .replace(/\s+/g, " ")
+    .replace(/\s*([。！？])\s*/g, "$1")
+    .trim();
+
+const summarizeArticleText = (text: string) => {
+  const normalized = normalizeArticleText(text);
+  if (!normalized) return "";
+
+  const sentences = normalized.match(/[^。！？]+[。！？]?/g)?.filter((sentence) => sentence.trim().length > 12) ?? [normalized];
+  const summary = sentences.slice(0, 3).join("").trim();
+  return summary.length > 260 ? `${summary.slice(0, 260)}...` : summary;
+};
+
+const extractArticleSummaryFromHtml = (html: string) => {
+  const metaDescription = getMetaContent(html, ["description", "og:description", "twitter:description"]);
+  if (metaDescription) return summarizeArticleText(metaDescription);
+
+  const jsonLdDescription = html.match(/"description"\s*:\s*"([^"]{40,})"/i)?.[1];
+  if (jsonLdDescription) return summarizeArticleText(decodeHtmlEntities(jsonLdDescription.replace(/\\"/g, '"')));
+
+  const cleanedHtml = html
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<noscript[\s\S]*?<\/noscript>/gi, " ");
+  const paragraphs = [...cleanedHtml.matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/gi)]
+    .map((match) => stripHtml(match[1]))
+    .filter((text) => text.length >= 35 && !/関連記事|続きを読む|ログイン|シェア/.test(text));
+
+  return summarizeArticleText(paragraphs.slice(0, 4).join(" "));
+};
+
+const isBlockedArticleHost = (hostname: string) => {
+  const host = hostname.toLowerCase();
+  if (host === "localhost" || host === "0.0.0.0" || host === "::1" || host.endsWith(".local")) return true;
+  if (/^127\./.test(host) || /^10\./.test(host) || /^169\.254\./.test(host) || /^192\.168\./.test(host)) return true;
+  const private172 = host.match(/^172\.(\d+)\./);
+  return private172 ? Number(private172[1]) >= 16 && Number(private172[1]) <= 31 : false;
+};
+
 const mergeMarketIndices = (liveIndices) => {
   const previousByName = new Map(marketDataCache.indices.map((item) => [item.name, item]));
   const liveByName = new Map(liveIndices.map((item) => [item.name, item]));
@@ -351,6 +424,67 @@ const newsSourcePlugin = () => ({
         sendText(res, await response.text(), "application/rss+xml; charset=utf-8");
       } catch {
         sendJson(res, { items: [], error: "yahoo business rss unavailable" }, 502);
+      }
+    });
+
+    server.middlewares.use("/api/article-summary", async (req, res) => {
+      try {
+        const requestUrl = new URL(req.url ?? "", "http://localhost");
+        const rawUrl = requestUrl.searchParams.get("url") ?? "";
+        const articleUrl = new URL(rawUrl);
+
+        if (!["http:", "https:"].includes(articleUrl.protocol) || isBlockedArticleHost(articleUrl.hostname)) {
+          sendJson(res, { summary: "", error: "unsupported article url" }, 400);
+          return;
+        }
+
+        const response = await fetchWithTimeout(articleUrl.toString(), 8000);
+        if (!response.ok) {
+          sendJson(res, { summary: "", error: `HTTP ${response.status}` }, 502);
+          return;
+        }
+
+        const contentType = response.headers.get("content-type") ?? "";
+        if (!contentType.includes("text/html")) {
+          sendJson(res, { summary: "", error: "article is not html" }, 415);
+          return;
+        }
+
+        const html = await response.text();
+        const summary = extractArticleSummaryFromHtml(html);
+        if (!summary) {
+          sendJson(res, { summary: "", error: "article text unavailable" }, 422);
+          return;
+        }
+
+        sendJson(res, {
+          summary,
+          source: articleUrl.hostname.replace(/^www\./, ""),
+          extractedAt: new Date().toISOString(),
+        });
+      } catch {
+        sendJson(res, { summary: "", error: "article summary unavailable" }, 502);
+      }
+    });
+
+    server.middlewares.use("/api/tdnet-list", async (req, res) => {
+      try {
+        const requestUrl = new URL(req.url ?? "", "http://localhost");
+        const date = requestUrl.searchParams.get("date") ?? new Intl.DateTimeFormat("sv-SE", {
+          timeZone: "Asia/Tokyo",
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+        }).format(new Date()).replaceAll("-", "");
+        const response = await fetchWithTimeout(`https://www.release.tdnet.info/inbs/I_list_001_${date}.html`, 7000);
+        if (!response.ok) {
+          sendJson(res, { items: [], error: `HTTP ${response.status}` }, 502);
+          return;
+        }
+
+        sendText(res, await response.text(), "text/html; charset=utf-8");
+      } catch {
+        sendJson(res, { items: [], error: "tdnet list unavailable" }, 502);
       }
     });
 

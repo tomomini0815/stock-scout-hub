@@ -4,6 +4,7 @@ import MarketTicker from "@/components/MarketTicker";
 import MarketOverview from "@/components/MarketOverview";
 import StockRankingTable from "@/components/StockRankingTable";
 import NewsFeed from "@/components/NewsFeed";
+import TradingViewMarketNews from "@/components/TradingViewMarketNews";
 import FundamentalPicks from "@/components/FundamentalPicks";
 import TrendSignalSection from "@/components/TrendSignalSection";
 import {
@@ -77,6 +78,7 @@ const Index = () => {
 
         <div>
           <NewsFeed />
+          <TradingViewMarketNews />
         </div>
       </main>
 

@@ -1,45 +1,85 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
 import MarketTicker from "@/components/MarketTicker";
 import RealStockChart from "@/components/RealStockChart";
+import StockDetailPanel from "@/components/StockDetailPanel";
 import TradingViewPanel from "@/components/TradingViewPanel";
 import { marketIndices, featuredStock, stockUniverse } from "@/data/stockData";
 import { useLiveStockQuotes } from "@/hooks/useLiveStockQuote";
+import { CHART_WATCHLIST_UPDATED_EVENT, readChartWatchlist } from "@/lib/chartWatchlist";
 import { BarChart3, Search } from "lucide-react";
 
 const chartStocks = [
   featuredStock,
-  ...stockUniverse.filter((stock) => stock.code !== featuredStock.code).slice(0, 8),
+  ...stockUniverse.filter((stock) => stock.code !== featuredStock.code),
 ];
 
 const ChartPage = () => {
-  const [selectedIndex, setSelectedIndex] = useState(0);
-  const [searchQuery, setSearchQuery] = useState("");
-  const { stocks: liveChartStocks } = useLiveStockQuotes(chartStocks);
-  const selected = liveChartStocks[selectedIndex] ?? chartStocks[selectedIndex];
+  const [searchParams] = useSearchParams();
+  const queryFromUrl = searchParams.get("q") ?? "";
+  const [selectedCode, setSelectedCode] = useState(featuredStock.code);
+  const [searchQuery, setSearchQuery] = useState(queryFromUrl);
+  const [watchlistStocks, setWatchlistStocks] = useState(() => readChartWatchlist());
+  const mergedChartStocks = useMemo(
+    () =>
+      [...chartStocks, ...watchlistStocks].filter(
+        (stock, index, stocks) => stocks.findIndex((item) => item.code === stock.code) === index
+      ),
+    [watchlistStocks]
+  );
+  const { stocks: liveChartStocks } = useLiveStockQuotes(mergedChartStocks);
+  const selected =
+    liveChartStocks.find((stock) => stock.code === selectedCode) ??
+    mergedChartStocks.find((stock) => stock.code === selectedCode) ??
+    liveChartStocks[0] ??
+    mergedChartStocks[0];
+
+  useEffect(() => {
+    const updateWatchlist = () => setWatchlistStocks(readChartWatchlist());
+
+    window.addEventListener(CHART_WATCHLIST_UPDATED_EVENT, updateWatchlist);
+    window.addEventListener("storage", updateWatchlist);
+
+    return () => {
+      window.removeEventListener(CHART_WATCHLIST_UPDATED_EVENT, updateWatchlist);
+      window.removeEventListener("storage", updateWatchlist);
+    };
+  }, []);
+
+  useEffect(() => {
+    setSearchQuery(queryFromUrl);
+  }, [queryFromUrl]);
 
   const filteredStocks = liveChartStocks.filter(
     (s) => s.name.includes(searchQuery) || s.code.includes(searchQuery)
   );
 
+  useEffect(() => {
+    if (!searchQuery || !filteredStocks.length) return;
+    if (filteredStocks.some((stock) => stock.code === selectedCode)) return;
+    setSelectedCode(filteredStocks[0].code);
+  }, [filteredStocks, searchQuery, selectedCode]);
+
   return (
     <div className="min-h-screen bg-background">
-      <SiteHeader activeTab="チャート" />
+      <SiteHeader activeTab="銘柄・チャート" />
       <MarketTicker indices={marketIndices} />
 
       <main className="container mx-auto px-4 py-3">
         <h2 className="mb-3 flex items-center gap-2 text-sm font-bold text-foreground">
           <BarChart3 className="h-4 w-4 text-primary" />
-          チャート
+          銘柄・チャート
         </h2>
 
-        <div className="mb-3 grid grid-cols-1 gap-3 lg:grid-cols-4">
+        <div className="mb-3 grid min-h-0 grid-cols-1 items-stretch gap-3 lg:grid-cols-4">
           {/* Stock selector */}
-          <div className="lg:col-span-1">
-            <div className="rounded border border-border bg-card">
+          <div className="flex min-h-[520px] min-w-0 lg:col-span-1 lg:h-full">
+            <div className="flex min-h-0 w-full flex-col rounded border border-border bg-card lg:h-full">
               <div className="border-b border-border bg-table-header-bg px-3 py-1.5">
                 <h3 className="text-xs font-bold text-foreground">銘柄選択</h3>
+                <div className="mt-0.5 text-xxs text-muted-foreground">{liveChartStocks.length}銘柄</div>
               </div>
               <div className="p-2">
                 <div className="relative mb-2">
@@ -53,16 +93,15 @@ const ChartPage = () => {
                   <Search className="absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
                 </div>
               </div>
-              <div className="max-h-[400px] overflow-y-auto">
+              <div className="min-h-0 flex-1 overflow-y-auto">
                 {filteredStocks.map((stock) => {
                   const isUp = stock.change > 0;
-                  const originalIdx = liveChartStocks.findIndex((item) => item.code === stock.code);
                   return (
                     <button
                       key={stock.code}
-                      onClick={() => setSelectedIndex(originalIdx)}
+                      onClick={() => setSelectedCode(stock.code)}
                       className={`w-full border-b border-border px-3 py-2 text-left transition-colors hover:bg-muted/50 ${
-                        originalIdx === selectedIndex ? "bg-primary/5 border-l-2 border-l-primary" : ""
+                        stock.code === selected.code ? "bg-primary/5 border-l-2 border-l-primary" : ""
                       }`}
                     >
                       <div className="flex items-center justify-between">
@@ -105,6 +144,10 @@ const ChartPage = () => {
                   <div className="text-sm font-bold tabular-nums text-foreground">{item.value}</div>
                 </div>
               ))}
+            </div>
+
+            <div className="mt-3">
+              <StockDetailPanel stock={selected} />
             </div>
 
             <div className="mt-3">

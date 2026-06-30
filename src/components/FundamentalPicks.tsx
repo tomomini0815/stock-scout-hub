@@ -46,6 +46,18 @@ const FundamentalPicks = ({
   });
 
   const visiblePicks = expanded ? picks : picks.slice(0, initialCount);
+  const handleToggleExpanded = () => {
+    setExpanded((value) => {
+      if (!value) {
+        setOpenCharts((current) => ({
+          ...current,
+          ...Object.fromEntries(picks.map((pick) => [pick.code, true])),
+        }));
+      }
+
+      return !value;
+    });
+  };
 
   return (
     <section className="rounded border border-border bg-card">
@@ -228,7 +240,7 @@ const FundamentalPicks = ({
       {compact && picks.length > initialCount && (
         <button
           type="button"
-          onClick={() => setExpanded((value) => !value)}
+          onClick={handleToggleExpanded}
           className="flex w-full items-center justify-center gap-1 border-t border-border px-3 py-2 text-xs font-semibold text-primary transition-colors hover:bg-muted/50"
         >
           {expanded ? "表示を絞る" : `さらに${picks.length - initialCount}銘柄を見る`}

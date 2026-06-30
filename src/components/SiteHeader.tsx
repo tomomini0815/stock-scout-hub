@@ -10,13 +10,11 @@ interface SiteHeaderProps {
 const navItems = [
   { label: "トップ", path: "/" },
   { label: "市況", path: "/market" },
-  { label: "個別銘柄", path: "/stocks" },
+  { label: "銘柄・チャート", path: "/chart" },
   { label: "ランキング", path: "/ranking" },
-  { label: "決算速報", path: "/earnings" },
-  { label: "IPO", path: "/ipo" },
+  { label: "決算・IPO", path: "/earnings" },
   { label: "テーマ", path: "/themes" },
   { label: "スクリーニング", path: "/screening" },
-  { label: "チャート", path: "/chart" },
   { label: "ニュース", path: "/news" },
 ];
 
@@ -34,7 +32,7 @@ const SiteHeader = ({ activeTab = "トップ" }: SiteHeaderProps) => {
     event.preventDefault();
     const query = searchQuery.trim();
     if (!query) return;
-    navigate(`/stocks?q=${encodeURIComponent(query)}`);
+    navigate(`/chart?q=${encodeURIComponent(query)}`);
   };
 
   return (
@@ -45,7 +43,7 @@ const SiteHeader = ({ activeTab = "トップ" }: SiteHeaderProps) => {
           <div className="flex items-center gap-3">
             <Link to="/" className="inline-flex items-baseline font-black tracking-[0.08em]">
               <span className="text-xl text-header-accent">株</span>
-              <span className="text-lg">ナビ</span>
+              <span className="text-lg">Navi</span>
             </Link>
             <span className="hidden text-xxs opacity-60 sm:inline">
               株式投資の総合情報サイト

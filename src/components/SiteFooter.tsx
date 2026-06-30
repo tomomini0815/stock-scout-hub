@@ -5,7 +5,7 @@ const footerSections = [
     title: "マーケット",
     links: [
       { label: "市況", path: "/market" },
-      { label: "個別銘柄", path: "/stocks" },
+      { label: "銘柄・チャート", path: "/chart" },
       { label: "ランキング", path: "/ranking" },
     ],
   },
@@ -13,7 +13,6 @@ const footerSections = [
     title: "ツール",
     links: [
       { label: "スクリーニング", path: "/screening" },
-      { label: "チャート", path: "/chart" },
       { label: "テーマ株", path: "/themes" },
     ],
   },
@@ -21,8 +20,7 @@ const footerSections = [
     title: "情報",
     links: [
       { label: "ニュース", path: "/news" },
-      { label: "決算速報", path: "/earnings" },
-      { label: "IPO情報", path: "/ipo" },
+      { label: "決算・IPO", path: "/earnings" },
     ],
   },
 ];
@@ -49,7 +47,7 @@ const SiteFooter = () => {
         </div>
         <div className="mt-4 border-t border-border pt-3 text-center text-xxs text-muted-foreground">
           <p>※ 当サイトの情報は投資勧誘を目的としたものではありません。投資判断は自己責任でお願いいたします。</p>
-          <p className="mt-1">© 2026 株ナビ All Rights Reserved.</p>
+          <p className="mt-1">© 2026 株Navi All Rights Reserved.</p>
         </div>
       </div>
     </footer>

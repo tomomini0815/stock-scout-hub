@@ -1,44 +1,11 @@
 import { ExternalLink, LineChart } from "lucide-react";
-import { useEffect, useMemo, useRef } from "react";
 import { type StockData } from "@/data/stockData";
 import ShikihoStyleAnalysis from "@/components/ShikihoStyleAnalysis";
+import TradingViewWidget from "@/components/TradingViewWidget";
 
 interface TradingViewPanelProps {
   stock: StockData;
 }
-
-interface TradingViewWidgetProps {
-  scriptSrc: string;
-  config: Record<string, unknown>;
-}
-
-const TradingViewWidget = ({ scriptSrc, config }: TradingViewWidgetProps) => {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const serializedConfig = useMemo(() => JSON.stringify(config), [config]);
-
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    container.innerHTML = "";
-    const widget = document.createElement("div");
-    widget.className = "tradingview-widget-container__widget";
-    const script = document.createElement("script");
-    script.type = "text/javascript";
-    script.async = true;
-    script.src = scriptSrc;
-    script.innerHTML = serializedConfig;
-
-    container.appendChild(widget);
-    container.appendChild(script);
-
-    return () => {
-      container.innerHTML = "";
-    };
-  }, [scriptSrc, serializedConfig]);
-
-  return <div ref={containerRef} className="tradingview-widget-container h-full min-h-[260px]" />;
-};
 
 const TradingViewPanel = ({ stock }: TradingViewPanelProps) => {
   const symbol = `TSE:${stock.code}`;
@@ -69,6 +36,7 @@ const TradingViewPanel = ({ stock }: TradingViewPanelProps) => {
         <div className="min-h-[150px] overflow-hidden rounded border border-border bg-background">
           <TradingViewWidget
             scriptSrc="https://s3.tradingview.com/external-embedding/embed-widget-symbol-info.js"
+            className="min-h-[260px]"
             config={{
               symbol,
               width: "100%",
@@ -84,6 +52,7 @@ const TradingViewPanel = ({ stock }: TradingViewPanelProps) => {
         <div className="min-h-[360px] overflow-hidden rounded border border-border bg-background">
           <TradingViewWidget
             scriptSrc="https://s3.tradingview.com/external-embedding/embed-widget-technical-analysis.js"
+            className="min-h-[260px]"
             config={{
               interval: "1D",
               width: "100%",
@@ -100,6 +69,7 @@ const TradingViewPanel = ({ stock }: TradingViewPanelProps) => {
         <div className="min-h-[560px] overflow-hidden rounded border border-border bg-background lg:col-span-3">
           <TradingViewWidget
             scriptSrc="https://s3.tradingview.com/external-embedding/embed-widget-financials.js"
+            className="min-h-[260px]"
             config={{
               symbol,
               width: "100%",

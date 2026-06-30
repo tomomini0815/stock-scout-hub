@@ -83,7 +83,14 @@ export const useLiveStockQuote = (stock: StockData) => {
   };
 };
 
-const fetchStockQuotes = async (symbols: string[]) => {
+const quoteBatchSize = 60;
+
+const chunkSymbols = (symbols: string[]) =>
+  Array.from({ length: Math.ceil(symbols.length / quoteBatchSize) }, (_, index) =>
+    symbols.slice(index * quoteBatchSize, (index + 1) * quoteBatchSize)
+  );
+
+const fetchStockQuoteBatch = async (symbols: string[]) => {
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), 7000);
   const response = await fetch(
@@ -99,6 +106,20 @@ const fetchStockQuotes = async (symbols: string[]) => {
   return {
     quotes,
     updatedAt: payload.updatedAt ?? new Date().toISOString(),
+  };
+};
+
+const fetchStockQuotes = async (symbols: string[]) => {
+  const results = await Promise.allSettled(chunkSymbols(symbols).map(fetchStockQuoteBatch));
+  const batches = results
+    .map((result) => (result.status === "fulfilled" ? result.value : null))
+    .filter(Boolean);
+  const quotes = batches.flatMap((batch) => batch.quotes);
+  if (!quotes.length) throw new Error("stock quotes unavailable");
+
+  return {
+    quotes,
+    updatedAt: batches.map((batch) => batch.updatedAt).sort().at(-1) ?? new Date().toISOString(),
   };
 };
 
