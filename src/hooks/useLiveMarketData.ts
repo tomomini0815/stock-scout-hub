@@ -5,6 +5,8 @@ import { type MarketIndex } from "@/data/stockData";
 export type LiveMarketStatus = "live" | "cached" | "fallback";
 
 const MARKET_CACHE_KEY = "stock-scout-market-data-v1";
+const MARKET_REFETCH_INTERVAL_MS = 60 * 1000;
+const MARKET_STALE_TIME_MS = 30 * 1000;
 
 interface MarketDataPayload {
   indices?: MarketIndex[];
@@ -43,24 +45,30 @@ const loadCachedMarketData = () => {
     if (!raw) return undefined;
     const parsed = JSON.parse(raw) as Required<MarketDataPayload>;
     const indices = parsed.indices?.filter(isValidIndex) ?? [];
-    return indices.length ? { ...parsed, indices } : undefined;
+    return indices.length ? { ...parsed, indices, source: "cache" as const } : undefined;
   } catch {
     return undefined;
   }
 };
 
 export const useLiveMarketData = (fallbackIndices: MarketIndex[]) => {
+  const initialMarketData = loadCachedMarketData() ?? {
+    indices: fallbackIndices,
+    updatedAt: "",
+    source: "fallback" as const,
+  };
+
   const query = useQuery({
     queryKey: ["live-market-data"],
     queryFn: fetchLiveMarketData,
-    initialData: () =>
-      loadCachedMarketData() ?? {
-        indices: fallbackIndices,
-        updatedAt: "",
-        source: "fallback" as const,
-      },
-    refetchInterval: 5 * 60 * 1000,
-    staleTime: 2 * 60 * 1000,
+    initialData: initialMarketData,
+    initialDataUpdatedAt:
+      initialMarketData.source === "fallback"
+        ? 0
+        : Date.parse(initialMarketData.updatedAt) || 0,
+    refetchOnMount: "always",
+    refetchInterval: MARKET_REFETCH_INTERVAL_MS,
+    staleTime: MARKET_STALE_TIME_MS,
     retry: 1,
   });
 

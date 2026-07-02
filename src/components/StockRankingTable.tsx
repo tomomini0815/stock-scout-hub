@@ -38,18 +38,9 @@ const StockRankingTable = ({ title, stocks, type, limit }: StockRankingTableProp
       <div className="flex items-center justify-between border-b border-border bg-table-header-bg px-3 py-1.5">
         <h3 className="text-xs font-bold text-foreground">{title}</h3>
         <div className="flex items-center gap-2 text-xxs font-semibold text-muted-foreground">
-          <span
-            className={`rounded px-1.5 py-0.5 ${
-              status === "live"
-                ? "bg-stock-up-bg text-stock-up"
-                : status === "loading"
-                ? "bg-muted text-muted-foreground"
-                : "bg-stock-down-bg text-stock-down"
-            }`}
-          >
-            {status === "live" ? "LIVE" : status === "loading" ? "取得中" : "固定値"}
+          <span className="rounded bg-muted px-1.5 py-0.5 text-muted-foreground">
+            {updatedLabel ? `更新 ${updatedLabel}` : status === "loading" ? "取得中" : "更新確認中"}
           </span>
-          {updatedLabel && <span className="hidden sm:inline">更新 {updatedLabel}</span>}
         </div>
       </div>
       <div className="overflow-x-auto">
@@ -140,7 +131,7 @@ const StockRankingTable = ({ title, stocks, type, limit }: StockRankingTableProp
           onClick={() => setExpanded((value) => !value)}
           className="flex w-full items-center justify-center gap-1 border-t border-border px-3 py-2 text-xs font-semibold text-primary transition-colors hover:bg-muted/50"
         >
-          {expanded ? "5位までに戻す" : "もっと見る（20位まで）"}
+          {expanded ? `${limit}位までに戻す` : "もっと見る（20位まで）"}
           <ChevronDown className={`h-3.5 w-3.5 transition-transform ${expanded ? "rotate-180" : ""}`} />
         </button>
       )}

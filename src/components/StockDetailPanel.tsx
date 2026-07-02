@@ -44,18 +44,9 @@ const StockDetailPanel = ({ stock }: StockDetailPanelProps) => {
             <span className="text-xxs text-muted-foreground">{displayStock.market}</span>
           </div>
           <div className="flex flex-col items-end gap-1 text-xxs font-semibold text-muted-foreground">
-            <span
-              className={`rounded px-1.5 py-0.5 ${
-                status === "live"
-                  ? "bg-stock-up-bg text-stock-up"
-                  : status === "loading"
-                  ? "bg-muted text-muted-foreground"
-                  : "bg-stock-down-bg text-stock-down"
-              }`}
-            >
-              {status === "live" ? "LIVE" : status === "loading" ? "取得中" : "固定値"}
+            <span className="rounded bg-muted px-1.5 py-0.5 text-muted-foreground">
+              {updatedLabel ? `更新 ${updatedLabel}` : status === "loading" ? "取得中" : "更新確認中"}
             </span>
-            {updatedLabel && <span>更新 {updatedLabel}</span>}
           </div>
         </div>
       </div>

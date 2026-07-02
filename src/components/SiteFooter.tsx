@@ -4,7 +4,7 @@ const footerSections = [
   {
     title: "マーケット",
     links: [
-      { label: "市況", path: "/market" },
+      { label: "市況・スクリーニング", path: "/market" },
       { label: "銘柄・チャート", path: "/chart" },
       { label: "ランキング", path: "/ranking" },
     ],
@@ -12,8 +12,8 @@ const footerSections = [
   {
     title: "ツール",
     links: [
-      { label: "スクリーニング", path: "/screening" },
-      { label: "テーマ株", path: "/themes" },
+      { label: "日経225スクリーニング", path: "/market" },
+      { label: "テーマ別", path: "/themes" },
     ],
   },
   {

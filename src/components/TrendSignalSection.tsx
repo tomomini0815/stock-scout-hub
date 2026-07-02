@@ -1,4 +1,4 @@
-import { Activity, ChevronUp, Gauge, RadioTower, TrendingUp } from "lucide-react";
+import { Gauge, RadioTower, TrendingUp } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { type CandleData, type FundamentalPick, type StockData } from "@/data/stockData";
 
@@ -16,6 +16,9 @@ interface TrendSignal {
   sma20: number;
   sma200: number;
   volumeRatio: number;
+  rsi14: number;
+  macdHistogram: number;
+  bollingerPosition: number;
   score: number;
   tags: string[];
   note: string;
@@ -27,6 +30,78 @@ const average = (values: number[]) =>
 const movingAverageAt = (data: CandleData[], period: number, index = data.length - 1) => {
   if (index < period - 1) return null;
   return average(data.slice(index - period + 1, index + 1).map((item) => item.close));
+};
+
+const standardDeviation = (values: number[]) => {
+  const mean = average(values);
+  return Math.sqrt(average(values.map((value) => (value - mean) ** 2)));
+};
+
+const emaSeries = (values: number[], period: number) => {
+  if (values.length < period) return [];
+
+  const multiplier = 2 / (period + 1);
+  const result: number[] = [];
+  let ema = average(values.slice(0, period));
+  result.push(ema);
+
+  for (let index = period; index < values.length; index += 1) {
+    ema = (values[index] - ema) * multiplier + ema;
+    result.push(ema);
+  }
+
+  return result;
+};
+
+const calculateRsi = (closes: number[], period = 14) => {
+  if (closes.length <= period) return null;
+
+  let gains = 0;
+  let losses = 0;
+  for (let index = 1; index <= period; index += 1) {
+    const change = closes[index] - closes[index - 1];
+    if (change >= 0) gains += change;
+    else losses += Math.abs(change);
+  }
+
+  let averageGain = gains / period;
+  let averageLoss = losses / period;
+
+  for (let index = period + 1; index < closes.length; index += 1) {
+    const change = closes[index] - closes[index - 1];
+    averageGain = (averageGain * (period - 1) + Math.max(change, 0)) / period;
+    averageLoss = (averageLoss * (period - 1) + Math.max(-change, 0)) / period;
+  }
+
+  if (averageLoss === 0) return 100;
+  const relativeStrength = averageGain / averageLoss;
+  return 100 - 100 / (1 + relativeStrength);
+};
+
+const calculateMacdHistogram = (closes: number[]) => {
+  const ema12 = emaSeries(closes, 12);
+  const ema26 = emaSeries(closes, 26);
+  if (!ema12.length || !ema26.length) return null;
+
+  const offset = ema12.length - ema26.length;
+  const macd = ema26.map((value, index) => ema12[index + offset] - value);
+  const signal = emaSeries(macd, 9);
+  if (!signal.length) return null;
+
+  return macd.at(-1)! - signal.at(-1)!;
+};
+
+const calculateBollingerPosition = (closes: number[], period = 20) => {
+  if (closes.length < period) return null;
+
+  const window = closes.slice(-period);
+  const middle = average(window);
+  const deviation = standardDeviation(window);
+  if (!deviation) return 0.5;
+
+  const lower = middle - deviation * 2;
+  const upper = middle + deviation * 2;
+  return (closes.at(-1)! - lower) / (upper - lower);
 };
 
 const analyzeTrend = (stock: StockData, candles: CandleData[]): TrendSignal | null => {
@@ -45,11 +120,15 @@ const analyzeTrend = (stock: StockData, candles: CandleData[]): TrendSignal | nu
   if (!sma20 || !sma200 || !previousSma20) return null;
 
   const avgVolume20 = average(valid.slice(-21, -1).map((item) => item.volume));
+  const closes = valid.map((item) => item.close);
   const volumeRatio = avgVolume20 ? latest.volume / avgVolume20 : 1;
   const changePercent = previous.close ? ((latest.close - previous.close) / previous.close) * 100 : 0;
   const priceVs20 = ((latest.close - sma20) / sma20) * 100;
   const priceVs200 = ((latest.close - sma200) / sma200) * 100;
   const trendSlope = ((sma20 - previousSma20) / previousSma20) * 100;
+  const rsi14 = calculateRsi(closes) ?? 50;
+  const macdHistogram = calculateMacdHistogram(closes) ?? 0;
+  const bollingerPosition = calculateBollingerPosition(closes) ?? 0.5;
 
   const tags: string[] = [];
   let score = 50;
@@ -70,16 +149,46 @@ const analyzeTrend = (stock: StockData, candles: CandleData[]): TrendSignal | nu
     score += 12;
     tags.push("出来高増");
   }
+  if (rsi14 >= 45 && rsi14 <= 65) {
+    score += 10;
+    tags.push("RSI良好");
+  } else if (rsi14 >= 30 && rsi14 < 45) {
+    score += 6;
+    tags.push("RSI反発圏");
+  } else if (rsi14 > 72) {
+    score -= 8;
+    tags.push("過熱注意");
+  } else if (rsi14 < 30) {
+    score += 4;
+    tags.push("売られ過ぎ");
+  }
+  if (macdHistogram > 0) {
+    score += 10;
+    tags.push("MACD陽転");
+  } else {
+    score -= 4;
+  }
+  if (bollingerPosition >= 0.45 && bollingerPosition <= 0.9) {
+    score += 8;
+    tags.push("BB上向き");
+  } else if (bollingerPosition > 1) {
+    score -= 5;
+    tags.push("BB上限超え");
+  } else if (bollingerPosition < 0.2) {
+    score -= 6;
+  }
   if (trendSlope > 0) score += 8;
   if (latest.close < sma200) score -= 14;
   if (changePercent < -3) score -= 8;
 
   const note =
-    latest.close > sma20 && sma20 > sma200
-      ? "20SMAが200SMAを上回り、買い優勢の地合いを確認。"
-      : latest.close >= sma200
-        ? "200SMA上で推移し、中期トレンドの崩れは限定的。"
-        : "200SMA回復待ち。反転候補として監視。";
+    latest.close > sma20 && sma20 > sma200 && macdHistogram > 0
+      ? "SMAの上昇基調に加え、MACDがプラス圏で買い優勢を確認。"
+      : rsi14 > 72 || bollingerPosition > 1
+        ? "上昇基調はありますが、RSIやボリンジャーバンドでは短期過熱に注意。"
+        : latest.close >= sma200
+          ? "200SMA上で推移し、RSI・出来高を確認しながら押し目を監視。"
+          : "200SMA回復待ち。MACDや出来高の改善を確認したい状態。";
 
   return {
     code: stock.code,
@@ -89,8 +198,11 @@ const analyzeTrend = (stock: StockData, candles: CandleData[]): TrendSignal | nu
     sma20,
     sma200,
     volumeRatio,
-    score: Math.max(0, Math.min(100, Math.round(score))),
-    tags: tags.length ? tags.slice(0, 3) : ["監視"],
+    rsi14,
+    macdHistogram,
+    bollingerPosition,
+    score: Math.max(0, Math.min(96, Math.round(score))),
+    tags: tags.length ? tags.slice(0, 4) : ["監視"],
     note,
   };
 };
@@ -206,23 +318,17 @@ const TrendSignalSection = ({ stocks, growthPicks, dailyPicks }: TrendSignalSect
           <RadioTower className="h-4 w-4 text-primary" />
           <h2 className="text-sm font-bold text-foreground">トレンド・需給シグナル</h2>
           <span className="rounded bg-primary px-2 py-0.5 text-xxs font-bold text-primary-foreground">
-            20SMA/200SMA
+            SMA/RSI/MACD/BB
           </span>
         </div>
         <div className="flex items-center gap-2 text-xxs text-muted-foreground">
           <span>{updatedAt ? `${updatedAt}更新` : "チャート解析中"}</span>
-          <span
-            className={`rounded px-1.5 py-0.5 font-bold ${
-              status === "live"
-                ? "bg-stock-up-bg text-stock-up"
-                : status === "loading"
-                  ? "bg-muted text-muted-foreground"
-                  : "bg-stock-down-bg text-stock-down"
-            }`}
-          >
-            {status === "live" ? "LIVE解析" : status === "loading" ? "取得中" : "確認待ち"}
-          </span>
+          {!updatedAt && <span className="rounded bg-muted px-1.5 py-0.5 font-bold">取得中</span>}
         </div>
+      </div>
+      <div className="border-b border-border bg-muted/20 px-3 py-1.5 text-xs leading-relaxed text-muted-foreground">
+        <span className="mr-1 font-bold text-primary">判定</span>
+        移動平均、RSI、MACD、ボリンジャーバンド、出来高で総合判定。
       </div>
 
       <div className="grid grid-cols-1 gap-2 p-2 md:grid-cols-2 xl:grid-cols-4">
@@ -234,6 +340,9 @@ const TrendSignalSection = ({ stocks, growthPicks, dailyPicks }: TrendSignalSect
           sma20: 0,
           sma200: 0,
           volumeRatio: 1,
+          rsi14: 50,
+          macdHistogram: 0,
+          bollingerPosition: 0.5,
           score: 65 - index * 3,
           tags: ["解析中"],
           note: "チャートデータ取得後にシグナルを更新します。",
@@ -294,22 +403,36 @@ const TrendSignalSection = ({ stocks, growthPicks, dailyPicks }: TrendSignalSect
                     出来高 {signal.volumeRatio.toFixed(2)}倍
                   </div>
                 </div>
+                <div className="rounded border border-border bg-card px-2 py-1.5">
+                  <div className="flex items-center gap-1 text-xxs text-muted-foreground">
+                    <Gauge className="h-3 w-3" />
+                    RSI / MACD
+                  </div>
+                  <div className="mt-0.5 text-xs font-bold tabular-nums text-foreground">
+                    RSI {signal.rsi14.toFixed(1)}
+                  </div>
+                  <div className={`text-xxs ${signal.macdHistogram >= 0 ? "text-stock-up" : "text-stock-down"}`}>
+                    MACD {signal.macdHistogram >= 0 ? "+" : ""}{signal.macdHistogram.toFixed(2)}
+                  </div>
+                </div>
+                <div className="rounded border border-border bg-card px-2 py-1.5">
+                  <div className="flex items-center gap-1 text-xxs text-muted-foreground">
+                    <Gauge className="h-3 w-3" />
+                    BB位置
+                  </div>
+                  <div className="mt-0.5 text-xs font-bold tabular-nums text-foreground">
+                    {(signal.bollingerPosition * 100).toFixed(0)}%
+                  </div>
+                  <div className="text-xxs text-muted-foreground">
+                    20日 ±2σ
+                  </div>
+                </div>
               </div>
 
               <p className="rounded bg-muted/40 px-2 py-1.5 text-xs leading-relaxed text-foreground">
-                <span className="mr-1 font-bold text-primary">根拠</span>
                 {signal.note}
               </p>
-              <div className="mt-2 flex items-center justify-between border-t border-border pt-2 text-xxs text-muted-foreground">
-                <span className="inline-flex items-center gap-1">
-                  <Activity className="h-3 w-3" />
-                  価格・移動平均・出来高で判定
-                </span>
-                <span className="inline-flex items-center gap-0.5 font-semibold text-primary">
-                  <ChevronUp className="h-3 w-3" />
-                  監視
-                </span>
-              </div>
+
             </article>
           );
         })}

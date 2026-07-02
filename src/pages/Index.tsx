@@ -60,19 +60,19 @@ const Index = () => {
             title="📈 値上がりランキング"
             stocks={stockUniverse}
             type="gainers"
-            limit={5}
+            limit={10}
           />
           <StockRankingTable
             title="📉 値下がりランキング"
             stocks={stockUniverse}
             type="losers"
-            limit={5}
+            limit={10}
           />
           <StockRankingTable
             title="🔥 売買代金ランキング"
             stocks={stockUniverse}
             type="active"
-            limit={5}
+            limit={10}
           />
         </div>
 

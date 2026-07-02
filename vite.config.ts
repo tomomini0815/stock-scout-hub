@@ -1,7 +1,6 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
-import { componentTagger } from "lovable-tagger";
 
 const googleQuotes = [
   { name: "日経平均", path: "NI225:INDEXNIKKEI", ticker: "NI225", exchange: "INDEXNIKKEI" },
@@ -279,7 +278,7 @@ const parseYahooChart = async (symbol: string, range = "2y", interval = "1d") =>
       volume: Number(quote.volume?.[index] ?? 0),
     }))
     .filter((item) =>
-      [item.open, item.high, item.low, item.close].every(Number.isFinite)
+      [item.open, item.high, item.low, item.close].every((value) => Number.isFinite(value) && value > 0)
     )
     .slice(-520);
 
@@ -582,7 +581,7 @@ export default defineConfig(({ mode }) => ({
       },
     },
   },
-  plugins: [marketDataPlugin(), stockQuotePlugin(), stockChartPlugin(), newsSourcePlugin(), react(), mode === "development" && componentTagger()].filter(Boolean),
+  plugins: [marketDataPlugin(), stockQuotePlugin(), stockChartPlugin(), newsSourcePlugin(), react()],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

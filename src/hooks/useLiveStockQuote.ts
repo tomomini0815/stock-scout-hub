@@ -1,7 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { type StockData } from "@/data/stockData";
 
 export type LiveStockStatus = "loading" | "live" | "fallback";
+
+const STOCK_QUOTES_CACHE_KEY = "stock-scout-live-stock-quotes-v1";
+const STOCK_QUOTES_REFETCH_INTERVAL_MS = 3 * 60 * 1000;
+const STOCK_QUOTES_STALE_TIME_MS = 60 * 1000;
 
 interface LiveStockQuote {
   code: string;
@@ -19,6 +24,11 @@ interface LiveStockQuote {
 interface StockQuotePayload {
   quotes?: LiveStockQuote[];
   updatedAt?: string;
+}
+
+interface StockQuoteCache {
+  quotes: LiveStockQuote[];
+  updatedAt: string;
 }
 
 const isValidQuote = (quote: LiveStockQuote) =>
@@ -46,18 +56,65 @@ const fetchStockQuote = async (symbol: string) => {
   };
 };
 
+const loadCachedQuotes = () => {
+  try {
+    const raw = localStorage.getItem(STOCK_QUOTES_CACHE_KEY);
+    if (!raw) return undefined;
+    const parsed = JSON.parse(raw) as StockQuoteCache;
+    const quotes = parsed.quotes?.filter(isValidQuote) ?? [];
+    return quotes.length ? { quotes, updatedAt: parsed.updatedAt } : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
+const writeCachedQuotes = (quotes: LiveStockQuote[], updatedAt: string) => {
+  try {
+    const cached = loadCachedQuotes();
+    const merged = new Map(cached?.quotes.map((quote) => [quote.code, quote]) ?? []);
+    quotes.forEach((quote) => merged.set(quote.code, quote));
+    localStorage.setItem(
+      STOCK_QUOTES_CACHE_KEY,
+      JSON.stringify({
+        quotes: Array.from(merged.values()),
+        updatedAt,
+      } satisfies StockQuoteCache)
+    );
+  } catch {
+    // Local storage is an enhancement only.
+  }
+};
+
 export const useLiveStockQuote = (stock: StockData) => {
   const symbol = `${stock.code}.T`;
+  const cached = loadCachedQuotes();
+  const cachedQuote = cached?.quotes.find((quote) => quote.code === stock.code);
+  const initialData = cachedQuote
+    ? {
+        quote: cachedQuote,
+        updatedAt: cached?.updatedAt ?? "",
+      }
+    : undefined;
   const query = useQuery({
     queryKey: ["live-stock-quote", symbol],
     queryFn: () => fetchStockQuote(symbol),
-    refetchInterval: 5 * 60 * 1000,
-    staleTime: 2 * 60 * 1000,
+    initialData,
+    initialDataUpdatedAt: initialData?.updatedAt ? Date.parse(initialData.updatedAt) || 0 : undefined,
+    refetchOnMount: "always",
+    refetchInterval: STOCK_QUOTES_REFETCH_INTERVAL_MS,
+    staleTime: STOCK_QUOTES_STALE_TIME_MS,
     retry: 1,
   });
 
   const liveQuote = query.data?.quote;
   const hasLiveData = Boolean(liveQuote);
+
+  useEffect(() => {
+    if (query.data?.quote) {
+      writeCachedQuotes([query.data.quote], query.data.updatedAt);
+    }
+  }, [query.data]);
+
   const displayStock: StockData = hasLiveData
     ? {
         ...stock,
@@ -125,14 +182,32 @@ const fetchStockQuotes = async (symbols: string[]) => {
 
 export const useLiveStockQuotes = (stocks: StockData[]) => {
   const symbols = stocks.map((stock) => `${stock.code}.T`);
+  const stockCodes = new Set(stocks.map((stock) => stock.code));
+  const cached = loadCachedQuotes();
+  const cachedQuotes = cached?.quotes.filter((quote) => stockCodes.has(quote.code)) ?? [];
+  const initialData = cachedQuotes.length
+    ? {
+        quotes: cachedQuotes,
+        updatedAt: cached?.updatedAt ?? "",
+      }
+    : undefined;
   const query = useQuery({
     queryKey: ["live-stock-quotes", symbols],
     queryFn: () => fetchStockQuotes(symbols),
     enabled: symbols.length > 0,
-    refetchInterval: 5 * 60 * 1000,
-    staleTime: 2 * 60 * 1000,
+    initialData,
+    initialDataUpdatedAt: initialData?.updatedAt ? Date.parse(initialData.updatedAt) || 0 : undefined,
+    refetchOnMount: "always",
+    refetchInterval: STOCK_QUOTES_REFETCH_INTERVAL_MS,
+    staleTime: STOCK_QUOTES_STALE_TIME_MS,
     retry: 1,
   });
+
+  useEffect(() => {
+    if (query.data?.quotes?.length) {
+      writeCachedQuotes(query.data.quotes, query.data.updatedAt);
+    }
+  }, [query.data]);
 
   const liveByCode = new Map(
     query.data?.quotes.map((quote) => [quote.code, quote]) ?? []

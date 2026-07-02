@@ -94,18 +94,9 @@ const ScreeningPage = () => {
           </div>
           <div className="mt-3 flex items-center gap-2 text-xxs font-semibold text-muted-foreground">
             <Search className="h-3 w-3" />
-            <span
-              className={`rounded px-1.5 py-0.5 ${
-                status === "live"
-                  ? "bg-stock-up-bg text-stock-up"
-                  : status === "loading"
-                  ? "bg-muted text-muted-foreground"
-                  : "bg-stock-down-bg text-stock-down"
-              }`}
-            >
-              {status === "live" ? "LIVE" : status === "loading" ? "取得中" : "固定値"}
+            <span className="rounded bg-muted px-1.5 py-0.5 text-muted-foreground">
+              {updatedLabel ? `更新 ${updatedLabel}` : status === "loading" ? "取得中" : "更新確認中"}
             </span>
-            {updatedLabel && <span>更新 {updatedLabel}</span>}
           </div>
           <div className="mt-2 flex items-center gap-1.5 text-xxs text-muted-foreground">
             <Search className="h-3 w-3" />

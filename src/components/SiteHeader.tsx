@@ -1,4 +1,4 @@
-import { Search } from "lucide-react";
+import { Info, RefreshCw, Search } from "lucide-react";
 import { type FormEvent } from "react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
@@ -9,12 +9,11 @@ interface SiteHeaderProps {
 
 const navItems = [
   { label: "トップ", path: "/" },
-  { label: "市況", path: "/market" },
+  { label: "市況・スクリーニング", path: "/market" },
   { label: "銘柄・チャート", path: "/chart" },
+  { label: "テーマ別", path: "/themes" },
   { label: "ランキング", path: "/ranking" },
   { label: "決算・IPO", path: "/earnings" },
-  { label: "テーマ", path: "/themes" },
-  { label: "スクリーニング", path: "/screening" },
   { label: "ニュース", path: "/news" },
 ];
 
@@ -33,6 +32,9 @@ const SiteHeader = ({ activeTab = "トップ" }: SiteHeaderProps) => {
     const query = searchQuery.trim();
     if (!query) return;
     navigate(`/chart?q=${encodeURIComponent(query)}`);
+  };
+  const handleManualRefresh = () => {
+    window.location.reload();
   };
 
   return (
@@ -75,8 +77,8 @@ const SiteHeader = ({ activeTab = "トップ" }: SiteHeaderProps) => {
 
       {/* Navigation bar */}
       <nav className="bg-nav-bg">
-        <div className="container mx-auto px-4">
-          <ul className="flex items-center gap-0 overflow-x-auto text-xs">
+        <div className="container mx-auto flex items-center gap-3 px-4">
+          <ul className="flex min-w-0 flex-1 items-center gap-0 overflow-x-auto text-xs">
             {navItems.map((item) => (
               <li key={item.label}>
                 <Link
@@ -92,6 +94,19 @@ const SiteHeader = ({ activeTab = "トップ" }: SiteHeaderProps) => {
               </li>
             ))}
           </ul>
+          <div className="hidden shrink-0 items-center gap-1.5 text-xxs font-medium text-nav-foreground/70 lg:flex">
+            <Info className="h-3 w-3 text-header-accent" />
+            <span>市況・株価・チャートは約5分更新</span>
+            <button
+              type="button"
+              onClick={handleManualRefresh}
+              className="ml-1 inline-flex h-6 items-center gap-1 rounded border border-nav-foreground/20 bg-nav-hover px-2 text-xxs font-semibold text-nav-foreground transition-colors hover:border-header-accent hover:text-header-accent"
+              title="ページを再読み込みして最新データを取得"
+            >
+              <RefreshCw className="h-3 w-3" />
+              手動更新
+            </button>
+          </div>
         </div>
       </nav>
     </header>

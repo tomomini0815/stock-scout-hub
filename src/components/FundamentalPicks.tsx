@@ -1,8 +1,9 @@
 import { AlertTriangle, BarChart3, CheckCircle2, ChevronDown, ExternalLink, Info, Target } from "lucide-react";
-import { useState } from "react";
-import { type FundamentalPick } from "@/data/stockData";
+import { useMemo, useState } from "react";
+import { type FundamentalPick, type StockData } from "@/data/stockData";
 import RealStockChart from "@/components/RealStockChart";
 import { useLiveNewsSearch } from "@/hooks/useLiveNewsSearch";
+import { useLiveStockQuotes } from "@/hooks/useLiveStockQuote";
 
 interface FundamentalPicksProps {
   picks: FundamentalPick[];
@@ -44,6 +45,28 @@ const FundamentalPicks = ({
     query: newsQuery,
     limit: 12,
   });
+  const quoteRequestStocks = useMemo<StockData[]>(
+    () =>
+      picks.map((pick) => ({
+        code: pick.code,
+        name: pick.name,
+        market: pick.market,
+        price: 0,
+        change: 0,
+        changePercent: 0,
+        volume: 0,
+        open: 0,
+        high: 0,
+        low: 0,
+        previousClose: 0,
+      })),
+    [picks]
+  );
+  const { stocks: livePickStocks, updatedAt: livePickUpdatedAt } = useLiveStockQuotes(quoteRequestStocks);
+  const livePickByCode = useMemo(
+    () => new Map(livePickStocks.filter((stock) => stock.price > 0).map((stock) => [stock.code, stock])),
+    [livePickStocks]
+  );
 
   const visiblePicks = expanded ? picks : picks.slice(0, initialCount);
   const handleToggleExpanded = () => {
@@ -80,16 +103,8 @@ const FundamentalPicks = ({
         </div>
         <div className="flex items-center gap-2 text-xxs text-muted-foreground">
           <span>{updatedAt || picks[0]?.updatedAt}更新・{note}</span>
-          <span
-            className={`rounded px-1.5 py-0.5 font-bold ${
-              status === "live"
-                ? "bg-stock-up-bg text-stock-up"
-                : status === "loading"
-                ? "bg-muted text-muted-foreground"
-                : "bg-stock-down-bg text-stock-down"
-            }`}
-          >
-            {status === "live" ? "LIVE材料" : status === "loading" ? "材料取得中" : "固定根拠"}
+          <span className="rounded bg-muted px-1.5 py-0.5 font-bold text-muted-foreground">
+            {status === "loading" ? "材料取得中" : "材料更新済み"}
           </span>
         </div>
       </div>
@@ -97,6 +112,7 @@ const FundamentalPicks = ({
       <div className={compact ? "grid grid-cols-1 gap-2 p-2 md:grid-cols-2 xl:grid-cols-4" : "divide-y divide-border"}>
         {visiblePicks.map((pick) => {
           const relatedNews = news.filter((item) => item.title.includes(pick.name) || item.title.includes(pick.code)).slice(0, 2);
+          const livePick = livePickByCode.get(pick.code);
 
           return (
           <article key={pick.code} className={`flex flex-col ${compact ? "rounded border border-border bg-background p-2" : "p-3"}`}>
@@ -137,6 +153,8 @@ const FundamentalPicks = ({
                 name={pick.name}
                 chartSymbol={pick.chartSymbol}
                 chartApiSymbol={pick.chartApiSymbol}
+                currentPrice={livePick?.price}
+                currentPriceUpdatedAt={livePickUpdatedAt}
               />
             )}
 

@@ -320,7 +320,7 @@ const saveCachedTopNews = (columns: FeedColumn[]) => {
 };
 
 const statusLabel = (status: FeedStatus, hasItems: boolean) => {
-  if (status === "live") return "LIVE";
+  if (status === "live") return "更新済み";
   if (status === "loading") return "取得中";
   return hasItems ? "前回値" : "確認中";
 };
@@ -338,14 +338,12 @@ const categoryColors: Record<string, string> = {
 const NewsColumn = ({
   column,
   articleSummaries,
-  onWarmSummary,
 }: {
   column: FeedColumn;
   articleSummaries: Record<string, ArticleSummaryState>;
-  onWarmSummary: (item: NewsItem) => void;
 }) => (
-  <section className="flex min-h-[360px] flex-col rounded border border-border bg-card">
-    <div className="flex items-center justify-between border-b border-border bg-table-header-bg px-3 py-1.5">
+  <section className="flex flex-col bg-card">
+    <div className="flex items-center justify-between border-b border-border bg-muted/20 px-3 py-1.5">
       <div className="flex min-w-0 items-center gap-1.5">
         {column.id === "market" ? (
           <TrendingUp className="h-3.5 w-3.5 shrink-0 text-primary" />
@@ -379,14 +377,7 @@ const NewsColumn = ({
       )}
       {column.items.map((item) => {
         const articleState = item.url ? articleSummaries[item.url] : undefined;
-        const fallbackSummary = item.summary ?? buildNewsSummary(item.title, item.category, item.source ?? column.sourceLabel);
-        const visibleSummary = articleState?.summary ?? fallbackSummary;
-        const summaryLabel =
-          articleState?.status === "ready"
-            ? "記事本文から要約"
-            : articleState?.status === "loading"
-              ? "記事本文を確認中"
-              : "見出しベースの要約";
+        const visibleSummary = articleState?.summary ?? "記事本文要約を取得できませんでした。";
 
         return (
           <a
@@ -394,10 +385,8 @@ const NewsColumn = ({
             href={item.url}
             target="_blank"
             rel="noreferrer"
-            className="group relative block px-3 py-2 transition-colors hover:bg-muted/50"
+            className="block px-3 py-2.5 transition-colors hover:bg-muted/50"
             aria-label={`${item.title}。要約: ${visibleSummary}`}
-            onMouseEnter={() => onWarmSummary(item)}
-            onFocus={() => onWarmSummary(item)}
           >
             <div className="mb-1 flex items-center gap-1.5">
               <span className="shrink-0 tabular-nums text-xxs font-medium text-muted-foreground">
@@ -427,14 +416,12 @@ const NewsColumn = ({
             <div className="line-clamp-2 text-xs font-medium leading-relaxed text-foreground hover:text-primary">
               {item.title}
             </div>
-            <div className="mt-1 truncate text-xxs text-muted-foreground">{item.source}</div>
-            <div className="pointer-events-none absolute left-3 right-3 top-full z-30 mt-1 hidden rounded border border-border bg-popover p-3 text-xs leading-relaxed text-popover-foreground shadow-lg group-hover:block xl:w-[26rem] xl:max-w-[calc(100vw-2rem)]">
-              <div className="mb-1 flex items-center justify-between gap-2">
-                <span className="font-bold text-foreground">要約</span>
-                <span className="shrink-0 text-xxs font-medium text-muted-foreground">{summaryLabel}</span>
-              </div>
+            <div className="mt-1 text-xs leading-relaxed text-muted-foreground">
+              <span className="mr-1 text-xxs font-bold text-foreground">記事本文要約</span>
               {articleState?.status === "loading" ? (
                 <span className="text-muted-foreground">記事本文を取得して要約しています。</span>
+              ) : articleState?.status === "error" || !articleState ? (
+                <span className="text-muted-foreground">記事本文要約を取得できませんでした。</span>
               ) : (
                 visibleSummary
               )}
@@ -449,34 +436,12 @@ const NewsColumn = ({
 const NewsFeed = ({ news = [] }: NewsFeedProps) => {
   const [columns, setColumns] = useState<FeedColumn[]>(() => loadCachedTopNews() ?? emptyColumns(news));
   const [articleSummaries, setArticleSummaries] = useState<Record<string, ArticleSummaryState>>({});
-
-  const warmArticleSummary = (item: NewsItem) => {
-    if (!item.url || articleSummaries[item.url]) return;
-
-    setArticleSummaries((previous) => ({
-      ...previous,
-      [item.url]: { status: "loading" },
-    }));
-
-    fetch(`/api/article-summary?url=${encodeURIComponent(item.url)}`)
-      .then((response) => {
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        return response.json();
-      })
-      .then((payload) => {
-        const summary = typeof payload.summary === "string" ? payload.summary.trim() : "";
-        setArticleSummaries((previous) => ({
-          ...previous,
-          [item.url]: summary ? { status: "ready", summary } : { status: "error" },
-        }));
-      })
-      .catch(() => {
-        setArticleSummaries((previous) => ({
-          ...previous,
-          [item.url]: { status: "error" },
-        }));
-      });
-  };
+  const [activeColumnId, setActiveColumnId] = useState<FeedColumn["id"]>("yahoo");
+  const orderedColumns = [...columns].sort((a, b) => {
+    const order: Record<FeedColumn["id"], number> = { yahoo: 0, market: 1, gdelt: 2 };
+    return order[a.id] - order[b.id];
+  });
+  const activeColumn = columns.find((column) => column.id === activeColumnId) ?? orderedColumns[0] ?? columns[0];
 
   useEffect(() => {
     const controller = new AbortController();
@@ -567,16 +532,78 @@ const NewsFeed = ({ news = [] }: NewsFeedProps) => {
     };
   }, [news]);
 
+  useEffect(() => {
+    const targets = activeColumn.items.filter((item) => item.url && !articleSummaries[item.url]);
+    if (!targets.length) return;
+
+    setArticleSummaries((previous) => ({
+      ...previous,
+      ...Object.fromEntries(targets.map((item) => [item.url as string, { status: "loading" as const }])),
+    }));
+
+    targets.forEach((item) => {
+      fetch(`/api/article-summary?url=${encodeURIComponent(item.url as string)}`)
+        .then((response) => {
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          return response.json();
+        })
+        .then((payload) => {
+          const summary = typeof payload.summary === "string" ? payload.summary.trim() : "";
+          setArticleSummaries((previous) => ({
+            ...previous,
+            [item.url as string]: summary ? { status: "ready", summary } : { status: "error" },
+          }));
+        })
+        .catch(() => {
+          setArticleSummaries((previous) => ({
+            ...previous,
+            [item.url as string]: { status: "error" },
+          }));
+        });
+    });
+  }, [activeColumn]);
+
   return (
-    <div className="dashboard-news-grid">
-      {columns.map((column) => (
+    <div className="rounded border border-border bg-card">
+      <div className="flex items-center gap-1 overflow-x-auto border-b border-border bg-table-header-bg px-2 py-1.5">
+        {orderedColumns.map((column) => (
+          <button
+            key={column.id}
+            type="button"
+            onClick={() => setActiveColumnId(column.id)}
+            className={`inline-flex shrink-0 items-center gap-1.5 rounded px-2 py-1 text-xs font-bold transition-colors ${
+              activeColumn.id === column.id
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            }`}
+          >
+            {column.id === "market" ? (
+              <TrendingUp className="h-3.5 w-3.5" />
+            ) : column.id === "gdelt" ? (
+              <Radio className="h-3.5 w-3.5" />
+            ) : (
+              <Newspaper className="h-3.5 w-3.5" />
+            )}
+            {column.title}
+            <span
+              className={`rounded px-1 py-0 text-xxs ${
+                activeColumn.id === column.id
+                  ? "bg-primary-foreground/20 text-primary-foreground"
+                  : "bg-muted text-muted-foreground"
+              }`}
+            >
+              {column.items.length || statusLabel(column.status, false)}
+            </span>
+          </button>
+        ))}
+      </div>
+      <div className="p-2">
         <NewsColumn
-          key={column.id}
-          column={column}
+          key={activeColumn.id}
+          column={activeColumn}
           articleSummaries={articleSummaries}
-          onWarmSummary={warmArticleSummary}
         />
-      ))}
+      </div>
     </div>
   );
 };

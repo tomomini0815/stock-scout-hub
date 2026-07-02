@@ -12,6 +12,7 @@ import {
   CircleDollarSign,
   ExternalLink,
   FileText,
+  RefreshCw,
   Rocket,
   Search,
 } from "lucide-react";
@@ -77,7 +78,7 @@ const EarningsPage = () => {
   const [selectedType, setSelectedType] = useState<MaterialType | "すべて">("すべて");
   const [selectedSignal, setSelectedSignal] = useState<MaterialSignal | "すべて">("すべて");
   const [searchQuery, setSearchQuery] = useState("");
-  const { news, status, updatedAt } = useLiveNewsSearch({
+  const { news, status, updatedAt, refresh } = useLiveNewsSearch({
     query:
       "日本株 決算 業績 上方修正 下方修正 増配 自社株買い IPO 新規上場 上場承認 仮条件 公開価格 初値 when:30d",
     gdeltQuery:
@@ -167,29 +168,32 @@ const EarningsPage = () => {
             <div>
               <h3 className="text-xs font-bold text-foreground">タイトル一致ニュース</h3>
               <div className="mt-1 flex items-center gap-2 text-xxs font-semibold text-muted-foreground">
-                <span
-                  className={`rounded px-1.5 py-0.5 ${
-                    status === "live"
-                      ? "bg-stock-up-bg text-stock-up"
-                      : status === "loading"
-                      ? "bg-muted text-muted-foreground"
-                      : "bg-primary/10 text-primary"
-                  }`}
-                >
-                  {status === "live" ? "LIVE" : status === "loading" ? "取得中" : "代替取得"}
+                <span className="rounded bg-muted px-1.5 py-0.5 text-muted-foreground">
+                  {updatedAt ? `更新 ${updatedAt}` : status === "loading" ? "取得中" : "更新確認中"}
                 </span>
-                {updatedAt && <span>更新 {updatedAt}</span>}
+                <span>5分ごとに自動更新</span>
               </div>
             </div>
-            <div className="relative w-full lg:w-80">
-              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-              <input
-                type="search"
-                value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder="企業名・材料・媒体で検索"
-                className="h-8 w-full rounded border border-border bg-background pl-8 pr-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-              />
+            <div className="flex w-full flex-col gap-2 sm:flex-row lg:w-auto">
+              <button
+                type="button"
+                onClick={refresh}
+                disabled={status === "loading"}
+                className="inline-flex h-8 items-center justify-center gap-1 rounded border border-border bg-background px-2 text-xxs font-semibold text-foreground transition-colors hover:bg-muted/60 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${status === "loading" ? "animate-spin" : ""}`} />
+                更新
+              </button>
+              <div className="relative w-full lg:w-80">
+                <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  type="search"
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder="企業名・材料・媒体で検索"
+                  className="h-8 w-full rounded border border-border bg-background pl-8 pr-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
             </div>
           </div>
 

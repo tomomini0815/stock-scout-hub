@@ -7,6 +7,9 @@ interface RealStockChartProps {
   name: string;
   chartSymbol: string;
   chartApiSymbol: string;
+  currentPrice?: number;
+  currentPriceLabel?: string;
+  currentPriceUpdatedAt?: string;
 }
 
 type ChartState =
@@ -118,27 +121,43 @@ const buildLinePath = (
     return `${path} ${command}${xScale(index).toFixed(2)},${yScale(value as number).toFixed(2)}`.trim();
   }, "");
 
-const RealStockChart = ({ code, name, chartSymbol, chartApiSymbol }: RealStockChartProps) => {
+const isValidCurrentPrice = (value: number | undefined): value is number =>
+  typeof value === "number" && Number.isFinite(value) && value > 0;
+
+const RealStockChart = ({
+  code,
+  name,
+  chartSymbol,
+  chartApiSymbol,
+  currentPrice,
+  currentPriceLabel = "現在値",
+  currentPriceUpdatedAt,
+}: RealStockChartProps) => {
   const [state, setState] = useState<ChartState>({
     status: "loading",
     data: generateFallbackData(chartApiSymbol),
   });
 
   useEffect(() => {
-    const controller = new AbortController();
     let isActive = true;
-    const timeout = window.setTimeout(() => controller.abort(), 8000);
+    let controller: AbortController | null = null;
+    let timeoutId: number | undefined;
 
     const loadChart = async () => {
+      controller?.abort();
+      controller = new AbortController();
+      const requestController = controller;
+      const timeout = window.setTimeout(() => requestController.abort(), 8000);
+
       try {
         const endpoint = `/api/stock-chart?symbol=${encodeURIComponent(chartApiSymbol)}&range=2y&interval=1d`;
-        const response = await fetch(endpoint, { signal: controller.signal });
+        const response = await fetch(endpoint, { signal: requestController.signal });
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
         const payload = await response.json();
         const data = (payload?.candles ?? [])
           .filter((item: CandleData) =>
-            [item.open, item.high, item.low, item.close].every(Number.isFinite)
+            [item.open, item.high, item.low, item.close].every((value) => Number.isFinite(value) && value > 0)
           )
           .slice(-520);
 
@@ -152,22 +171,46 @@ const RealStockChart = ({ code, name, chartSymbol, chartApiSymbol }: RealStockCh
     };
 
     loadChart();
+    timeoutId = window.setInterval(loadChart, 5 * 60 * 1000);
+
     return () => {
       isActive = false;
-      window.clearTimeout(timeout);
-      controller.abort();
+      if (timeoutId) window.clearInterval(timeoutId);
+      controller?.abort();
     };
   }, [chartApiSymbol]);
 
+  const displayData = useMemo(() => {
+    if (!isValidCurrentPrice(currentPrice) || !state.data.length) return state.data;
+
+    const latest = state.data.at(-1);
+    if (!latest) return state.data;
+
+    return [
+      ...state.data.slice(0, -1),
+      {
+        ...latest,
+        close: currentPrice,
+        high: Math.max(latest.high, currentPrice),
+        low: Math.min(latest.low, currentPrice),
+      },
+    ];
+  }, [currentPrice, state.data]);
+
+  const latestWithAverage = useMemo(() => appendMovingAverages(displayData).at(-1), [displayData]);
+
   const chart = useMemo(() => {
-    const data = appendMovingAverages(state.data).slice(-120);
+    const data = appendMovingAverages(displayData).slice(-120);
     const width = 980;
     const height = 360;
     const padding = { top: 18, right: 58, bottom: 34, left: 8 };
     const volumeHeight = 62;
     const priceHeight = height - padding.top - padding.bottom - volumeHeight;
 
-    const prices = data.flatMap((item) => [item.high, item.low, item.sma20, item.sma200]).filter(Number.isFinite);
+    const currentPriceValue = isValidCurrentPrice(currentPrice) ? currentPrice : undefined;
+    const prices = data
+      .flatMap((item) => [item.high, item.low, item.sma20, item.sma200, currentPriceValue])
+      .filter(Number.isFinite);
     const priceMin = Math.min(...prices);
     const priceMax = Math.max(...prices);
     const pricePadding = Math.max(1, (priceMax - priceMin) * 0.035);
@@ -195,16 +238,25 @@ const RealStockChart = ({ code, name, chartSymbol, chartApiSymbol }: RealStockCh
       yScale,
       yMax,
       yMin,
+      currentPriceValue,
+      currentPriceY: currentPriceValue ? yScale(currentPriceValue) : undefined,
       sma20Path: buildLinePath(data, "sma20", xScale, yScale),
       sma200Path: buildLinePath(data, "sma200", xScale, yScale),
     };
-  }, [state.data]);
+  }, [currentPrice, displayData]);
 
-  const latest = state.data.at(-1);
-  const previous = state.data.at(-2);
-  const latestWithAverage = appendMovingAverages(state.data).at(-1);
+  const latest = displayData.at(-1);
+  const previous = displayData.at(-2);
   const change = latest && previous ? latest.close - previous.close : 0;
   const isUp = change >= 0;
+  const currentPriceUpdatedLabel = currentPriceUpdatedAt
+    ? new Intl.DateTimeFormat("ja-JP", {
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+      }).format(new Date(currentPriceUpdatedAt))
+    : "";
 
   return (
     <div className="mb-3 overflow-hidden rounded border border-border bg-background">
@@ -261,6 +313,13 @@ const RealStockChart = ({ code, name, chartSymbol, chartApiSymbol }: RealStockCh
               <span className="h-0.5 w-4 rounded bg-amber-500" />
               200SMA {latestWithAverage?.sma200?.toLocaleString(undefined, { maximumFractionDigits: 1 }) ?? "-"}
             </span>
+            {isValidCurrentPrice(currentPrice) && (
+              <span className="inline-flex items-center gap-1 text-blue-700">
+                <span className="h-0.5 w-4 rounded border-t border-dashed border-blue-600" />
+                {currentPriceLabel} {currentPrice.toLocaleString(undefined, { maximumFractionDigits: 1 })}
+                {currentPriceUpdatedLabel && <span className="font-normal text-muted-foreground">更新 {currentPriceUpdatedLabel}</span>}
+              </span>
+            )}
           </div>
 
           <div>
@@ -298,6 +357,27 @@ const RealStockChart = ({ code, name, chartSymbol, chartApiSymbol }: RealStockCh
                 className="stroke-border"
                 strokeWidth={0.5}
               />
+
+              {chart.currentPriceValue && chart.currentPriceY && (
+                <g>
+                  <line
+                    x1={chart.padding.left}
+                    x2={chart.width - chart.padding.right}
+                    y1={chart.currentPriceY}
+                    y2={chart.currentPriceY}
+                    stroke="rgb(37 99 235)"
+                    strokeDasharray="5,4"
+                    strokeWidth={1.2}
+                  />
+                  <text
+                    x={chart.width - chart.padding.right + 5}
+                    y={chart.currentPriceY - 3}
+                    className="fill-blue-700 text-[8px] font-bold"
+                  >
+                    {chart.currentPriceValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                  </text>
+                </g>
+              )}
 
               {chart.data.map((item, index) => {
                 const x = chart.xScale(index);

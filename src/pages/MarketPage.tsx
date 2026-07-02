@@ -6,6 +6,7 @@ import MarketOverview from "@/components/MarketOverview";
 import RealStockChart from "@/components/RealStockChart";
 import { Checkbox } from "@/components/ui/checkbox";
 import { marketIndices, nikkei225Stocks, type StockData } from "@/data/stockData";
+import { useLiveMarketData } from "@/hooks/useLiveMarketData";
 import { useLiveStockQuotes } from "@/hooks/useLiveStockQuote";
 import {
   addChartWatchlistStock,
@@ -104,6 +105,14 @@ const getNikkeiTheme = (code: string): NikkeiTheme =>
 
 const compareText = (a: string, b: string) => a.localeCompare(b, "ja-JP", { numeric: true });
 
+const parseNumericFilter = (value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  const parsed = Number(trimmed);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
 const getHeatmapTileClass = (changePercent: number) => {
   const magnitude = Math.abs(changePercent);
   const intensity = magnitude >= 3 ? "strong" : magnitude >= 1 ? "medium" : magnitude > 0 ? "soft" : "flat";
@@ -135,6 +144,10 @@ const MarketPage = () => {
   );
   const [selectedThemes, setSelectedThemes] = useState<NikkeiTheme[]>(nikkeiThemes);
   const [nikkeiSearchQuery, setNikkeiSearchQuery] = useState("");
+  const [nikkeiPriceMin, setNikkeiPriceMin] = useState("");
+  const [nikkeiPriceMax, setNikkeiPriceMax] = useState("");
+  const [nikkeiChangeMin, setNikkeiChangeMin] = useState("");
+  const [nikkeiVolumeMin, setNikkeiVolumeMin] = useState("");
   const [sortKey, setSortKey] = useState<NikkeiSortKey>("index");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const { stocks: liveSectors, status, updatedAt } = useLiveStockQuotes(sectorRepresentatives);
@@ -143,6 +156,8 @@ const MarketPage = () => {
     status: nikkei225Status,
     updatedAt: nikkei225UpdatedAt,
   } = useLiveStockQuotes(nikkei225Stocks);
+  const { indices: liveMarketIndices, updatedAt: marketUpdatedAt } = useLiveMarketData(marketIndices);
+  const liveNikkeiIndex = liveMarketIndices.find((index) => index.name === "日経平均");
   const updatedLabel = updatedAt
     ? new Intl.DateTimeFormat("ja-JP", {
         month: "2-digit",
@@ -188,6 +203,15 @@ const MarketPage = () => {
   const handleToggleAllThemes = () => {
     setSelectedThemes((current) => (current.length === nikkeiThemes.length ? [] : nikkeiThemes));
   };
+  const hasNikkeiScreeningFilters = Boolean(
+    nikkeiPriceMin.trim() || nikkeiPriceMax.trim() || nikkeiChangeMin.trim() || nikkeiVolumeMin.trim()
+  );
+  const handleClearNikkeiScreeningFilters = () => {
+    setNikkeiPriceMin("");
+    setNikkeiPriceMax("");
+    setNikkeiChangeMin("");
+    setNikkeiVolumeMin("");
+  };
   const handleSort = (nextKey: NikkeiSortKey) => {
     setSortKey((currentKey) => {
       if (currentKey === nextKey) {
@@ -202,6 +226,10 @@ const MarketPage = () => {
   const filteredNikkei225Stocks = useMemo<NikkeiStockItem[]>(() => {
     const activeThemes = new Set(selectedThemes);
     const normalizedQuery = nikkeiSearchQuery.trim().toLowerCase();
+    const priceMin = parseNumericFilter(nikkeiPriceMin);
+    const priceMax = parseNumericFilter(nikkeiPriceMax);
+    const changeMin = parseNumericFilter(nikkeiChangeMin);
+    const volumeMin = parseNumericFilter(nikkeiVolumeMin);
 
     return liveNikkei225Stocks
       .map((stock, index) => ({
@@ -215,8 +243,23 @@ const MarketPage = () => {
 
         return [item.stock.code, item.stock.name, item.theme]
           .some((value) => value.toLowerCase().includes(normalizedQuery));
+      })
+      .filter((item) => {
+        if (priceMin !== null && item.stock.price < priceMin) return false;
+        if (priceMax !== null && item.stock.price > priceMax) return false;
+        if (changeMin !== null && item.stock.changePercent < changeMin) return false;
+        if (volumeMin !== null && item.stock.volume < volumeMin * 10000) return false;
+        return true;
       });
-  }, [liveNikkei225Stocks, nikkeiSearchQuery, selectedThemes]);
+  }, [
+    liveNikkei225Stocks,
+    nikkeiChangeMin,
+    nikkeiPriceMax,
+    nikkeiPriceMin,
+    nikkeiSearchQuery,
+    nikkeiVolumeMin,
+    selectedThemes,
+  ]);
 
   const sortedNikkei225Stocks = useMemo(() => {
     const direction = sortDirection === "asc" ? 1 : -1;
@@ -275,7 +318,7 @@ const MarketPage = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <SiteHeader activeTab="市況" />
+      <SiteHeader activeTab="市況・スクリーニング" />
       <MarketTicker indices={marketIndices} />
 
       <main className="container mx-auto px-4 py-3">
@@ -294,6 +337,9 @@ const MarketPage = () => {
             name="日経平均株価"
             chartSymbol="NIKKEI:NI225"
             chartApiSymbol="^N225"
+            currentPrice={liveNikkeiIndex?.value}
+            currentPriceLabel="主要指数"
+            currentPriceUpdatedAt={marketUpdatedAt}
           />
         </div>
 
@@ -305,18 +351,9 @@ const MarketPage = () => {
                 業種代表銘柄の騰落率
               </h3>
               <div className="flex items-center gap-2 text-xxs font-semibold text-muted-foreground">
-                <span
-                  className={`rounded px-1.5 py-0.5 ${
-                    status === "live"
-                      ? "bg-stock-up-bg text-stock-up"
-                      : status === "loading"
-                      ? "bg-muted text-muted-foreground"
-                      : "bg-stock-down-bg text-stock-down"
-                  }`}
-                >
-                  {status === "live" ? "LIVE" : status === "loading" ? "取得中" : "固定値"}
+                <span className="rounded bg-muted px-1.5 py-0.5 text-muted-foreground">
+                  {updatedLabel ? `更新 ${updatedLabel}` : status === "loading" ? "取得中" : "更新確認中"}
                 </span>
-                {updatedLabel && <span>更新 {updatedLabel}</span>}
               </div>
             </div>
             <table className="w-full text-xs">
@@ -362,18 +399,9 @@ const MarketPage = () => {
                     </span>
                   </h3>
                   <div className="flex items-center gap-2 text-xxs font-semibold text-muted-foreground">
-                    <span
-                      className={`rounded px-1.5 py-0.5 ${
-                        nikkei225Status === "live"
-                          ? "bg-stock-up-bg text-stock-up"
-                          : nikkei225Status === "loading"
-                          ? "bg-muted text-muted-foreground"
-                          : "bg-stock-down-bg text-stock-down"
-                      }`}
-                    >
-                      {nikkei225Status === "live" ? "LIVE" : nikkei225Status === "loading" ? "取得中" : "固定値"}
+                    <span className="rounded bg-muted px-1.5 py-0.5 text-muted-foreground">
+                      {nikkei225UpdatedLabel ? `更新 ${nikkei225UpdatedLabel}` : nikkei225Status === "loading" ? "取得中" : "更新確認中"}
                     </span>
-                    {nikkei225UpdatedLabel && <span>更新 {nikkei225UpdatedLabel}</span>}
                   </div>
                 </div>
                 <div className="relative w-full lg:w-80">
@@ -406,6 +434,62 @@ const MarketPage = () => {
                     {theme}
                   </label>
                 ))}
+              </div>
+              <div className="mt-2 grid gap-2 border-t border-border/70 pt-2 sm:grid-cols-2 lg:grid-cols-[repeat(4,minmax(0,1fr))_auto]">
+                <label className="min-w-0">
+                  <span className="mb-1 block text-xxs font-semibold text-muted-foreground">株価下限</span>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    value={nikkeiPriceMin}
+                    onChange={(event) => setNikkeiPriceMin(event.target.value)}
+                    placeholder="例: 1000"
+                    className="h-8 w-full rounded border border-border bg-background px-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                </label>
+                <label className="min-w-0">
+                  <span className="mb-1 block text-xxs font-semibold text-muted-foreground">株価上限</span>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    value={nikkeiPriceMax}
+                    onChange={(event) => setNikkeiPriceMax(event.target.value)}
+                    placeholder="例: 10000"
+                    className="h-8 w-full rounded border border-border bg-background px-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                </label>
+                <label className="min-w-0">
+                  <span className="mb-1 block text-xxs font-semibold text-muted-foreground">騰落率下限</span>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    step="0.1"
+                    value={nikkeiChangeMin}
+                    onChange={(event) => setNikkeiChangeMin(event.target.value)}
+                    placeholder="例: 1.0%"
+                    className="h-8 w-full rounded border border-border bg-background px-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                </label>
+                <label className="min-w-0">
+                  <span className="mb-1 block text-xxs font-semibold text-muted-foreground">出来高下限</span>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    value={nikkeiVolumeMin}
+                    onChange={(event) => setNikkeiVolumeMin(event.target.value)}
+                    placeholder="万株 例: 100"
+                    className="h-8 w-full rounded border border-border bg-background px-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={handleClearNikkeiScreeningFilters}
+                  disabled={!hasNikkeiScreeningFilters}
+                  className="inline-flex h-8 items-center justify-center gap-1 self-end rounded border border-border bg-background px-2 text-xxs font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <X className="h-3 w-3" />
+                  条件クリア
+                </button>
               </div>
             </div>
             <div className="border-b border-border bg-background p-3">
@@ -478,7 +562,7 @@ const MarketPage = () => {
             <div className="max-h-[520px] overflow-auto">
               <table className="w-full text-xs">
                 <thead className="sticky top-0 z-10">
-                  <tr className="border-b border-border bg-muted">
+                  <tr className="border-b border-border bg-table-header-bg">
                     <th className="w-10 px-2 py-1.5 text-left">{renderSortHeader("index", "#")}</th>
                     <th className="px-2 py-1.5 text-left">{renderSortHeader("code", "コード")}</th>
                     <th className="px-2 py-1.5 text-left">{renderSortHeader("name", "銘柄名")}</th>

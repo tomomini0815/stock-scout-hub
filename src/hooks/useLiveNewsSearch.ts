@@ -161,6 +161,7 @@ export const useLiveNewsSearch = ({
   const [news, setNews] = useState<NewsItem[]>([]);
   const [status, setStatus] = useState<"loading" | "live" | "fallback">("fallback");
   const [updatedAt, setUpdatedAt] = useState("");
+  const [refreshTick, setRefreshTick] = useState(0);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -169,6 +170,7 @@ export const useLiveNewsSearch = ({
 
     const loadNews = async () => {
       try {
+        setStatus("loading");
         const fetchText = async (url: string) => {
           const response = await fetch(url, { signal: controller.signal });
           if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -239,14 +241,23 @@ export const useLiveNewsSearch = ({
               : result.news;
 
             if (relevantNews.length) {
-              mapped = relevantNews.slice(0, limit);
-              nextStatus = result.status;
-              break;
+              mapped = [...mapped, ...relevantNews];
+              if (result.status === "live") nextStatus = "live";
             }
           } catch {
             // Try the next source. Google News often rejects automated RSS requests.
           }
         }
+
+        const seen = new Set<string>();
+        mapped = mapped
+          .filter((item) => {
+            const key = item.url || `${item.title}-${item.source ?? ""}`;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          })
+          .slice(0, limit);
 
         if (!mapped.length) throw new Error("empty news");
         if (!isActive) return;
@@ -263,7 +274,6 @@ export const useLiveNewsSearch = ({
         );
       } catch {
         if (isActive) {
-          setNews([]);
           setStatus("fallback");
         }
       } finally {
@@ -277,7 +287,20 @@ export const useLiveNewsSearch = ({
       window.clearTimeout(timeout);
       controller.abort();
     };
-  }, [gdeltQuery, includeTdnet, limit, query, timespan, titlePattern]);
+  }, [gdeltQuery, includeTdnet, limit, query, refreshTick, timespan, titlePattern]);
 
-  return { news, status, updatedAt };
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      setRefreshTick((current) => current + 1);
+    }, 5 * 60 * 1000);
+
+    return () => window.clearInterval(interval);
+  }, []);
+
+  return {
+    news,
+    status,
+    updatedAt,
+    refresh: () => setRefreshTick((current) => current + 1),
+  };
 };

@@ -490,8 +490,8 @@ const NewsPage = () => {
         <div className="mb-3 rounded border border-border bg-card px-3 py-2">
           <div className="flex flex-wrap items-center gap-2 text-xs font-bold text-foreground">
             毎日最新ニュースを自動取得
-            <span className="rounded bg-primary px-2 py-0.5 text-xxs text-primary-foreground">
-              {status === "live" ? "LIVE" : status === "loading" ? "取得中" : status === "cached" ? "CACHE" : "FALLBACK"}
+            <span className="rounded bg-muted px-2 py-0.5 text-xxs text-muted-foreground">
+              {lastUpdated ? `更新 ${lastUpdated}` : status === "loading" ? "取得中" : status === "cached" ? "前回値" : "確認中"}
             </span>
           </div>
           <p className="mt-1 text-xxs leading-relaxed text-muted-foreground">

@@ -29,7 +29,7 @@ const ChartPage = () => {
       ),
     [watchlistStocks]
   );
-  const { stocks: liveChartStocks } = useLiveStockQuotes(mergedChartStocks);
+  const { stocks: liveChartStocks, updatedAt: liveChartUpdatedAt } = useLiveStockQuotes(mergedChartStocks);
   const selected =
     liveChartStocks.find((stock) => stock.code === selectedCode) ??
     mergedChartStocks.find((stock) => stock.code === selectedCode) ??
@@ -130,6 +130,8 @@ const ChartPage = () => {
               name={selected.name}
               chartSymbol={`TSE:${selected.code}`}
               chartApiSymbol={`${selected.code}.T`}
+              currentPrice={selected.price}
+              currentPriceUpdatedAt={liveChartUpdatedAt}
             />
 
             <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">

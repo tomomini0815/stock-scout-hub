@@ -135,18 +135,6 @@
 }
 
 @layer utilities {
-  .dashboard-news-grid {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 0.75rem;
-  }
-
-  @media (min-width: 768px) {
-    .dashboard-news-grid {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-  }
-
   .stock-up {
     color: hsl(var(--stock-up));
   }
