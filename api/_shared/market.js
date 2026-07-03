@@ -6,6 +6,17 @@ export const googleQuotes = [
   { name: "S&P500", path: ".INX:INDEXSP", ticker: ".INX", exchange: "INDEXSP" },
 ];
 
+export const tradingViewQuotes = [
+  { name: "日経平均", symbol: "TVC:NI225" },
+  { name: "TOPIX", symbol: "OSE:TOPIX1!" },
+  { name: "NYダウ", symbol: "DJ:DJI" },
+  { name: "NASDAQ", symbol: "NASDAQ:IXIC" },
+  { name: "S&P500", symbol: "SP:SPX" },
+  { name: "USD/JPY", symbol: "FX:USDJPY" },
+  { name: "GOLD", symbol: "TVC:GOLD" },
+  { name: "BTC/USDT", symbol: "BINANCE:BTCUSDT" },
+];
+
 export const marketFallbackIndices = [
   { name: "日経平均", value: 39098.68, change: 435.62, changePercent: 1.13 },
   { name: "TOPIX", value: 2768.54, change: 28.17, changePercent: 1.03 },
@@ -19,11 +30,11 @@ export const marketFallbackIndices = [
 
 const marketDisplayOrder = marketFallbackIndices.map((item) => item.name);
 
-export const fetchWithTimeout = async (url, timeoutMs = 4500) => {
+export const fetchWithTimeout = async (url, timeoutMs = 4500, init = {}) => {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    return await fetch(url, { signal: controller.signal });
+    return await fetch(url, { ...init, signal: controller.signal });
   } finally {
     clearTimeout(timeout);
   }
@@ -135,6 +146,47 @@ export const parseYahooMarketAsset = async (name, symbol) => {
         changePercent: quote.changePercent,
       }
     : null;
+};
+
+export const fetchTradingViewMarketIndices = async () => {
+  const response = await fetchWithTimeout(
+    "https://scanner.tradingview.com/global/scan",
+    7000,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        symbols: {
+          tickers: tradingViewQuotes.map((quote) => quote.symbol),
+          query: { types: [] },
+        },
+        columns: ["close", "change", "change_abs"],
+      }),
+    }
+  );
+  if (!response.ok) return [];
+
+  const payload = await response.json();
+  const rows = Array.isArray(payload?.data) ? payload.data : [];
+  const nameBySymbol = new Map(tradingViewQuotes.map((quote) => [quote.symbol, quote.name]));
+
+  return rows
+    .map((row) => {
+      const name = nameBySymbol.get(row?.s);
+      const [value, changePercent, change] = row?.d ?? [];
+      return name &&
+        [value, changePercent, change].every((item) => Number.isFinite(Number(item)))
+        ? {
+            name,
+            value: Number(value),
+            change: Number(change),
+            changePercent: Number(changePercent),
+          }
+        : null;
+    })
+    .filter(Boolean);
 };
 
 export const parseYahooChart = async (symbol, range = "2y", interval = "1d") => {

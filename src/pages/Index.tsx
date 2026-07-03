@@ -11,6 +11,7 @@ import {
   marketIndices,
   stockUniverse,
   fundamentalPicks,
+  undervaluedPicks,
   futureGrowthPicks,
 } from "@/data/stockData";
 
@@ -49,6 +50,18 @@ const Index = () => {
             title="今後の注目銘柄"
             badge="低〜中価格帯も重視"
             note="AI・半導体後工程・データセンター・通信/電力インフラを市場調査"
+            compact
+            initialCount={4}
+            defaultOpenChartCount={4}
+          />
+        </div>
+
+        <div>
+          <FundamentalPicks
+            picks={undervaluedPicks}
+            title="割安銘柄"
+            badge="低PER・低PBR・高還元"
+            note="割安性と財務健全性を複合評価"
             compact
             initialCount={4}
             defaultOpenChartCount={4}

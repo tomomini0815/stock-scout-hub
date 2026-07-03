@@ -249,15 +249,6 @@ const RealStockChart = ({
   const previous = displayData.at(-2);
   const change = latest && previous ? latest.close - previous.close : 0;
   const isUp = change >= 0;
-  const currentPriceUpdatedLabel = currentPriceUpdatedAt
-    ? new Intl.DateTimeFormat("ja-JP", {
-        month: "2-digit",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-      }).format(new Date(currentPriceUpdatedAt))
-    : "";
-
   return (
     <div className="mb-3 overflow-hidden rounded border border-border bg-background">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-2 py-1.5">
@@ -300,6 +291,11 @@ const RealStockChart = ({
                   {isUp ? "+" : ""}
                   {change.toFixed(1)}
                 </div>
+                {isValidCurrentPrice(currentPrice) && (
+                  <div className="text-[10px] font-semibold text-muted-foreground">
+                    {currentPriceLabel}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -317,7 +313,6 @@ const RealStockChart = ({
               <span className="inline-flex items-center gap-1 text-blue-700">
                 <span className="h-0.5 w-4 rounded border-t border-dashed border-blue-600" />
                 {currentPriceLabel} {currentPrice.toLocaleString(undefined, { maximumFractionDigits: 1 })}
-                {currentPriceUpdatedLabel && <span className="font-normal text-muted-foreground">更新 {currentPriceUpdatedLabel}</span>}
               </span>
             )}
           </div>

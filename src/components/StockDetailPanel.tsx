@@ -1,4 +1,5 @@
 import { type StockData } from "@/data/stockData";
+import { getStockProfile } from "@/data/stockProfiles";
 import { useLiveStockQuote } from "@/hooks/useLiveStockQuote";
 
 interface StockDetailPanelProps {
@@ -13,6 +14,7 @@ const StockDetailPanel = ({ stock }: StockDetailPanelProps) => {
   } = useLiveStockQuote(stock);
   const isUp = displayStock.change > 0;
   const isDown = displayStock.change < 0;
+  const profile = getStockProfile(displayStock.code, displayStock.name);
   const updatedLabel = updatedAt
     ? new Intl.DateTimeFormat("ja-JP", {
         month: "2-digit",
@@ -86,6 +88,39 @@ const StockDetailPanel = ({ stock }: StockDetailPanelProps) => {
             }`}
           >
             {isUp ? "▲ 上昇" : isDown ? "▼ 下落" : "― 変わらず"}
+          </div>
+        </div>
+
+        <div className="mb-3 rounded border border-border bg-background p-2 text-left">
+          <div className="mb-1 text-xs font-bold text-foreground">企業説明</div>
+          <p className="text-xs leading-relaxed text-foreground">{profile.description}</p>
+          <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-2">
+            <div>
+              <div className="mb-1 text-xxs font-bold text-muted-foreground">主な事業</div>
+              <ul className="space-y-0.5 text-xxs leading-relaxed text-foreground">
+                {profile.segments.map((segment) => (
+                  <li key={segment}>・{segment}</li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <div className="mb-1 text-xxs font-bold text-muted-foreground">見るポイント</div>
+              <ul className="space-y-0.5 text-xxs leading-relaxed text-foreground">
+                {profile.watchPoints.map((point) => (
+                  <li key={point}>・{point}</li>
+                ))}
+              </ul>
+            </div>
+          </div>
+          <div className="mt-2 flex flex-wrap gap-1">
+            {profile.features.map((feature) => (
+              <span
+                key={feature}
+                className="rounded border border-primary/20 bg-primary/5 px-1.5 py-0.5 text-xxs font-bold text-primary"
+              >
+                {feature}
+              </span>
+            ))}
           </div>
         </div>
 

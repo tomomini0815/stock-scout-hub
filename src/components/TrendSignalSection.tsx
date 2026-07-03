@@ -1,6 +1,7 @@
 import { Gauge, RadioTower, TrendingUp } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { type CandleData, type FundamentalPick, type StockData } from "@/data/stockData";
+import RealStockChart from "@/components/RealStockChart";
 
 interface TrendSignalSectionProps {
   stocks: StockData[];
@@ -258,6 +259,7 @@ const TrendSignalSection = ({ stocks, growthPicks, dailyPicks }: TrendSignalSect
   const [signals, setSignals] = useState<TrendSignal[]>([]);
   const [status, setStatus] = useState<"loading" | "live" | "fallback">("loading");
   const [updatedAt, setUpdatedAt] = useState("");
+  const [updatedAtIso, setUpdatedAtIso] = useState("");
 
   useEffect(() => {
     const controller = new AbortController();
@@ -285,6 +287,7 @@ const TrendSignalSection = ({ stocks, growthPicks, dailyPicks }: TrendSignalSect
           .slice(0, 4);
 
         if (!isActive) return;
+        const now = new Date();
         setSignals(nextSignals);
         setStatus(nextSignals.length ? "live" : "fallback");
         setUpdatedAt(
@@ -294,8 +297,9 @@ const TrendSignalSection = ({ stocks, growthPicks, dailyPicks }: TrendSignalSect
             day: "2-digit",
             hour: "2-digit",
             minute: "2-digit",
-          }).format(new Date())
+          }).format(now)
         );
+        setUpdatedAtIso(now.toISOString());
       } catch {
         if (isActive) setStatus("fallback");
       } finally {
@@ -433,6 +437,17 @@ const TrendSignalSection = ({ stocks, growthPicks, dailyPicks }: TrendSignalSect
                 {signal.note}
               </p>
 
+              <div className="mt-2">
+                <RealStockChart
+                  code={signal.code}
+                  name={signal.name}
+                  chartSymbol={`TSE:${signal.code}`}
+                  chartApiSymbol={`${signal.code}.T`}
+                  currentPrice={signal.close}
+                  currentPriceLabel="解析終値"
+                  currentPriceUpdatedAt={updatedAtIso}
+                />
+              </div>
             </article>
           );
         })}

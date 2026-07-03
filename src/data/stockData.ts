@@ -509,6 +509,133 @@ export const fundamentalPicks: FundamentalPick[] = [
   },
 ];
 
+export const undervaluedPicks: FundamentalPick[] = [
+  {
+    code: "8058",
+    name: "三菱商事",
+    market: "東証プライム",
+    chartSymbol: "TSE:8058",
+    chartApiSymbol: "8058.T",
+    recommendation: "買い候補",
+    score: 87,
+    updatedAt: "2026/06/29",
+    thesis:
+      "資源、非資源、金融、生活産業に収益源が分散した総合商社。PERとPBRが市場平均より低めに評価されやすい一方、累進配当と自社株買い余力が株価の下支えになりやすい。",
+    fundamentals: [
+      { label: "割安指標", value: "低PER圏", tone: "positive" },
+      { label: "PBR", value: "1倍台前半", tone: "positive" },
+      { label: "還元方針", value: "累進配当", tone: "positive" },
+      { label: "確認点", value: "資源価格・円相場", tone: "neutral" },
+    ],
+    reasons: [
+      "総合商社は景気敏感色があるため低めの評価倍率になりやすいが、事業分散とキャッシュ創出力が強い。",
+      "累進配当と自己株式取得の継続性が、割安修正のきっかけになりやすい。",
+      "資源価格だけでなく、非資源分野の利益成長が確認できる局面ではPBRの見直し余地がある。",
+    ],
+    risks: [
+      "資源価格の下落や円高で利益見通しが悪化しやすい。",
+      "商社株全体の人気が一巡すると、還元材料があっても評価倍率が伸びにくい。",
+    ],
+    source: {
+      label: "Mitsubishi Corporation IR",
+      url: "https://www.mitsubishicorp.com/jp/ja/ir/",
+    },
+  },
+  {
+    code: "8001",
+    name: "伊藤忠商事",
+    market: "東証プライム",
+    chartSymbol: "TSE:8001",
+    chartApiSymbol: "8001.T",
+    recommendation: "買い候補",
+    score: 85,
+    updatedAt: "2026/06/29",
+    thesis:
+      "非資源比率が高く、商社株の中でも利益の安定感が評価されやすい。絶対的なPERは極端に低くないが、ROE、配当成長、事業の質を合わせると質の高い割安候補として見やすい。",
+    fundamentals: [
+      { label: "割安指標", value: "利益成長対比", tone: "positive" },
+      { label: "収益性", value: "高ROE", tone: "positive" },
+      { label: "還元方針", value: "増配余地", tone: "positive" },
+      { label: "確認点", value: "消費・中国関連", tone: "neutral" },
+    ],
+    reasons: [
+      "非資源中心の収益構造により、資源市況だけに依存しにくい。",
+      "ROEが高い企業はPBRがやや高くても、利益成長と還元を合わせて割安と判断しやすい。",
+      "増配や自社株買いが継続する局面では、バリュエーションの下支えが効きやすい。",
+    ],
+    risks: [
+      "消費関連、中国関連ビジネスの鈍化が利益成長を抑える可能性。",
+      "すでに優良商社として評価されているため、純粋な低PBR株より値幅は限定されることがある。",
+    ],
+    source: {
+      label: "ITOCHU IR",
+      url: "https://www.itochu.co.jp/ja/ir/",
+    },
+  },
+  {
+    code: "8306",
+    name: "三菱UFJFG",
+    market: "東証プライム",
+    chartSymbol: "TSE:8306",
+    chartApiSymbol: "8306.T",
+    recommendation: "監視",
+    score: 83,
+    updatedAt: "2026/06/29",
+    thesis:
+      "銀行株はPBRが低めに残りやすいが、国内金利上昇局面では利ざや改善と資本効率改善が同時に意識される。大型金融株として流動性が高く、割安修正テーマに乗りやすい。",
+    fundamentals: [
+      { label: "PBR", value: "1倍未満圏", tone: "positive" },
+      { label: "金利感応度", value: "利ざや改善", tone: "positive" },
+      { label: "還元余力", value: "自社株買い", tone: "positive" },
+      { label: "確認点", value: "与信費用", tone: "neutral" },
+    ],
+    reasons: [
+      "国内金利の正常化は預貸金利ざやの改善につながりやすい。",
+      "PBR1倍割れ是正の流れでは、資本政策とROE改善が評価材料になりやすい。",
+      "メガバンクは売買代金が大きく、相場全体がバリュー株へ傾いた時に資金が入りやすい。",
+    ],
+    risks: [
+      "景気悪化時は与信費用の増加で利益が圧迫される可能性。",
+      "急な金利低下や金融不安が起きると、割安評価の修正が遅れやすい。",
+    ],
+    source: {
+      label: "MUFG Investor Relations",
+      url: "https://www.mufg.jp/ir/",
+    },
+  },
+  {
+    code: "9432",
+    name: "日本電信電話",
+    market: "東証プライム",
+    chartSymbol: "TSE:9432",
+    chartApiSymbol: "9432.T",
+    recommendation: "監視",
+    score: 81,
+    updatedAt: "2026/06/29",
+    thesis:
+      "通信インフラの安定収益と配当継続性を重視する割安候補。成長速度は高くないが、株価水準が低く、利回り、ディフェンシブ性、IOWNなどの長期材料を合わせて見たい。",
+    fundamentals: [
+      { label: "株価帯", value: "低価格帯", tone: "positive" },
+      { label: "配当", value: "安定還元", tone: "positive" },
+      { label: "収益基盤", value: "通信インフラ", tone: "positive" },
+      { label: "確認点", value: "規制・競争", tone: "neutral" },
+    ],
+    reasons: [
+      "通信インフラは景気変動の影響を受けにくく、下値耐性を評価しやすい。",
+      "低価格帯の大型株として、分散投資や積立的な買い需要を集めやすい。",
+      "成長株ではないため、配当と資本政策が評価修正の主な材料になる。",
+    ],
+    risks: [
+      "通信料金の競争や規制強化で利益成長が鈍る可能性。",
+      "大型ディフェンシブ株のため、強い上昇相場では相対的に出遅れることがある。",
+    ],
+    source: {
+      label: "NTT Investor Relations",
+      url: "https://group.ntt/en/ir/",
+    },
+  },
+];
+
 export const futureGrowthPicks: FundamentalPick[] = [
   {
     code: "6857",

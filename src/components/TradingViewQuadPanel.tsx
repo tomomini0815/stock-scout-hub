@@ -76,7 +76,14 @@ const createTradingViewWidget = (
     hide_legend: !showIndicatorLegend,
     save_image: false,
     allow_symbol_change: false,
+    enabled_features: ["countdown"],
+    disabled_features: [],
     container_id: containerId,
+    overrides: {
+      "mainSeriesProperties.showPriceLine": true,
+      "mainSeriesProperties.showCountdown": true,
+      "scalesProperties.showSeriesLastValue": true,
+    },
     studies: ["MASimple@tv-basicstudies", "BB@tv-basicstudies"],
     studies_overrides: {
       "moving average.length": 200,

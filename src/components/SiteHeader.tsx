@@ -96,7 +96,7 @@ const SiteHeader = ({ activeTab = "トップ" }: SiteHeaderProps) => {
           </ul>
           <div className="hidden shrink-0 items-center gap-1.5 text-xxs font-medium text-nav-foreground/70 lg:flex">
             <Info className="h-3 w-3 text-header-accent" />
-            <span>市況・株価・チャートは約5分更新</span>
+            <span>LIVE以外は約5分更新</span>
             <button
               type="button"
               onClick={handleManualRefresh}
