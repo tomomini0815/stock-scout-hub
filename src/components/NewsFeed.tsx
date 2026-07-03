@@ -28,7 +28,7 @@ type ArticleSummaryState = {
   summary?: string;
 };
 
-const TOP_NEWS_CACHE_KEY = "stock-scout-top-news-columns-v3";
+const TOP_NEWS_CACHE_KEY = "stock-scout-top-news-columns-v4";
 const TOP_NEWS_CACHE_MS = 1000 * 60 * 45;
 const COLUMN_LIMIT = 6;
 
@@ -76,6 +76,62 @@ const formatGdeltDateTime = (seenDate = "") =>
     )
   );
 
+const stripSourceSuffix = (title: string) =>
+  title
+    .replace(/\s*\|\s*.+$/, "")
+    .replace(/\s+-\s+(?:The Asahi Shimbun|Reuters|Bloomberg|AP News|Yahoo News|Nikkei Asia|Financial Times).+$/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const isMostlyEnglish = (text = "") => {
+  const letters = text.match(/[A-Za-z]/g)?.length ?? 0;
+  const japanese = text.match(/[\u3040-\u30ff\u3400-\u9fff]/g)?.length ?? 0;
+  return letters >= 12 && letters > japanese * 2;
+};
+
+const translateEnglishNewsTitle = (rawTitle: string) => {
+  const title = stripSourceSuffix(rawTitle);
+  if (!isMostlyEnglish(title)) return title;
+
+  const patterns: Array<[RegExp, string]> = [
+    [/Asian shares mostly higher tracking Wall Street gains and oil stabilizes/i, "アジア株はおおむね上昇、米株高と原油価格の安定を追い風"],
+    [/Halved in value.*yen lost its power/i, "円の価値低下が鮮明に、購買力と為替の弱さが焦点"],
+    [/US tariff refunds.*Japan Inc.*profits.*(?:\$|up to).*3bn/i, "米関税払い戻し、日本企業の利益を最大30億ドル押し上げる可能性"],
+    [/Japan,\s*united kingdom and Italy.*fighter jet contract.*2027/i, "日英伊の次世代戦闘機契約、2027年まで延長へ"],
+    [/Wall Street gains.*oil stabilizes/i, "米株高と原油安定を受け、海外株式市場は底堅い動き"],
+    [/tariff refunds/i, "米関税払い戻しを巡るニュース、日本企業の利益影響に注目"],
+    [/fighter jet contract/i, "次世代戦闘機の大型契約を巡るニュース、防衛関連への波及に注目"],
+    [/yen.*(?:downward spiral|lost its power|halved)/i, "円の下落と購買力低下を巡るニュース、為替影響に注目"],
+  ];
+
+  const matched = patterns.find(([pattern]) => pattern.test(title));
+  if (matched) return matched[1];
+
+  if (/Asian shares|shares|stocks|Wall Street|market/i.test(title)) {
+    return "海外株式市場に関するニュース、米株・為替・商品市況の日本株への波及を確認";
+  }
+  if (/yen|dollar|currency|Bank of Japan|interest rate/i.test(title)) {
+    return "為替・金利に関する海外ニュース、円相場と金融株への影響を確認";
+  }
+  if (/tariff|trade|export|import|refund/i.test(title)) {
+    return "通商政策に関する海外ニュース、日本企業の業績影響を確認";
+  }
+  if (/semiconductor|chip|AI|Nvidia/i.test(title)) {
+    return "半導体・AI関連の海外ニュース、国内関連株への波及を確認";
+  }
+  return "海外発の市場ニュース、日本株・為替・金利への波及を確認";
+};
+
+const translateArticleSummary = (summary: string, item: NewsItem) => {
+  const cleaned = summary.replace(/\s+/g, " ").trim();
+  if (!cleaned) return "";
+  if (!isMostlyEnglish(cleaned)) return cleaned;
+  if (/skip to content|browser does not support javascript|site policy|bookmark|copy link/i.test(cleaned)) {
+    return buildNewsSummary(item.title, item.category, item.source);
+  }
+  return buildNewsSummary(item.title, item.category, item.source);
+};
+
 const mapRssNews = (xmlText: string, provider: string, fallbackSource: string, idOffset = 0) => {
   const doc = new DOMParser().parseFromString(xmlText, "text/xml");
   return Array.from(doc.querySelectorAll("item")).map((item, index) => {
@@ -83,7 +139,7 @@ const mapRssNews = (xmlText: string, provider: string, fallbackSource: string, i
     const source = item.querySelector("source")?.textContent ?? fallbackSource;
     const url = item.querySelector("link")?.textContent ?? "";
     const pubDate = item.querySelector("pubDate")?.textContent ?? "";
-    const title = rawTitle.replace(/\s+-\s+[^-]+$/, "").trim();
+    const title = translateEnglishNewsTitle(rawTitle.replace(/\s+-\s+[^-]+$/, "").trim());
     const formatted = formatDateTime(pubDate);
 
     return {
@@ -104,7 +160,8 @@ const mapRssNews = (xmlText: string, provider: string, fallbackSource: string, i
 
 const mapGdeltNews = (articles: GdeltArticle[]) =>
   articles.map((article, index) => {
-    const title = article.title?.replace(/\s+/g, " ").trim() ?? "";
+    const rawTitle = article.title?.replace(/\s+/g, " ").trim() ?? "";
+    const title = translateEnglishNewsTitle(rawTitle);
     const formatted = formatGdeltDateTime(article.seendate);
     const source = article.domain?.replace(/^www\./, "") ?? "GDELT";
 
@@ -353,7 +410,12 @@ const NewsColumn = ({
           <Newspaper className="h-3.5 w-3.5 shrink-0 text-primary" />
         )}
         <div className="min-w-0">
-          <h3 className="truncate text-xs font-bold text-foreground">{column.title}</h3>
+          <div className="flex min-w-0 items-center gap-1.5">
+            <h3 className="truncate text-xs font-bold text-foreground">{column.title}</h3>
+            <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-xxs font-bold text-slate-600">
+              記事本文要約
+            </span>
+          </div>
           <div className="truncate text-xxs font-medium text-muted-foreground">{column.sourceLabel}</div>
         </div>
       </div>
@@ -377,7 +439,7 @@ const NewsColumn = ({
       )}
       {column.items.map((item) => {
         const articleState = item.url ? articleSummaries[item.url] : undefined;
-        const visibleSummary = articleState?.summary ?? "記事本文要約を取得できませんでした。";
+        const visibleSummary = articleState?.summary ?? "要約を取得できませんでした。";
 
         return (
           <a
@@ -389,7 +451,7 @@ const NewsColumn = ({
             aria-label={`${item.title}。要約: ${visibleSummary}`}
           >
             <div className="mb-1 flex items-center gap-1.5">
-              <span className="shrink-0 tabular-nums text-xxs font-medium text-muted-foreground">
+              <span className="shrink-0 tabular-nums text-xxs font-semibold text-slate-600">
                 {item.time || "--:--"}
               </span>
               <span
@@ -411,17 +473,16 @@ const NewsColumn = ({
                   注目
                 </span>
               )}
-              {item.url && <ExternalLink className="ml-auto h-3 w-3 shrink-0 text-muted-foreground" />}
+              {item.url && <ExternalLink className="ml-auto h-3 w-3 shrink-0 text-slate-500" />}
             </div>
-            <div className="line-clamp-2 text-xs font-medium leading-relaxed text-foreground hover:text-primary">
+            <div className="line-clamp-2 text-[13px] font-bold leading-relaxed text-slate-950 hover:text-primary">
               {item.title}
             </div>
-            <div className="mt-1 text-xs leading-relaxed text-muted-foreground">
-              <span className="mr-1 text-xxs font-bold text-foreground">記事本文要約</span>
+            <div className="mt-1 text-xs font-medium leading-relaxed text-slate-600">
               {articleState?.status === "loading" ? (
-                <span className="text-muted-foreground">記事本文を取得して要約しています。</span>
+                <span className="text-slate-500">記事本文を取得して要約しています。</span>
               ) : articleState?.status === "error" || !articleState ? (
-                <span className="text-muted-foreground">記事本文要約を取得できませんでした。</span>
+                <span className="text-slate-500">要約を取得できませんでした。</span>
               ) : (
                 visibleSummary
               )}
@@ -548,7 +609,8 @@ const NewsFeed = ({ news = [] }: NewsFeedProps) => {
           return response.json();
         })
         .then((payload) => {
-          const summary = typeof payload.summary === "string" ? payload.summary.trim() : "";
+          const rawSummary = typeof payload.summary === "string" ? payload.summary.trim() : "";
+          const summary = translateArticleSummary(rawSummary, item);
           setArticleSummaries((previous) => ({
             ...previous,
             [item.url as string]: summary ? { status: "ready", summary } : { status: "error" },

@@ -580,10 +580,13 @@ const NewsPage = () => {
 
         {/* News List */}
         <div className="rounded border border-border bg-card">
-          <div className="border-b border-border bg-table-header-bg px-3 py-1.5">
-            <h3 className="text-xs font-bold text-foreground">
+          <div className="flex items-center justify-between gap-2 border-b border-border bg-table-header-bg px-3 py-1.5">
+            <h3 className="min-w-0 truncate text-xs font-bold text-foreground">
               {selectedCategory === "すべて" ? "最新ニュース" : `${selectedCategory}ニュース`}（{filtered.length}件）
             </h3>
+            <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-xxs font-bold text-slate-600">
+              記事本文要約
+            </span>
           </div>
           <div className="divide-y divide-border">
             {filtered.map((item) => {
@@ -611,13 +614,12 @@ const NewsPage = () => {
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-start gap-1">
-                          <span className="text-xs font-bold leading-relaxed text-foreground hover:text-primary">
+                          <span className="text-xs font-semibold leading-relaxed text-foreground hover:text-primary">
                             {item.title}
                           </span>
                           <ExternalLink className="mt-0.5 h-3 w-3 shrink-0 text-muted-foreground" />
                         </div>
                         <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                          <span className="mr-1 text-xxs font-bold text-foreground">記事本文要約</span>
                           {articleState?.status === "loading"
                             ? "記事本文を取得して要約しています。"
                             : articleState?.status === "ready"

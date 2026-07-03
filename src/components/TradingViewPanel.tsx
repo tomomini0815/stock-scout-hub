@@ -32,20 +32,7 @@ const TradingViewPanel = ({ stock }: TradingViewPanelProps) => {
         </a>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 p-3 lg:grid-cols-3">
-        <div className="min-h-[150px] overflow-hidden rounded border border-border bg-background">
-          <TradingViewWidget
-            scriptSrc="https://s3.tradingview.com/external-embedding/embed-widget-symbol-info.js"
-            className="min-h-[260px]"
-            config={{
-              symbol,
-              width: "100%",
-              locale: "ja",
-              colorTheme: "light",
-              isTransparent: true,
-            }}
-          />
-        </div>
+      <div className="grid grid-cols-1 gap-3 p-3 lg:grid-cols-2">
         <div className="min-h-[360px]">
           <ShikihoStyleAnalysis stock={stock} embedded />
         </div>
@@ -66,7 +53,7 @@ const TradingViewPanel = ({ stock }: TradingViewPanelProps) => {
             }}
           />
         </div>
-        <div className="min-h-[560px] overflow-hidden rounded border border-border bg-background lg:col-span-3">
+        <div className="min-h-[560px] overflow-hidden rounded border border-border bg-background lg:col-span-2">
           <TradingViewWidget
             scriptSrc="https://s3.tradingview.com/external-embedding/embed-widget-financials.js"
             className="min-h-[260px]"

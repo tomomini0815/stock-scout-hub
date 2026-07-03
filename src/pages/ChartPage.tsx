@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
@@ -22,6 +22,7 @@ const ChartPage = () => {
   const [selectedCode, setSelectedCode] = useState(featuredStock.code);
   const [searchQuery, setSearchQuery] = useState(queryFromUrl);
   const [watchlistStocks, setWatchlistStocks] = useState(() => readChartWatchlist());
+  const detailSectionRef = useRef<HTMLDivElement | null>(null);
   const mergedChartStocks = useMemo(
     () =>
       [...chartStocks, ...watchlistStocks].filter(
@@ -62,6 +63,18 @@ const ChartPage = () => {
     setSelectedCode(filteredStocks[0].code);
   }, [filteredStocks, searchQuery, selectedCode]);
 
+  const handleSelectStock = (code: string) => {
+    setSelectedCode(code);
+    if (!window.matchMedia("(max-width: 1023px)").matches) return;
+
+    window.setTimeout(() => {
+      detailSectionRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, 80);
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <SiteHeader activeTab="銘柄・チャート" />
@@ -99,7 +112,7 @@ const ChartPage = () => {
                   return (
                     <button
                       key={stock.code}
-                      onClick={() => setSelectedCode(stock.code)}
+                      onClick={() => handleSelectStock(stock.code)}
                       className={`w-full border-b border-border px-3 py-2 text-left transition-colors hover:bg-muted/50 ${
                         stock.code === selected.code ? "bg-primary/5 border-l-2 border-l-primary" : ""
                       }`}
@@ -134,11 +147,12 @@ const ChartPage = () => {
               currentPriceUpdatedAt={liveChartUpdatedAt}
             />
 
-            <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
+            <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-5">
               {[
                 { label: "始値", value: selected.open.toLocaleString() },
                 { label: "高値", value: selected.high.toLocaleString() },
                 { label: "安値", value: selected.low.toLocaleString() },
+                { label: "前日終値", value: selected.previousClose.toLocaleString() },
                 { label: "出来高", value: selected.volume.toLocaleString() + "株" },
               ].map((item) => (
                 <div key={item.label} className="rounded border border-border bg-card p-2 text-center">
@@ -148,7 +162,7 @@ const ChartPage = () => {
               ))}
             </div>
 
-            <div className="mt-3">
+            <div ref={detailSectionRef} className="mt-3 scroll-mt-24">
               <StockDetailPanel stock={selected} />
             </div>
 

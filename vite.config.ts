@@ -344,6 +344,85 @@ const parseYahooChart = async (symbol: string, range = "2y", interval = "1d") =>
     : null;
 };
 
+const readRawMetric = (value) => {
+  if (Number.isFinite(value?.raw)) return Number(value.raw);
+  if (Number.isFinite(value)) return Number(value);
+  return null;
+};
+
+const toPercentMetric = (value) => {
+  if (!Number.isFinite(value)) return null;
+  return Math.abs(value) <= 1 ? value * 100 : value;
+};
+
+const parseQuoteSummaryMetrics = (payload, symbol: string) => {
+  const result = payload?.quoteSummary?.result?.[0];
+  if (!result) return null;
+
+  const summaryDetail = result.summaryDetail ?? {};
+  const keyStats = result.defaultKeyStatistics ?? {};
+  const financialData = result.financialData ?? {};
+  const assetProfile = result.assetProfile ?? {};
+  const per = readRawMetric(summaryDetail.trailingPE) ?? readRawMetric(keyStats.trailingPE) ?? readRawMetric(summaryDetail.forwardPE);
+  const pbr = readRawMetric(keyStats.priceToBook);
+  const dividendYield = toPercentMetric(readRawMetric(summaryDetail.dividendYield));
+  const roe = toPercentMetric(readRawMetric(financialData.returnOnEquity));
+  const marketCap = readRawMetric(summaryDetail.marketCap) ?? readRawMetric(keyStats.marketCap);
+  const enterpriseValue = readRawMetric(keyStats.enterpriseValue);
+  const employees = readRawMetric(assetProfile.fullTimeEmployees);
+
+  return {
+    code: symbol.replace(".T", ""),
+    symbol,
+    per,
+    pbr,
+    dividendYield,
+    roe,
+    marketCap,
+    enterpriseValue,
+    employees,
+  };
+};
+
+const parseQuoteMetrics = (payload, symbol: string) => {
+  const quote = payload?.quoteResponse?.result?.[0];
+  if (!quote) return null;
+
+  return {
+    code: symbol.replace(".T", ""),
+    symbol,
+    per: Number.isFinite(quote.trailingPE) ? Number(quote.trailingPE) : null,
+    pbr: Number.isFinite(quote.priceToBook) ? Number(quote.priceToBook) : null,
+    dividendYield: toPercentMetric(Number.isFinite(quote.dividendYield) ? Number(quote.dividendYield) : null),
+    roe: toPercentMetric(Number.isFinite(quote.returnOnEquity) ? Number(quote.returnOnEquity) : null),
+    marketCap: Number.isFinite(quote.marketCap) ? Number(quote.marketCap) : null,
+    enterpriseValue: Number.isFinite(quote.enterpriseValue) ? Number(quote.enterpriseValue) : null,
+    employees: Number.isFinite(quote.fullTimeEmployees) ? Number(quote.fullTimeEmployees) : null,
+  };
+};
+
+const fetchYahooMetrics = async (symbol: string) => {
+  const summaryUrl =
+    `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}` +
+    "?modules=summaryDetail,defaultKeyStatistics,financialData,assetProfile";
+  const summaryResponse = await fetchWithTimeout(summaryUrl, 7000);
+  if (summaryResponse.ok) {
+    const summaryPayload = await summaryResponse.json();
+    const metrics = parseQuoteSummaryMetrics(summaryPayload, symbol);
+    if (metrics && [metrics.per, metrics.pbr, metrics.dividendYield, metrics.roe].some(Number.isFinite)) {
+      return metrics;
+    }
+  }
+
+  const quoteUrl =
+    `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbol)}` +
+    "&fields=trailingPE,priceToBook,dividendYield,returnOnEquity,marketCap,enterpriseValue,fullTimeEmployees";
+  const quoteResponse = await fetchWithTimeout(quoteUrl, 7000);
+  if (!quoteResponse.ok) return null;
+
+  return parseQuoteMetrics(await quoteResponse.json(), symbol);
+};
+
 const marketDataPlugin = () => ({
   name: "market-data-api",
   configureServer(server) {
@@ -424,6 +503,40 @@ const stockQuotePlugin = () => ({
         res.statusCode = 502;
         res.setHeader("Content-Type", "application/json; charset=utf-8");
         res.end(JSON.stringify({ quotes: [], error: "stock quotes unavailable" }));
+      }
+    });
+  },
+});
+
+const stockMetricsPlugin = () => ({
+  name: "stock-metrics-api",
+  configureServer(server) {
+    server.middlewares.use("/api/stock-metrics", async (req, res) => {
+      try {
+        const requestUrl = new URL(req.url ?? "", "http://localhost");
+        const symbol = requestUrl.searchParams.get("symbol")?.trim();
+
+        if (!symbol) {
+          res.statusCode = 400;
+          res.setHeader("Content-Type", "application/json; charset=utf-8");
+          res.end(JSON.stringify({ error: "symbol required" }));
+          return;
+        }
+
+        const metrics = await fetchYahooMetrics(symbol);
+        if (!metrics) {
+          res.statusCode = 502;
+          res.setHeader("Content-Type", "application/json; charset=utf-8");
+          res.end(JSON.stringify({ error: "stock metrics unavailable" }));
+          return;
+        }
+
+        res.setHeader("Content-Type", "application/json; charset=utf-8");
+        res.end(JSON.stringify({ metrics, updatedAt: new Date().toISOString() }));
+      } catch {
+        res.statusCode = 502;
+        res.setHeader("Content-Type", "application/json; charset=utf-8");
+        res.end(JSON.stringify({ error: "stock metrics unavailable" }));
       }
     });
   },
@@ -637,7 +750,7 @@ export default defineConfig(({ mode }) => ({
       },
     },
   },
-  plugins: [marketDataPlugin(), stockQuotePlugin(), stockChartPlugin(), newsSourcePlugin(), react()],
+  plugins: [marketDataPlugin(), stockQuotePlugin(), stockMetricsPlugin(), stockChartPlugin(), newsSourcePlugin(), react()],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

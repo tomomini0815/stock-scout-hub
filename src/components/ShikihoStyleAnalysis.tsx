@@ -300,9 +300,12 @@ const ShikihoStyleAnalysis = ({ stock, embedded = false }: ShikihoStyleAnalysisP
       <div className={`grid grid-cols-1 gap-2 ${embedded ? "p-2" : "p-3 lg:grid-cols-3"}`}>
         {hasTrendData && (
           <div className={`rounded border border-border ${embedded ? "bg-card p-2" : "bg-background p-3"}`}>
-            <div className="mb-2 flex items-center gap-1.5 text-xs font-bold text-foreground">
+            <div className="mb-2 flex flex-wrap items-center gap-1.5 text-xs font-bold text-foreground">
               <TrendingUp className="h-3.5 w-3.5 text-primary" />
-              トレンド判定
+              <span>トレンド判定</span>
+              <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-bold text-muted-foreground">
+                日足ベース
+              </span>
             </div>
             <div className="mb-2 flex flex-wrap gap-1">
               <span className="rounded bg-muted px-1.5 py-0.5 text-xxs font-bold text-foreground">
