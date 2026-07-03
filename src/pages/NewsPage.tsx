@@ -7,7 +7,11 @@ import { Newspaper, Flame, Sparkles, ExternalLink } from "lucide-react";
 
 const categories = ["すべて", "市況", "半導体", "AI", "金融", "個別株", "投資戦略"];
 const NEWS_CACHE_KEY = "stock-scout-live-news-v1";
-const NEWS_CACHE_MS = 30 * 60 * 1000;
+const NEWS_CACHE_MS = 30 * 24 * 60 * 60 * 1000;
+type ArticleSummaryState =
+  | { status: "loading"; summary?: string }
+  | { status: "ready"; summary: string }
+  | { status: "error"; summary?: string };
 
 interface GdeltArticle {
   url: string;
@@ -95,6 +99,12 @@ const buildSummary = (title: string, category: string, source: string) => {
     return `${base}。個別企業の業績・資本政策・事業戦略に関わる可能性があり、該当銘柄の値動きに注意が必要です。`;
   }
   return `${base}。日本株全体の地合い、日経平均、東証上場銘柄への波及を確認したいニュースです。`;
+};
+
+const looksMojibake = (value = "") => {
+  const replacementCount = (value.match(/�/g) ?? []).length;
+  const mojibakeRunCount = (value.match(/[ÂÃã�]{2,}|(?:ã.|æ.|ç.|å.){2,}/g) ?? []).length;
+  return replacementCount >= 2 || mojibakeRunCount >= 2;
 };
 
 const formatDateTime = (value: string | number | Date) => {
@@ -269,7 +279,7 @@ const mergeNewsItems = (items: NewsItem[]) => {
       if (Number.isNaN(left) || Number.isNaN(right)) return 0;
       return right - left;
     })
-    .slice(0, 60)
+    .slice(0, 120)
     .map((item, index) => ({
       ...item,
       id: index + 1,
@@ -299,13 +309,15 @@ const saveCachedNews = (news: NewsItem[]) => {
 };
 
 const NewsPage = () => {
+  const cachedNews = useMemo(() => loadCachedNews(), []);
   const [selectedCategory, setSelectedCategory] = useState("すべて");
-  const [liveNews, setLiveNews] = useState<NewsItem[]>(() => loadCachedNews() ?? []);
+  const [liveNews, setLiveNews] = useState<NewsItem[]>(() => cachedNews ?? []);
   const [status, setStatus] = useState<"loading" | "live" | "cached" | "fallback">(
-    loadCachedNews() ? "cached" : "loading"
+    cachedNews ? "cached" : "loading"
   );
   const [lastUpdated, setLastUpdated] = useState("");
   const [sourceSummary, setSourceSummary] = useState<NewsSourceSummary[]>([]);
+  const [articleSummaries, setArticleSummaries] = useState<Record<string, ArticleSummaryState>>({});
 
   useEffect(() => {
     const controller = new AbortController();
@@ -326,7 +338,7 @@ const NewsPage = () => {
 
     const fetchLiveNews = async () => {
       const rssParams = new URLSearchParams({
-        q: "日本株 OR 日経平均 OR 東証 OR 半導体 OR AI OR 為替 OR 金利 when:3d",
+        q: "日本株 OR 日経平均 OR 東証 OR 半導体 OR AI OR 為替 OR 金利 when:30d",
         hl: "ja",
         gl: "JP",
         ceid: "JP:ja",
@@ -335,17 +347,17 @@ const NewsPage = () => {
         query: "(Japan stocks OR Nikkei OR Tokyo Stock Exchange OR Japanese shares OR semiconductor OR AI OR yen OR Bank of Japan) sourceCountry:JA",
         mode: "artlist",
         format: "json",
-        maxrecords: "40",
+        maxrecords: "80",
         sort: "hybrid",
-        timespan: "3d",
+        timespan: "30d",
       });
       const newsApiParams = new URLSearchParams({
         q: "日本株 OR 日経平均 OR 東証 OR 半導体 OR AI OR 為替 OR 金利",
-        pageSize: "30",
+        pageSize: "50",
       });
       const marketauxParams = new URLSearchParams({
         search: "Japan stocks Nikkei Tokyo Stock Exchange semiconductor AI yen Bank of Japan",
-        limit: "30",
+        limit: "50",
       });
 
       const sources = [
@@ -419,12 +431,12 @@ const NewsPage = () => {
             }
           })
         );
-        const news = mergeNewsItems(results.flatMap((result) => result.news));
+        const news = mergeNewsItems([...results.flatMap((result) => result.news), ...(loadCachedNews() ?? [])]);
 
         if (!isMounted) return;
         setSourceSummary(
           results
-            .filter((result) => result.status !== "missing-key")
+            .filter((result) => result.status !== "missing-key" && result.news.length > 0)
             .map((result) => ({
               provider: result.provider,
               count: result.news.length,
@@ -467,13 +479,44 @@ const NewsPage = () => {
     [liveNews, selectedCategory]
   );
 
+  useEffect(() => {
+    const targets = filtered.slice(0, 20).filter((item) => item.url && !articleSummaries[item.url]).slice(0, 8);
+    if (!targets.length) return;
+
+    setArticleSummaries((previous) => ({
+      ...previous,
+      ...Object.fromEntries(targets.map((item) => [item.url as string, { status: "loading" as const }])),
+    }));
+
+    targets.forEach((item) => {
+      fetch(`/api/article-summary?url=${encodeURIComponent(item.url as string)}`)
+        .then((response) => {
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          return response.json();
+        })
+        .then((payload) => {
+          const summary = typeof payload.summary === "string" ? payload.summary.trim() : "";
+          setArticleSummaries((previous) => ({
+            ...previous,
+            [item.url as string]: summary && !looksMojibake(summary) ? { status: "ready", summary } : { status: "error" },
+          }));
+        })
+        .catch(() => {
+          setArticleSummaries((previous) => ({
+            ...previous,
+            [item.url as string]: { status: "error" },
+          }));
+        });
+    });
+  }, [articleSummaries, filtered]);
+
   const categoryColors: Record<string, string> = {
     市況: "bg-primary text-primary-foreground",
-    半導体: "bg-stock-up text-primary-foreground",
-    AI: "bg-header-accent text-foreground",
-    金融: "bg-stock-down text-primary-foreground",
-    個別株: "bg-muted text-foreground",
-    投資戦略: "bg-muted text-muted-foreground",
+    半導体: "bg-rose-600 text-white",
+    AI: "bg-amber-400 text-slate-950",
+    金融: "bg-blue-700 text-white",
+    個別株: "bg-emerald-700 text-white",
+    投資戦略: "bg-violet-700 text-white",
   };
 
   return (
@@ -488,15 +531,15 @@ const NewsPage = () => {
         </h2>
 
         <div className="mb-3 rounded border border-border bg-card px-3 py-2">
-          <div className="flex flex-wrap items-center gap-2 text-xs font-bold text-foreground">
-            毎日最新ニュースを自動取得
+          <div className="flex flex-col gap-1 text-xs font-bold text-foreground sm:flex-row sm:flex-wrap sm:items-center sm:gap-2">
+            <span>毎日最新ニュースを自動取得</span>
             <span className="rounded bg-muted px-2 py-0.5 text-xxs text-muted-foreground">
               {lastUpdated ? `更新 ${lastUpdated}` : status === "loading" ? "取得中" : status === "cached" ? "前回値" : "確認中"}
             </span>
           </div>
           <p className="mt-1 text-xxs leading-relaxed text-muted-foreground">
             GoogleニュースRSS、Yahoo!ニュースRSS、GDELTを並列取得し、追加APIが設定されている場合だけ自動で統合します。
-            {lastUpdated ? ` 最終取得: ${lastUpdated}` : " 取得できない場合は保存済みニュースを表示します。"}
+            {lastUpdated ? ` 最終取得: ${lastUpdated}` : " 更新まで保存済み1カ月分のニュースを表示します。"}
           </p>
           {sourceSummary.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-1">
@@ -519,12 +562,12 @@ const NewsPage = () => {
         </div>
 
         {/* Category Filter */}
-        <div className="mb-3 flex flex-wrap gap-1">
+        <div className="mb-3 flex gap-1 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
           {categories.map((cat) => (
             <button
               key={cat}
               onClick={() => setSelectedCategory(cat)}
-              className={`rounded px-3 py-1 text-xs font-semibold transition-colors ${
+              className={`shrink-0 rounded px-3 py-1 text-xs font-semibold transition-colors ${
                 selectedCategory === cat
                   ? "bg-primary text-primary-foreground"
                   : "bg-muted text-muted-foreground hover:bg-muted/80"
@@ -543,61 +586,75 @@ const NewsPage = () => {
             </h3>
           </div>
           <div className="divide-y divide-border">
-            {filtered.map((item) => (
-              <a
-                key={item.id}
-                href={item.url}
-                target="_blank"
-                rel="noreferrer"
-                className="block px-3 py-2.5 transition-colors hover:bg-muted/50"
-              >
-                <div className="flex items-start gap-2">
-                  <span className="mt-0.5 shrink-0 tabular-nums text-xxs font-medium text-muted-foreground">
-                    {item.date} {item.time}
-                  </span>
-                  <span
-                    className={`mt-0.5 shrink-0 rounded px-1 py-0 text-xxs font-bold ${
-                      categoryColors[item.category] || "bg-muted text-muted-foreground"
-                    }`}
-                  >
-                    {item.category}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-start gap-1">
-                      <span className="text-xs font-bold leading-relaxed text-foreground hover:text-primary">
-                        {item.title}
-                      </span>
-                      <ExternalLink className="mt-0.5 h-3 w-3 shrink-0 text-muted-foreground" />
-                    </div>
-                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                      {item.summary}
-                    </p>
-                    <div className="mt-1 flex flex-wrap gap-1 text-xxs font-semibold">
-                      <span className="text-primary">出典: {item.source}</span>
-                      {item.provider && (
-                        <span className="rounded bg-muted px-1 text-muted-foreground">
-                          API: {item.provider}
+            {filtered.map((item) => {
+              const articleState = item.url ? articleSummaries[item.url] : undefined;
+              return (
+                <a
+                  key={item.id}
+                  href={item.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="block px-3 py-2.5 transition-colors hover:bg-muted/50"
+                >
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-2">
+                      <div className="flex flex-wrap items-center gap-1.5 sm:contents">
+                        <span className="shrink-0 tabular-nums text-xxs font-medium text-muted-foreground sm:mt-0.5">
+                          {item.date} {item.time}
                         </span>
-                      )}
+                        <span
+                          className={`shrink-0 rounded px-1.5 py-0.5 text-xxs font-bold sm:mt-0.5 sm:px-1 sm:py-0 ${
+                            categoryColors[item.category] || "bg-slate-700 text-white"
+                          }`}
+                        >
+                          {item.category}
+                        </span>
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start gap-1">
+                          <span className="text-xs font-bold leading-relaxed text-foreground hover:text-primary">
+                            {item.title}
+                          </span>
+                          <ExternalLink className="mt-0.5 h-3 w-3 shrink-0 text-muted-foreground" />
+                        </div>
+                        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                          <span className="mr-1 text-xxs font-bold text-foreground">記事本文要約</span>
+                          {articleState?.status === "loading"
+                            ? "記事本文を取得して要約しています。"
+                            : articleState?.status === "ready"
+                              ? articleState.summary
+                              : looksMojibake(item.summary ?? "")
+                                ? buildSummary(item.title, item.category, item.source ?? "")
+                                : item.summary}
+                        </p>
+                        <div className="mt-1 flex items-end justify-between gap-2 text-xxs font-semibold">
+                          <div className="flex min-w-0 flex-wrap gap-1">
+                            <span className="text-primary">出典: {item.source}</span>
+                            {item.provider && (
+                              <span className="rounded bg-slate-200 px-1.5 py-0.5 text-slate-700">
+                                API: {item.provider}
+                              </span>
+                            )}
+                          </div>
+                          <div className="ml-auto flex shrink-0 items-center gap-1">
+                            {item.isHot && (
+                              <span className="flex items-center gap-0.5 rounded bg-badge-hot px-1 py-0 text-xxs font-bold text-primary-foreground">
+                                <Flame className="h-2.5 w-2.5" />
+                                注目
+                              </span>
+                            )}
+                            {item.isNew && (
+                              <span className="flex items-center gap-0.5 rounded bg-badge-new px-1 py-0 text-xxs font-bold text-primary-foreground">
+                                <Sparkles className="h-2.5 w-2.5" />
+                                NEW
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-1">
-                    {item.isHot && (
-                      <span className="flex items-center gap-0.5 rounded bg-badge-hot px-1 py-0 text-xxs font-bold text-primary-foreground">
-                        <Flame className="h-2.5 w-2.5" />
-                        注目
-                      </span>
-                    )}
-                    {item.isNew && (
-                      <span className="flex items-center gap-0.5 rounded bg-badge-new px-1 py-0 text-xxs font-bold text-primary-foreground">
-                        <Sparkles className="h-2.5 w-2.5" />
-                        NEW
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </a>
-            ))}
+                </a>
+              );
+            })}
             {filtered.length === 0 && (
               <div className="px-3 py-6 text-center text-xs text-muted-foreground">
                 該当するニュースはありません。

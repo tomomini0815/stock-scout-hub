@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
 import MarketTicker from "@/components/MarketTicker";
@@ -43,6 +43,14 @@ const signalOptions: Array<MaterialSignal | "すべて"> = [
   "初値",
   "申込・抽選",
 ];
+const filterOptions = [
+  ...typeOptions.map((value) => ({ kind: "type" as const, value })),
+  ...signalOptions.filter((value) => value !== "すべて").map((value) => ({ kind: "signal" as const, value })),
+];
+type ArticleSummaryState =
+  | { status: "loading"; summary?: string }
+  | { status: "ready"; summary: string }
+  | { status: "error"; summary?: string };
 
 const getMaterialType = (title: string): MaterialType =>
   /IPO|新規上場|上場承認|仮条件|公開価格|売出価格|発行価格|初値|ブックビル|需要申告|抽選/.test(title)
@@ -74,10 +82,24 @@ const signalTone: Record<MaterialSignal, string> = {
 const countBy = (news: NewsItem[], predicate: (item: NewsItem) => boolean) =>
   news.filter(predicate).length;
 
+const looksMojibake = (value = "") => {
+  const replacementCount = (value.match(/�/g) ?? []).length;
+  const mojibakeRunCount = (value.match(/[ÂÃã�]{2,}|(?:ã.|æ.|ç.|å.){2,}/g) ?? []).length;
+  return replacementCount >= 2 || mojibakeRunCount >= 2;
+};
+
+const isPdfArticleUrl = (url = "") => /\.pdf(?:$|[?#])/i.test(url);
+
+const getFallbackSummary = (summary?: string) => {
+  const value = summary?.trim() ?? "";
+  return value && !looksMojibake(value) ? value : "";
+};
+
 const EarningsPage = () => {
   const [selectedType, setSelectedType] = useState<MaterialType | "すべて">("すべて");
   const [selectedSignal, setSelectedSignal] = useState<MaterialSignal | "すべて">("すべて");
   const [searchQuery, setSearchQuery] = useState("");
+  const [articleSummaries, setArticleSummaries] = useState<Record<string, ArticleSummaryState>>({});
   const { news, status, updatedAt, refresh } = useLiveNewsSearch({
     query:
       "日本株 決算 業績 上方修正 下方修正 増配 自社株買い IPO 新規上場 上場承認 仮条件 公開価格 初値 when:30d",
@@ -87,6 +109,8 @@ const EarningsPage = () => {
     titlePattern,
     includeTdnet: true,
     limit: 40,
+    cacheKey: "stock-scout-earnings-ipo-news-v1",
+    cacheMs: 30 * 24 * 60 * 60 * 1000,
   });
 
   const relevantNews = useMemo(() => news.filter((item) => titlePattern.test(item.title)), [news]);
@@ -135,6 +159,40 @@ const EarningsPage = () => {
     },
   ];
 
+  useEffect(() => {
+    const targets = filteredNews
+      .slice(0, 20)
+      .filter((item) => item.url && !isPdfArticleUrl(item.url) && !articleSummaries[item.url])
+      .slice(0, 8);
+    if (!targets.length) return;
+
+    setArticleSummaries((previous) => ({
+      ...previous,
+      ...Object.fromEntries(targets.map((item) => [item.url as string, { status: "loading" as const }])),
+    }));
+
+    targets.forEach((item) => {
+      fetch(`/api/article-summary?url=${encodeURIComponent(item.url as string)}`)
+        .then((response) => {
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          return response.json();
+        })
+        .then((payload) => {
+          const summary = typeof payload.summary === "string" ? payload.summary.trim() : "";
+          setArticleSummaries((previous) => ({
+            ...previous,
+            [item.url as string]: summary && !looksMojibake(summary) ? { status: "ready", summary } : { status: "error" },
+          }));
+        })
+        .catch(() => {
+          setArticleSummaries((previous) => ({
+            ...previous,
+            [item.url as string]: { status: "error" },
+          }));
+        });
+    });
+  }, [articleSummaries, filteredNews]);
+
   return (
     <div className="min-h-screen bg-background">
       <SiteHeader activeTab="決算・IPO" />
@@ -166,12 +224,12 @@ const EarningsPage = () => {
         <section className="rounded border border-border bg-card">
           <div className="flex flex-col gap-2 border-b border-border bg-table-header-bg px-3 py-2 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <h3 className="text-xs font-bold text-foreground">タイトル一致ニュース</h3>
+              <h3 className="text-xs font-bold text-foreground">決算・IPOニュース</h3>
               <div className="mt-1 flex items-center gap-2 text-xxs font-semibold text-muted-foreground">
                 <span className="rounded bg-muted px-1.5 py-0.5 text-muted-foreground">
                   {updatedAt ? `更新 ${updatedAt}` : status === "loading" ? "取得中" : "更新確認中"}
                 </span>
-                <span>5分ごとに自動更新</span>
+                <span>5分ごとに自動更新・更新まで保存済み1カ月分を表示</span>
               </div>
             </div>
             <div className="flex w-full flex-col gap-2 sm:flex-row lg:w-auto">
@@ -198,37 +256,35 @@ const EarningsPage = () => {
           </div>
 
           <div className="flex flex-wrap gap-1.5 border-b border-border px-3 py-2">
-            {typeOptions.map((type) => (
-              <button
-                key={type}
-                type="button"
-                onClick={() => setSelectedType(type)}
-                className={`h-7 rounded border px-2 text-xxs font-semibold ${
-                  selectedType === type
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : "border-border bg-background text-foreground hover:bg-muted/60"
-                }`}
-              >
-                {type}
-              </button>
-            ))}
-          </div>
+            {filterOptions.map((option) => {
+              const isActive =
+                option.kind === "type"
+                  ? selectedType === option.value && selectedSignal === "すべて"
+                  : selectedSignal === option.value && selectedType === "すべて";
 
-          <div className="flex flex-wrap gap-1.5 border-b border-border px-3 py-2">
-            {signalOptions.map((signal) => (
-              <button
-                key={signal}
-                type="button"
-                onClick={() => setSelectedSignal(signal)}
-                className={`h-7 rounded border px-2 text-xxs font-semibold ${
-                  selectedSignal === signal
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : "border-border bg-background text-foreground hover:bg-muted/60"
-                }`}
-              >
-                {signal}
-              </button>
-            ))}
+              return (
+                <button
+                  key={`${option.kind}-${option.value}`}
+                  type="button"
+                  onClick={() => {
+                    if (option.kind === "type") {
+                      setSelectedType(option.value);
+                      setSelectedSignal("すべて");
+                    } else {
+                      setSelectedType("すべて");
+                      setSelectedSignal(option.value);
+                    }
+                  }}
+                  className={`h-7 rounded border px-2 text-xxs font-semibold ${
+                    isActive
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-border bg-background text-foreground hover:bg-muted/60"
+                  }`}
+                >
+                  {option.value}
+                </button>
+              );
+            })}
           </div>
 
           <div className="divide-y divide-border">
@@ -241,6 +297,15 @@ const EarningsPage = () => {
             {filteredNews.map((item) => {
               const type = getMaterialType(item.title);
               const signal = getSignal(item.title);
+              const articleState = item.url ? articleSummaries[item.url] : undefined;
+              const fallbackSummary = getFallbackSummary(item.summary);
+              const summaryText =
+                articleState?.status === "ready"
+                  ? articleState.summary
+                  : articleState?.status === "loading" && !isPdfArticleUrl(item.url)
+                    ? "記事本文を取得して要約しています。"
+                    : fallbackSummary;
+
               return (
                 <a
                   key={`${item.id}-${item.url}`}
@@ -262,7 +327,15 @@ const EarningsPage = () => {
                       {signal}
                     </span>
                   </div>
-                  <div className="text-xs font-medium leading-relaxed text-foreground">{item.title}</div>
+                  <div className="text-xs font-medium leading-relaxed text-foreground">
+                    <div>{item.title}</div>
+                    {summaryText && (
+                      <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                        <span className="mr-1 text-xxs font-bold text-foreground">記事本文要約</span>
+                        {summaryText}
+                      </p>
+                    )}
+                  </div>
                   <div className="flex items-center justify-end gap-1 text-xxs text-muted-foreground">
                     {item.source}
                     <ExternalLink className="h-3 w-3" />

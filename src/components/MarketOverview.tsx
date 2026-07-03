@@ -1,6 +1,7 @@
 import { type MarketIndex } from "@/data/stockData";
 import { useLiveMarketData } from "@/hooks/useLiveMarketData";
-import { AlertTriangle, Newspaper, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import TradingViewQuadPanel from "@/components/TradingViewQuadPanel";
+import { AlertTriangle, LayoutGrid, Newspaper, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 interface MarketOverviewProps {
@@ -25,6 +26,17 @@ const MARKET_DRIVER_CACHE_KEY = "stock-scout-market-drivers-v1";
 const MARKET_DRIVER_CACHE_MS = 1000 * 60 * 20;
 const URGENT_MOVE_THRESHOLD = 1.5;
 const URGENT_NEWS_MAX_AGE_MS = 1000 * 60 * 60 * 24;
+
+const indexChartConfigs = [
+  { id: "nikkei", name: "日経平均", symbol: "OANDA:JP225USD" },
+  { id: "topix", name: "TOPIX先物", symbol: "OSE:TOPIX1!" },
+  { id: "dow", name: "NYダウ", symbol: "OANDA:US30USD" },
+  { id: "nasdaq", name: "NASDAQ", symbol: "OANDA:NAS100USD" },
+  { id: "sp500", name: "S&P500", symbol: "OANDA:SPX500USD" },
+  { id: "usdjpy", name: "USD/JPY", symbol: "FX:USDJPY" },
+  { id: "gold", name: "GOLD", symbol: "TVC:GOLD" },
+  { id: "btc", name: "BTC/USDT", symbol: "BINANCE:BTCUSDT" },
+];
 
 const driverFallbackNews: MarketDriverNews[] = [
   { title: "日本株は為替、米金利、海外株、半導体関連の動きをにらみながら推移", source: "市況推定" },
@@ -199,8 +211,20 @@ const getMoveLabel = (changePercent: number) => {
   return "小動き";
 };
 
+const getDriverPanelClass = (changePercent: number) => {
+  const magnitude = Math.abs(changePercent);
+  if (magnitude >= 1.5 && changePercent > 0) return "border-red-200 bg-red-50";
+  if (magnitude >= 1.5 && changePercent < 0) return "border-blue-200 bg-blue-50";
+  if (magnitude >= 0.7 && changePercent > 0) return "border-red-100 bg-red-50/70";
+  if (magnitude >= 0.7 && changePercent < 0) return "border-blue-100 bg-blue-50/70";
+  return "border-border/70 bg-muted/30";
+};
+
 const MarketOverview = ({ indices }: MarketOverviewProps) => {
   const cachedDrivers = loadCachedDrivers();
+  const [showIndexCharts, setShowIndexCharts] = useState(false);
+  const [isMobileChartViewport, setIsMobileChartViewport] = useState(false);
+  const [mobileDrawingToolsOpen, setMobileDrawingToolsOpen] = useState(false);
   const [driverNews, setDriverNews] = useState<MarketDriverNews[]>(cachedDrivers?.items ?? []);
   const [driverStatus, setDriverStatus] = useState<MarketDriverStatus>(cachedDrivers ? "live" : "loading");
   const [urgentDrivers, setUrgentDrivers] = useState<Record<string, { status: UrgentDriverStatus; text: string }>>({});
@@ -222,6 +246,14 @@ const MarketOverview = ({ indices }: MarketOverviewProps) => {
         minute: "2-digit",
       }).format(new Date(updatedAt))
     : "";
+
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 767px)");
+    const syncViewport = () => setIsMobileChartViewport(media.matches);
+    syncViewport();
+    media.addEventListener("change", syncViewport);
+    return () => media.removeEventListener("change", syncViewport);
+  }, []);
 
   useEffect(() => {
     const cached = loadCachedDrivers();
@@ -359,6 +391,20 @@ const MarketOverview = ({ indices }: MarketOverviewProps) => {
           主要指数
         </h3>
         <div className="flex items-center gap-2 text-xxs font-semibold text-muted-foreground">
+          <button
+            type="button"
+            onClick={() => setShowIndexCharts((value) => !value)}
+            className={`inline-flex h-7 items-center justify-center gap-1 rounded border px-2 transition-colors ${
+              showIndexCharts
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-border bg-background text-primary hover:bg-muted"
+            }`}
+            aria-label={showIndexCharts ? "各チャート表示を閉じる" : "各チャート表示を開く"}
+            title={showIndexCharts ? "チャートを閉じる" : "主要指数チャート"}
+          >
+            <LayoutGrid className="h-3.5 w-3.5" />
+            <span>各チャート表示</span>
+          </button>
           <span className="rounded bg-muted px-1.5 py-0.5 text-muted-foreground">
             {updatedLabel ? `更新 ${updatedLabel}` : status === "cached" ? "前回値" : "更新確認中"}
           </span>
@@ -412,7 +458,7 @@ const MarketOverview = ({ indices }: MarketOverviewProps) => {
                   {index.changePercent.toFixed(2)}%)
                 </span>
               </div>
-              <div className="mt-2 rounded border border-border/70 bg-muted/30 px-2 py-1.5">
+              <div className={`mt-2 rounded border px-2 py-1.5 ${getDriverPanelClass(index.changePercent)}`}>
                 <div className="mb-1 flex items-center gap-1 text-xxs font-bold text-muted-foreground">
                   <AlertTriangle className="h-3 w-3" />
                   {getMoveLabel(index.changePercent)}
@@ -425,6 +471,27 @@ const MarketOverview = ({ indices }: MarketOverviewProps) => {
           );
         })}
       </div>
+      {showIndexCharts && (
+        <div className="border-t border-border bg-background p-2">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2 px-1">
+            <div className="text-xs font-bold text-foreground">主要指数チャート 8分割</div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setMobileDrawingToolsOpen((value) => !value)}
+                className="inline-flex h-7 items-center rounded border border-border bg-card px-2 text-xxs font-bold text-primary md:hidden"
+              >
+                {mobileDrawingToolsOpen ? "描画ツールを隠す" : "描画ツールを表示"}
+              </button>
+              <div className="text-xxs font-semibold text-muted-foreground">TradingView / MA200 / BB3σ</div>
+            </div>
+          </div>
+          <TradingViewQuadPanel
+            symbols={indexChartConfigs}
+            drawingEnabled={isMobileChartViewport ? mobileDrawingToolsOpen : true}
+          />
+        </div>
+      )}
     </div>
   );
 };

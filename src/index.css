@@ -150,4 +150,10 @@
   .bg-stock-down {
     background-color: hsl(var(--stock-down-bg));
   }
+
+  @media (min-width: 768px) {
+    .animate-ticker-scroll {
+      animation-duration: 20s;
+    }
+  }
 }

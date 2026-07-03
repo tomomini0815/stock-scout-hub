@@ -26,6 +26,49 @@ const extractMetaContent = (html, name) => {
   return html.match(pattern)?.[1] ?? html.match(reversedPattern)?.[1] ?? "";
 };
 
+const detectCharset = (contentType = "", bytes) => {
+  const headerCharset = contentType.match(/charset=([^;\s]+)/i)?.[1];
+  if (headerCharset) return headerCharset;
+
+  const head = new TextDecoder("latin1").decode(bytes.slice(0, 4096));
+  return (
+    head.match(/<meta[^>]+charset=["']?\s*([^"'\s/>]+)/i)?.[1] ??
+    head.match(/<meta[^>]+content=["'][^"']*charset=([^"'\s;]+)/i)?.[1] ??
+    "utf-8"
+  );
+};
+
+const decodeHtmlResponse = async (response) => {
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  const charset = detectCharset(response.headers.get("content-type") ?? "", bytes).toLowerCase();
+  const candidates = [
+    charset,
+    charset.includes("shift") || charset.includes("sjis") ? "shift_jis" : "",
+    charset.includes("euc") ? "euc-jp" : "",
+    "utf-8",
+    "shift_jis",
+    "euc-jp",
+  ].filter(Boolean);
+
+  for (const candidate of [...new Set(candidates)]) {
+    try {
+      const decoded = new TextDecoder(candidate, { fatal: false }).decode(bytes);
+      if (!looksMojibake(decoded)) return decoded;
+    } catch {
+      // Try the next charset.
+    }
+  }
+
+  return new TextDecoder("utf-8", { fatal: false }).decode(bytes);
+};
+
+const looksMojibake = (value = "") => {
+  if (!value) return true;
+  const replacementCount = (value.match(/�/g) ?? []).length;
+  const mojibakeRunCount = (value.match(/[ÂÃã�]{2,}|(?:ã.|æ.|ç.|å.){2,}/g) ?? []).length;
+  return replacementCount >= 2 || mojibakeRunCount >= 2;
+};
+
 const extractArticleText = (html) => {
   const articleMatches = html.match(/<article[\s\S]*?<\/article>/gi) ?? [];
   const paragraphMatches = html.match(/<p[\s\S]*?<\/p>/gi) ?? [];
@@ -86,11 +129,11 @@ export default async function handler(req, res) {
       return;
     }
 
-    const html = await response.text();
+    const html = await decodeHtmlResponse(response);
     const articleText = extractArticleText(html);
     const summary = summarizeJapaneseText(articleText);
 
-    if (!summary || summary.length < 20) {
+    if (!summary || summary.length < 20 || looksMojibake(summary)) {
       res.status(422).json({ error: "article text unavailable" });
       return;
     }

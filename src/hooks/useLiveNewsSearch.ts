@@ -8,6 +8,8 @@ interface UseLiveNewsSearchOptions {
   titlePattern?: RegExp;
   includeTdnet?: boolean;
   limit?: number;
+  cacheKey?: string;
+  cacheMs?: number;
 }
 
 interface GdeltArticle {
@@ -119,6 +121,28 @@ const getJstDateKey = () =>
     .format(new Date())
     .replaceAll("-", "");
 
+const loadCachedNewsSearch = (cacheKey?: string, cacheMs = 30 * 24 * 60 * 60 * 1000) => {
+  if (!cacheKey) return [];
+  try {
+    const raw = localStorage.getItem(cacheKey);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as { savedAt: number; news: NewsItem[] };
+    if (!parsed.news?.length || Date.now() - parsed.savedAt > cacheMs) return [];
+    return parsed.news;
+  } catch {
+    return [];
+  }
+};
+
+const saveCachedNewsSearch = (cacheKey: string | undefined, news: NewsItem[]) => {
+  if (!cacheKey || !news.length) return;
+  try {
+    localStorage.setItem(cacheKey, JSON.stringify({ savedAt: Date.now(), news }));
+  } catch {
+    // Search cache is only used for initial display.
+  }
+};
+
 const mapTdnetNews = (htmlText: string, limit: number): NewsItem[] => {
   const doc = new DOMParser().parseFromString(htmlText, "text/html");
   const rows = Array.from(doc.querySelectorAll("#main-list-table tr"));
@@ -157,9 +181,13 @@ export const useLiveNewsSearch = ({
   titlePattern,
   includeTdnet = false,
   limit = 12,
+  cacheKey,
+  cacheMs,
 }: UseLiveNewsSearchOptions) => {
-  const [news, setNews] = useState<NewsItem[]>([]);
-  const [status, setStatus] = useState<"loading" | "live" | "fallback">("fallback");
+  const [news, setNews] = useState<NewsItem[]>(() => loadCachedNewsSearch(cacheKey, cacheMs));
+  const [status, setStatus] = useState<"loading" | "live" | "cached" | "fallback">(
+    () => (loadCachedNewsSearch(cacheKey, cacheMs).length ? "cached" : "fallback")
+  );
   const [updatedAt, setUpdatedAt] = useState("");
   const [refreshTick, setRefreshTick] = useState(0);
 
@@ -263,6 +291,7 @@ export const useLiveNewsSearch = ({
         if (!isActive) return;
         setNews(mapped);
         setStatus(nextStatus);
+        saveCachedNewsSearch(cacheKey, mapped);
         setUpdatedAt(
           new Intl.DateTimeFormat("ja-JP", {
             timeZone: "Asia/Tokyo",
@@ -274,7 +303,7 @@ export const useLiveNewsSearch = ({
         );
       } catch {
         if (isActive) {
-          setStatus("fallback");
+          setStatus((current) => (current === "cached" ? "cached" : "fallback"));
         }
       } finally {
         window.clearTimeout(timeout);
@@ -287,7 +316,7 @@ export const useLiveNewsSearch = ({
       window.clearTimeout(timeout);
       controller.abort();
     };
-  }, [gdeltQuery, includeTdnet, limit, query, refreshTick, timespan, titlePattern]);
+  }, [cacheKey, cacheMs, gdeltQuery, includeTdnet, limit, query, refreshTick, timespan, titlePattern]);
 
   useEffect(() => {
     const interval = window.setInterval(() => {
