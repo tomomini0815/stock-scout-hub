@@ -581,9 +581,38 @@ const stockChartPlugin = () => ({
 const newsSourcePlugin = () => ({
   name: "news-source-api",
   configureServer(server) {
+    server.middlewares.use("/api/google-news", async (req, res) => {
+      try {
+        const requestUrl = new URL(req.url ?? "", "http://localhost");
+        const targetUrl = new URL("https://news.google.com/rss/search");
+
+        for (const [key, value] of requestUrl.searchParams.entries()) {
+          targetUrl.searchParams.set(key, value);
+        }
+
+        if (!targetUrl.searchParams.has("hl")) targetUrl.searchParams.set("hl", "ja");
+        if (!targetUrl.searchParams.has("gl")) targetUrl.searchParams.set("gl", "JP");
+        if (!targetUrl.searchParams.has("ceid")) targetUrl.searchParams.set("ceid", "JP:ja");
+
+        const response = await fetchWithTimeout(targetUrl.toString(), 5500, {
+          headers: {
+            "User-Agent": "stock-scout-hub/1.0",
+          },
+        });
+        if (!response.ok) {
+          sendJson(res, { items: [], error: `HTTP ${response.status}` }, 502);
+          return;
+        }
+
+        sendText(res, await response.text(), "application/rss+xml; charset=utf-8");
+      } catch {
+        sendJson(res, { items: [], error: "google news unavailable" }, 502);
+      }
+    });
+
     server.middlewares.use("/api/yahoo-business-rss", async (_req, res) => {
       try {
-        const response = await fetchWithTimeout("https://news.yahoo.co.jp/rss/topics/business.xml", 7000);
+        const response = await fetchWithTimeout("https://news.yahoo.co.jp/rss/topics/business.xml", 5500);
         if (!response.ok) {
           sendJson(res, { items: [], error: `HTTP ${response.status}` }, 502);
           return;
@@ -592,6 +621,31 @@ const newsSourcePlugin = () => ({
         sendText(res, await response.text(), "application/rss+xml; charset=utf-8");
       } catch {
         sendJson(res, { items: [], error: "yahoo business rss unavailable" }, 502);
+      }
+    });
+
+    server.middlewares.use("/api/gdelt", async (req, res) => {
+      try {
+        const requestUrl = new URL(req.url ?? "", "http://localhost");
+        const targetUrl = new URL("https://api.gdeltproject.org/api/v2/doc/doc");
+
+        for (const [key, value] of requestUrl.searchParams.entries()) {
+          targetUrl.searchParams.set(key, value);
+        }
+
+        if (!targetUrl.searchParams.has("mode")) targetUrl.searchParams.set("mode", "artlist");
+        if (!targetUrl.searchParams.has("format")) targetUrl.searchParams.set("format", "json");
+        if (!targetUrl.searchParams.has("sort")) targetUrl.searchParams.set("sort", "hybrid");
+
+        const response = await fetchWithTimeout(targetUrl.toString(), 5500, {
+          headers: {
+            "User-Agent": "stock-scout-hub/1.0",
+          },
+        });
+        const text = await response.text();
+        sendText(res, text, "application/json; charset=utf-8", response.ok ? 200 : response.status);
+      } catch {
+        sendJson(res, { articles: [], error: "gdelt unavailable" }, 502);
       }
     });
 

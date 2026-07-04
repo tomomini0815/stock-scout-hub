@@ -3,6 +3,7 @@ import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
 import MarketTicker from "@/components/MarketTicker";
 import { marketIndices, type NewsItem } from "@/data/stockData";
+import { normalizeArticleSummaryToJapanese, translateEnglishNewsTitle } from "@/lib/newsTranslation";
 import { Newspaper, Flame, Sparkles, ExternalLink } from "lucide-react";
 
 const categories = ["すべて", "市況", "半導体", "AI", "金融", "個別株", "投資戦略"];
@@ -134,19 +135,20 @@ const mapGdeltArticles = (articles: GdeltArticle[]): NewsItem[] => {
     .slice(0, 20)
     .map((article, index) => {
       const { date, time } = formatGdeltDateTime(article.seendate);
-      const category = inferCategory(article.title);
+      const title = translateEnglishNewsTitle(article.title);
+      const category = inferCategory(title);
       const source = article.domain.replace(/^www\./, "");
 
       return {
         id: index + 1,
         date,
         time,
-        title: article.title.replace(/\s+/g, " ").trim(),
+        title,
         category,
         source,
         provider: "GDELT",
         url: article.url,
-        summary: buildSummary(article.title, category, source),
+        summary: buildSummary(title, category, source),
         isHot: index < 3,
         isNew: index < 2,
       };
@@ -163,7 +165,7 @@ const mapRssNews = (xmlText: string, provider: string, fallbackSource: string, l
     const url = item.querySelector("link")?.textContent ?? "";
     const pubDate = item.querySelector("pubDate")?.textContent ?? "";
     const formatted = formatDateTime(pubDate);
-    const title = rawTitle.replace(/\s+-\s+[^-]+$/, "").trim();
+    const title = translateEnglishNewsTitle(rawTitle.replace(/\s+-\s+[^-]+$/, "").trim());
     const category = inferCategory(title);
 
     return {
@@ -187,7 +189,7 @@ const mapNewsApiArticles = (articles: NewsApiArticle[]): NewsItem[] =>
     .filter((article) => article.title && article.url)
     .slice(0, 24)
     .map((article, index) => {
-      const title = article.title?.trim() ?? "";
+      const title = translateEnglishNewsTitle(article.title?.trim() ?? "");
       const source = article.source?.name ?? "NewsAPI";
       const category = inferCategory(title);
       const formatted = formatDateTime(article.publishedAt ?? "");
@@ -201,7 +203,14 @@ const mapNewsApiArticles = (articles: NewsApiArticle[]): NewsItem[] =>
         source,
         provider: "NewsAPI",
         url: article.url,
-        summary: article.description || buildSummary(title, category, source),
+        summary: normalizeArticleSummaryToJapanese(article.description ?? "", {
+          id: index + 1,
+          title,
+          category,
+          source,
+          provider: "NewsAPI",
+          url: article.url,
+        } as NewsItem, buildSummary) || buildSummary(title, category, source),
         isHot: index < 3,
         isNew: index < 2,
       };
@@ -212,7 +221,7 @@ const mapFinnhubArticles = (articles: FinnhubArticle[]): NewsItem[] =>
     .filter((article) => article.headline && article.url)
     .slice(0, 24)
     .map((article, index) => {
-      const title = article.headline?.trim() ?? "";
+      const title = translateEnglishNewsTitle(article.headline?.trim() ?? "");
       const source = article.source || "Finnhub";
       const category = inferCategory(title);
       const formatted = formatDateTime(article.datetime ? article.datetime * 1000 : "");
@@ -226,7 +235,14 @@ const mapFinnhubArticles = (articles: FinnhubArticle[]): NewsItem[] =>
         source,
         provider: "Finnhub",
         url: article.url,
-        summary: article.summary || buildSummary(title, category, source),
+        summary: normalizeArticleSummaryToJapanese(article.summary ?? "", {
+          id: index + 1,
+          title,
+          category,
+          source,
+          provider: "Finnhub",
+          url: article.url,
+        } as NewsItem, buildSummary) || buildSummary(title, category, source),
         isHot: index < 3,
         isNew: index < 2,
       };
@@ -237,7 +253,7 @@ const mapMarketauxArticles = (articles: MarketauxArticle[]): NewsItem[] =>
     .filter((article) => article.title && article.url)
     .slice(0, 24)
     .map((article, index) => {
-      const title = article.title?.trim() ?? "";
+      const title = translateEnglishNewsTitle(article.title?.trim() ?? "");
       const source = article.source || "Marketaux";
       const category = inferCategory(title);
       const formatted = formatDateTime(article.published_at ?? "");
@@ -251,7 +267,14 @@ const mapMarketauxArticles = (articles: MarketauxArticle[]): NewsItem[] =>
         source,
         provider: "Marketaux",
         url: article.url,
-        summary: article.description || buildSummary(title, category, source),
+        summary: normalizeArticleSummaryToJapanese(article.description ?? "", {
+          id: index + 1,
+          title,
+          category,
+          source,
+          provider: "Marketaux",
+          url: article.url,
+        } as NewsItem, buildSummary) || buildSummary(title, category, source),
         isHot: index < 3,
         isNew: index < 2,
       };
@@ -495,7 +518,8 @@ const NewsPage = () => {
           return response.json();
         })
         .then((payload) => {
-          const summary = typeof payload.summary === "string" ? payload.summary.trim() : "";
+          const rawSummary = typeof payload.summary === "string" ? payload.summary.trim() : "";
+          const summary = normalizeArticleSummaryToJapanese(rawSummary, item, buildSummary);
           setArticleSummaries((previous) => ({
             ...previous,
             [item.url as string]: summary && !looksMojibake(summary) ? { status: "ready", summary } : { status: "error" },

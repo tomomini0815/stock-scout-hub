@@ -10,6 +10,7 @@ interface TradingViewSymbolConfig {
 interface TradingViewQuadPanelProps {
   symbols: TradingViewSymbolConfig[];
   drawingEnabled: boolean;
+  onLayoutChange?: (layout: "8" | "4") => void;
 }
 
 declare global {
@@ -112,19 +113,30 @@ const createTradingViewWidget = (
   });
 };
 
-const TradingViewQuadPanel = ({ symbols, drawingEnabled }: TradingViewQuadPanelProps) => {
+const clearTradingViewContainers = (containerIds: Iterable<string>) => {
+  Array.from(containerIds).forEach((containerId) => {
+    const container = document.getElementById(containerId);
+    if (container) container.innerHTML = "";
+  });
+};
+
+const TradingViewQuadPanel = ({ symbols, drawingEnabled, onLayoutChange }: TradingViewQuadPanelProps) => {
   const instanceId = useMemo(() => `stock-navi-tv-${Math.random().toString(36).slice(2)}`, []);
   const [activeTab, setActiveTab] = useState("all");
   const [showIndicatorLegend, setShowIndicatorLegend] = useState(false);
   const [stackMode, setStackMode] = useState(false);
+  const [isNearViewport, setIsNearViewport] = useState(false);
   const [scriptReady, setScriptReady] = useState(false);
+  const panelRef = useRef<HTMLDivElement>(null);
   const renderedSignatureRef = useRef("");
+  const renderedContainerIdsRef = useRef<Set<string>>(new Set());
+  const resizeTimeoutRef = useRef<number>();
 
   const visibleSymbols = useMemo(() => symbols.slice(0, 8), [symbols]);
   const activeSymbol = visibleSymbols.find((item) => item.id === activeTab);
 
   const initTabCharts = useCallback((tabName: string) => {
-    if (!scriptReady) return;
+    if (!isNearViewport || !scriptReady) return;
     const signature = [
       tabName,
       showIndicatorLegend ? "legend" : "no-legend",
@@ -133,36 +145,58 @@ const TradingViewQuadPanel = ({ symbols, drawingEnabled }: TradingViewQuadPanelP
     ].join("::");
     if (renderedSignatureRef.current === signature) return;
 
+    clearTradingViewContainers(renderedContainerIdsRef.current);
+    renderedContainerIdsRef.current.clear();
+
     if (tabName === "all") {
       visibleSymbols.forEach((item) => {
-        createTradingViewWidget(
-          `${instanceId}-all-${item.id}`,
-          item.symbol,
-          "240",
-          showIndicatorLegend,
-          drawingEnabled
-        );
+        const containerId = `${instanceId}-all-${item.id}`;
+        renderedContainerIdsRef.current.add(containerId);
+        createTradingViewWidget(containerId, item.symbol, "240", showIndicatorLegend, drawingEnabled);
       });
     } else {
       const symbolConfig = visibleSymbols.find((item) => item.id === tabName);
       if (!symbolConfig) return;
 
       intervals.forEach((interval) => {
-        createTradingViewWidget(
-          `${instanceId}-${tabName}-${interval.value}`,
-          symbolConfig.symbol,
-          interval.value,
-          showIndicatorLegend,
-          drawingEnabled
-        );
+        const containerId = `${instanceId}-${tabName}-${interval.value}`;
+        renderedContainerIdsRef.current.add(containerId);
+        createTradingViewWidget(containerId, symbolConfig.symbol, interval.value, showIndicatorLegend, drawingEnabled);
       });
     }
 
     renderedSignatureRef.current = signature;
-    window.setTimeout(() => window.dispatchEvent(new Event("resize")), 50);
-  }, [drawingEnabled, instanceId, scriptReady, showIndicatorLegend, visibleSymbols]);
+    if (resizeTimeoutRef.current) window.clearTimeout(resizeTimeoutRef.current);
+    resizeTimeoutRef.current = window.setTimeout(() => window.dispatchEvent(new Event("resize")), 50);
+  }, [drawingEnabled, instanceId, isNearViewport, scriptReady, showIndicatorLegend, visibleSymbols]);
 
   useEffect(() => {
+    const panel = panelRef.current;
+    if (!panel) return;
+
+    if (!("IntersectionObserver" in window)) {
+      setIsNearViewport(true);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsNearViewport(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: "600px 0px" }
+    );
+
+    observer.observe(panel);
+
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!isNearViewport) return;
+
     let isActive = true;
     loadTradingViewScript()
       .then(() => {
@@ -175,14 +209,27 @@ const TradingViewQuadPanel = ({ symbols, drawingEnabled }: TradingViewQuadPanelP
     return () => {
       isActive = false;
     };
-  }, []);
+  }, [isNearViewport]);
 
   useEffect(() => {
     initTabCharts(activeTab);
   }, [activeTab, initTabCharts]);
 
+  useEffect(() => {
+    onLayoutChange?.(activeTab === "all" ? "8" : "4");
+  }, [activeTab, onLayoutChange]);
+
+  useEffect(() => {
+    return () => {
+      if (resizeTimeoutRef.current) window.clearTimeout(resizeTimeoutRef.current);
+      clearTradingViewContainers(renderedContainerIdsRef.current);
+      renderedContainerIdsRef.current.clear();
+      renderedSignatureRef.current = "";
+    };
+  }, []);
+
   return (
-    <div className="overflow-hidden rounded border border-border bg-card text-foreground shadow-sm">
+    <div ref={panelRef} className="overflow-hidden rounded border border-border bg-card text-foreground shadow-sm">
       <div className="flex items-center gap-1 overflow-x-auto border-b border-border bg-table-header-bg px-2 py-1.5">
         <button
           type="button"

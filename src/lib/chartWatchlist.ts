@@ -3,28 +3,38 @@ import { type StockData } from "@/data/stockData";
 export const CHART_WATCHLIST_STORAGE_KEY = "stock-scout-chart-watchlist";
 export const CHART_WATCHLIST_UPDATED_EVENT = "stock-scout-chart-watchlist-updated";
 
-const normalizeStock = (stock: StockData): StockData => ({
+export type ChartWatchlistStock = StockData & {
+  sourceLabel?: string;
+};
+
+const toNumber = (value: unknown) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const normalizeStock = (stock: ChartWatchlistStock): ChartWatchlistStock => ({
   code: stock.code,
   name: stock.name,
-  market: stock.market,
-  price: stock.price,
-  change: stock.change,
-  changePercent: stock.changePercent,
-  volume: stock.volume,
-  open: stock.open,
-  high: stock.high,
-  low: stock.low,
-  previousClose: stock.previousClose,
+  market: stock.market || stock.sourceLabel || "プライム",
+  price: toNumber(stock.price),
+  change: toNumber(stock.change),
+  changePercent: toNumber(stock.changePercent),
+  volume: toNumber(stock.volume),
+  open: toNumber(stock.open),
+  high: toNumber(stock.high),
+  low: toNumber(stock.low),
+  previousClose: toNumber(stock.previousClose),
+  ...(stock.sourceLabel ? { sourceLabel: stock.sourceLabel } : {}),
 });
 
-const isStockData = (value: unknown): value is StockData => {
+const isStockData = (value: unknown): value is ChartWatchlistStock => {
   if (!value || typeof value !== "object") return false;
 
-  const stock = value as Partial<StockData>;
+  const stock = value as Partial<ChartWatchlistStock>;
   return typeof stock.code === "string" && typeof stock.name === "string";
 };
 
-export const readChartWatchlist = (): StockData[] => {
+export const readChartWatchlist = (): ChartWatchlistStock[] => {
   if (typeof window === "undefined") return [];
 
   try {
@@ -40,7 +50,7 @@ export const readChartWatchlist = (): StockData[] => {
   }
 };
 
-export const writeChartWatchlist = (stocks: StockData[]) => {
+export const writeChartWatchlist = (stocks: ChartWatchlistStock[]) => {
   if (typeof window === "undefined") return;
 
   const uniqueStocks = stocks.filter(
@@ -54,7 +64,7 @@ export const writeChartWatchlist = (stocks: StockData[]) => {
   window.dispatchEvent(new Event(CHART_WATCHLIST_UPDATED_EVENT));
 };
 
-export const addChartWatchlistStock = (stock: StockData) => {
+export const addChartWatchlistStock = (stock: ChartWatchlistStock) => {
   const current = readChartWatchlist();
   if (current.some((item) => item.code === stock.code)) return current;
 

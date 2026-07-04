@@ -177,7 +177,7 @@ const StockDetailPanel = ({ stock }: StockDetailPanelProps) => {
   } = useLiveStockQuote(stock);
   const isUp = displayStock.change > 0;
   const isDown = displayStock.change < 0;
-  const profile = getStockProfile(displayStock.code, displayStock.name);
+  const profile = getStockProfile(displayStock.code, displayStock.name, displayStock.market);
   const [metricsState, setMetricsState] = useState<MetricsState>({ status: "loading" });
   const rangeWidth = displayStock.high - displayStock.low;
   const rangePosition =
@@ -402,14 +402,14 @@ const StockDetailPanel = ({ stock }: StockDetailPanelProps) => {
                 </div>
               </div>
 
-              <div className="mb-1 mt-3 text-xs font-bold text-muted-foreground">主な事業</div>
+              <div className="mb-1 mt-3 text-xs font-bold text-foreground">主な事業</div>
               <ul className="space-y-0.5 text-xs leading-relaxed text-foreground">
                 {profile.segments.map((segment) => (
                   <li key={segment}>・{segment}</li>
                 ))}
               </ul>
 
-              <div className="mb-1 mt-3 text-xs font-bold text-muted-foreground">見るポイント</div>
+              <div className="mb-1 mt-3 text-xs font-bold text-foreground">見るポイント</div>
               <ul className="space-y-0.5 text-xs leading-relaxed text-foreground">
                 {profile.watchPoints.map((point) => (
                   <li key={point}>・{point}</li>

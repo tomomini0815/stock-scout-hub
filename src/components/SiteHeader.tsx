@@ -2,6 +2,7 @@ import { Info, RefreshCw, Search } from "lucide-react";
 import { type FormEvent } from "react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { readChartWatchlist } from "@/lib/chartWatchlist";
 
 interface SiteHeaderProps {
   activeTab?: string;
@@ -11,6 +12,7 @@ const navItems = [
   { label: "トップ", path: "/" },
   { label: "市況・スクリーニング", path: "/market" },
   { label: "銘柄・チャート", path: "/chart" },
+  { label: "大口・ファンド", path: "/smart-money" },
   { label: "テーマ別", path: "/themes" },
   { label: "ランキング", path: "/ranking" },
   { label: "決算・IPO", path: "/earnings" },
@@ -27,10 +29,25 @@ const SiteHeader = ({ activeTab = "トップ" }: SiteHeaderProps) => {
     weekday: "short",
   }).format(new Date());
 
-  const handleSearch = (event: FormEvent<HTMLFormElement>) => {
+  const handleSearch = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const query = searchQuery.trim();
     if (!query) return;
+    const { findSearchableStock } = await import("@/lib/stockSearch");
+    const matchedStock = findSearchableStock(query);
+    const target = matchedStock ?? { code: query };
+    const isAdded = readChartWatchlist().some((stock) => stock.code === target.code);
+
+    if (isAdded) {
+      navigate(`/chart?q=${encodeURIComponent(target.code)}`);
+      return;
+    }
+
+    if (matchedStock) {
+      navigate(`/market?highlight=${encodeURIComponent(matchedStock.code)}`);
+      return;
+    }
+
     navigate(`/chart?q=${encodeURIComponent(query)}`);
   };
   const handleManualRefresh = () => {

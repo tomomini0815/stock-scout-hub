@@ -16,7 +16,7 @@ interface GdeltArticle {
 type FeedStatus = "loading" | "live" | "fallback";
 
 type FeedColumn = {
-  id: "market" | "yahoo" | "gdelt";
+  id: "market" | "yahoo" | "google" | "gdelt";
   title: string;
   sourceLabel: string;
   status: FeedStatus;
@@ -28,9 +28,11 @@ type ArticleSummaryState = {
   summary?: string;
 };
 
-const TOP_NEWS_CACHE_KEY = "stock-scout-top-news-columns-v4";
+const TOP_NEWS_CACHE_KEY = "stock-scout-top-news-columns-v5";
 const TOP_NEWS_CACHE_MS = 1000 * 60 * 45;
+const TOP_NEWS_SOURCE_TIMEOUT_MS = 6500;
 const COLUMN_LIMIT = 6;
+const EMPTY_NEWS: NewsItem[] = [];
 
 const inferCategory = (title: string) =>
   /半導体|AI|NVIDIA|エヌビディア|キオクシア|アドバンテスト|東京エレクトロン/.test(title)
@@ -348,6 +350,13 @@ const emptyColumns = (fallbackNews: NewsItem[] = []): FeedColumn[] => [
     items: [],
   },
   {
+    id: "google",
+    title: "Google News RSS",
+    sourceLabel: "Google News RSS",
+    status: "loading",
+    items: [],
+  },
+  {
     id: "gdelt",
     title: "GDELT",
     sourceLabel: "GDELT",
@@ -356,12 +365,12 @@ const emptyColumns = (fallbackNews: NewsItem[] = []): FeedColumn[] => [
   },
 ];
 
-const loadCachedTopNews = () => {
+const loadCachedTopNews = (maxAgeMs = TOP_NEWS_CACHE_MS) => {
   try {
     const raw = localStorage.getItem(TOP_NEWS_CACHE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as { savedAt: number; columns: FeedColumn[] };
-    if (!parsed.columns?.length || Date.now() - parsed.savedAt > TOP_NEWS_CACHE_MS) return null;
+    if (!parsed.columns?.length || Date.now() - parsed.savedAt > maxAgeMs) return null;
     return parsed.columns;
   } catch {
     return null;
@@ -381,6 +390,14 @@ const statusLabel = (status: FeedStatus, hasItems: boolean) => {
   if (status === "loading") return "取得中";
   return hasItems ? "前回値" : "確認中";
 };
+
+const withTimeout = async <T,>(promise: Promise<T>, timeoutMs = TOP_NEWS_SOURCE_TIMEOUT_MS) =>
+  new Promise<T>((resolve, reject) => {
+    const timeout = window.setTimeout(() => reject(new Error("news source timeout")), timeoutMs);
+    promise
+      .then(resolve, reject)
+      .finally(() => window.clearTimeout(timeout));
+  });
 
 const categoryColors: Record<string, string> = {
   市況: "bg-primary text-primary-foreground",
@@ -494,12 +511,13 @@ const NewsColumn = ({
   </section>
 );
 
-const NewsFeed = ({ news = [] }: NewsFeedProps) => {
-  const [columns, setColumns] = useState<FeedColumn[]>(() => loadCachedTopNews() ?? emptyColumns(news));
+const NewsFeed = ({ news: incomingNews }: NewsFeedProps) => {
+  const news = incomingNews ?? EMPTY_NEWS;
+  const [columns, setColumns] = useState<FeedColumn[]>(() => loadCachedTopNews(Number.POSITIVE_INFINITY) ?? emptyColumns(news));
   const [articleSummaries, setArticleSummaries] = useState<Record<string, ArticleSummaryState>>({});
   const [activeColumnId, setActiveColumnId] = useState<FeedColumn["id"]>("yahoo");
   const orderedColumns = [...columns].sort((a, b) => {
-    const order: Record<FeedColumn["id"], number> = { yahoo: 0, market: 1, gdelt: 2 };
+    const order: Record<FeedColumn["id"], number> = { yahoo: 0, google: 1, market: 2, gdelt: 3 };
     return order[a.id] - order[b.id];
   });
   const activeColumn = columns.find((column) => column.id === activeColumnId) ?? orderedColumns[0] ?? columns[0];
@@ -538,50 +556,73 @@ const NewsFeed = ({ news = [] }: NewsFeedProps) => {
         return response.json();
       };
 
-      const results = await Promise.allSettled([
-        fetchText(`/api/google-news?${googleParams.toString()}`).then((text) =>
-          trimNewsItems(mapRssNews(text, "Google News RSS", "Google News", 200))
-        ),
+      const cachedColumns = loadCachedTopNews(Number.POSITIVE_INFINITY);
+      let googleItems: NewsItem[] = [];
+      let yahooItems: NewsItem[] = [];
+      let gdeltItems: NewsItem[] = [];
+
+      const buildColumns = (): FeedColumn[] => {
+        const marketItems = buildMarketSummaryItems([...googleItems, ...yahooItems, ...gdeltItems, ...news]);
+        const marketSourceLabel = googleItems.length ? "Google/Yahoo/GDELT横断" : "Yahoo/GDELT横断";
+
+        return [
+          {
+            ...emptyColumns(news)[0],
+            sourceLabel: marketSourceLabel,
+            status: marketItems.length ? "live" : "fallback",
+            items: marketItems.length ? marketItems : cachedColumns?.find((column) => column.id === "market")?.items ?? [],
+          },
+          {
+            ...emptyColumns()[1],
+            status: yahooItems.length ? "live" : "fallback",
+            items: yahooItems.length ? yahooItems : cachedColumns?.find((column) => column.id === "yahoo")?.items ?? [],
+          },
+          {
+            ...emptyColumns()[2],
+            status: googleItems.length ? "live" : "fallback",
+            items: googleItems.length ? googleItems : cachedColumns?.find((column) => column.id === "google")?.items ?? [],
+          },
+          {
+            ...emptyColumns()[3],
+            status: gdeltItems.length ? "live" : "fallback",
+            items: gdeltItems.length ? gdeltItems : cachedColumns?.find((column) => column.id === "gdelt")?.items ?? [],
+          },
+        ];
+      };
+
+      const applyColumns = () => {
+        if (!isActive) return;
+        const nextColumns = buildColumns();
+        setColumns(nextColumns);
+        if (nextColumns.some((column) => column.items.length)) {
+          saveCachedTopNews(nextColumns);
+        }
+      };
+
+      yahooItems = await withTimeout(
         fetchText("/api/yahoo-business-rss").then((text) =>
           trimNewsItems(mapRssNews(text, "Yahoo!ニュースRSS", "Yahoo!ニュース", 100))
         ),
-        fetchJson(`/api/gdelt?${gdeltParams.toString()}`).then((payload) =>
-          trimNewsItems(mapGdeltNews(payload.articles ?? []))
+        3500
+      ).catch(() => []);
+      applyColumns();
+
+      const [googleResult, gdeltResult] = await Promise.allSettled([
+        withTimeout(
+          fetchText(`/api/google-news?${googleParams.toString()}`).then((text) =>
+            trimNewsItems(mapRssNews(text, "Google News RSS", "Google News", 200))
+          )
+        ),
+        withTimeout(
+          fetchJson(`/api/gdelt?${gdeltParams.toString()}`).then((payload) =>
+            trimNewsItems(mapGdeltNews(payload.articles ?? []))
+          )
         ),
       ]);
 
-      if (!isActive) return;
-
-      const googleItems = results[0].status === "fulfilled" ? results[0].value : [];
-      const yahooItems = results[1].status === "fulfilled" ? results[1].value : [];
-      const gdeltItems = results[2].status === "fulfilled" ? results[2].value : [];
-      const cachedColumns = loadCachedTopNews();
-      const marketItems = buildMarketSummaryItems([...googleItems, ...yahooItems, ...gdeltItems, ...news]);
-      const marketSourceLabel = googleItems.length ? "Google/Yahoo/GDELT横断" : "Yahoo/GDELT横断";
-
-      const nextColumns: FeedColumn[] = [
-        {
-          ...emptyColumns(news)[0],
-          sourceLabel: marketSourceLabel,
-          status: marketItems.length ? "live" : "fallback",
-          items: marketItems.length ? marketItems : cachedColumns?.find((column) => column.id === "market")?.items ?? [],
-        },
-        {
-          ...emptyColumns()[1],
-          status: yahooItems.length ? "live" : "fallback",
-          items: yahooItems.length ? yahooItems : cachedColumns?.find((column) => column.id === "yahoo")?.items ?? [],
-        },
-        {
-          ...emptyColumns()[2],
-          status: gdeltItems.length ? "live" : "fallback",
-          items: gdeltItems.length ? gdeltItems : cachedColumns?.find((column) => column.id === "gdelt")?.items ?? [],
-        },
-      ];
-
-      setColumns(nextColumns);
-      if (nextColumns.some((column) => column.items.length)) {
-        saveCachedTopNews(nextColumns);
-      }
+      googleItems = googleResult.status === "fulfilled" ? googleResult.value : [];
+      gdeltItems = gdeltResult.status === "fulfilled" ? gdeltResult.value : [];
+      applyColumns();
     };
 
     loadNews().finally(() => window.clearTimeout(timeout));
@@ -603,7 +644,11 @@ const NewsFeed = ({ news = [] }: NewsFeedProps) => {
     }));
 
     targets.forEach((item) => {
-      fetch(`/api/article-summary?url=${encodeURIComponent(item.url as string)}`)
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), 5500);
+      fetch(`/api/article-summary?url=${encodeURIComponent(item.url as string)}`, {
+        signal: controller.signal,
+      })
         .then((response) => {
           if (!response.ok) throw new Error(`HTTP ${response.status}`);
           return response.json();
@@ -621,7 +666,8 @@ const NewsFeed = ({ news = [] }: NewsFeedProps) => {
             ...previous,
             [item.url as string]: { status: "error" },
           }));
-        });
+        })
+        .finally(() => window.clearTimeout(timeout));
     });
   }, [activeColumn]);
 

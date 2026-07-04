@@ -25,9 +25,13 @@ const ChartPage = () => {
   const detailSectionRef = useRef<HTMLDivElement | null>(null);
   const mergedChartStocks = useMemo(
     () =>
-      [...chartStocks, ...watchlistStocks].filter(
+      [...watchlistStocks, ...chartStocks].filter(
         (stock, index, stocks) => stocks.findIndex((item) => item.code === stock.code) === index
       ),
+    [watchlistStocks]
+  );
+  const sourceLabelByCode = useMemo(
+    () => new Map(watchlistStocks.map((stock) => [stock.code, stock.sourceLabel]).filter(([, sourceLabel]) => Boolean(sourceLabel))),
     [watchlistStocks]
   );
   const { stocks: liveChartStocks, updatedAt: liveChartUpdatedAt } = useLiveStockQuotes(mergedChartStocks);
@@ -109,6 +113,7 @@ const ChartPage = () => {
               <div className="min-h-0 flex-1 overflow-y-auto">
                 {filteredStocks.map((stock) => {
                   const isUp = stock.change > 0;
+                  const sourceLabel = sourceLabelByCode.get(stock.code);
                   return (
                     <button
                       key={stock.code}
@@ -119,7 +124,14 @@ const ChartPage = () => {
                     >
                       <div className="flex items-center justify-between">
                         <div>
-                          <span className="font-mono text-xxs font-semibold text-primary">{stock.code}</span>
+                          <div className="flex flex-wrap items-center gap-1">
+                            <span className="font-mono text-xxs font-semibold text-primary">{stock.code}</span>
+                            {sourceLabel && (
+                              <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold leading-none text-primary">
+                                {sourceLabel}
+                              </span>
+                            )}
+                          </div>
                           <div className="text-xs font-medium text-foreground">{stock.name}</div>
                         </div>
                         <div className="text-right">

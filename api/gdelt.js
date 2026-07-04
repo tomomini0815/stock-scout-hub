@@ -1,3 +1,5 @@
+import { fetchWithTimeout } from "./_shared/market.js";
+
 export default async function handler(req, res) {
   try {
     const requestUrl = new URL(req.url ?? "", "http://localhost");
@@ -11,7 +13,7 @@ export default async function handler(req, res) {
     if (!targetUrl.searchParams.has("format")) targetUrl.searchParams.set("format", "json");
     if (!targetUrl.searchParams.has("sort")) targetUrl.searchParams.set("sort", "hybrid");
 
-    const response = await fetch(targetUrl.toString(), {
+    const response = await fetchWithTimeout(targetUrl.toString(), 5500, {
       headers: {
         "User-Agent": "stock-scout-hub/1.0",
       },

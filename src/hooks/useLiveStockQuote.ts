@@ -1,10 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { type StockData } from "@/data/stockData";
 
 export type LiveStockStatus = "loading" | "live" | "fallback";
 
 const STOCK_QUOTES_CACHE_KEY = "stock-scout-live-stock-quotes-v1";
+const STOCK_QUOTES_CACHE_LIMIT = 2500;
 const STOCK_QUOTES_REFETCH_INTERVAL_MS = 3 * 60 * 1000;
 const STOCK_QUOTES_STALE_TIME_MS = 60 * 1000;
 
@@ -76,7 +77,7 @@ const writeCachedQuotes = (quotes: LiveStockQuote[], updatedAt: string) => {
     localStorage.setItem(
       STOCK_QUOTES_CACHE_KEY,
       JSON.stringify({
-        quotes: Array.from(merged.values()),
+        quotes: Array.from(merged.values()).slice(-STOCK_QUOTES_CACHE_LIMIT),
         updatedAt,
       } satisfies StockQuoteCache)
     );
@@ -167,7 +168,15 @@ const fetchStockQuoteBatch = async (symbols: string[]) => {
 };
 
 const fetchStockQuotes = async (symbols: string[]) => {
-  const results = await Promise.allSettled(chunkSymbols(symbols).map(fetchStockQuoteBatch));
+  const chunks = chunkSymbols(symbols);
+  const concurrency = 4;
+  const results: PromiseSettledResult<{ quotes: LiveStockQuote[]; updatedAt: string }>[] = [];
+
+  for (let index = 0; index < chunks.length; index += concurrency) {
+    const group = chunks.slice(index, index + concurrency);
+    results.push(...(await Promise.allSettled(group.map(fetchStockQuoteBatch))));
+  }
+
   const batches = results
     .map((result) => (result.status === "fulfilled" ? result.value : null))
     .filter(Boolean);
@@ -181,7 +190,7 @@ const fetchStockQuotes = async (symbols: string[]) => {
 };
 
 export const useLiveStockQuotes = (stocks: StockData[]) => {
-  const symbols = stocks.map((stock) => `${stock.code}.T`);
+  const symbols = useMemo(() => stocks.map((stock) => `${stock.code}.T`), [stocks]);
   const stockCodes = new Set(stocks.map((stock) => stock.code));
   const cached = loadCachedQuotes();
   const cachedQuotes = cached?.quotes.filter((quote) => stockCodes.has(quote.code)) ?? [];

@@ -1,4 +1,4 @@
-import { parseYahooQuote, sendJson } from "./_shared/market.js";
+import { parseYahooQuote, parseYahooQuoteBatch, sendJson } from "./_shared/market.js";
 
 export default async function handler(req, res) {
   try {
@@ -14,10 +14,16 @@ export default async function handler(req, res) {
       return;
     }
 
-    const results = await Promise.allSettled(symbols.map(parseYahooQuote));
-    const quotes = results
+    const batchQuotes = await parseYahooQuoteBatch(symbols);
+    const foundSymbols = new Set(batchQuotes.map((quote) => quote.symbol));
+    const missingSymbols = symbols.filter((symbol) => !foundSymbols.has(symbol));
+    const fallbackResults = missingSymbols.length
+      ? await Promise.allSettled(missingSymbols.map(parseYahooQuote))
+      : [];
+    const fallbackQuotes = fallbackResults
       .map((result) => (result.status === "fulfilled" ? result.value : null))
       .filter(Boolean);
+    const quotes = [...batchQuotes, ...fallbackQuotes];
 
     sendJson(res, { quotes, updatedAt: new Date().toISOString() });
   } catch {

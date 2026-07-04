@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 interface MarketOverviewProps {
   indices: MarketIndex[];
+  detailed?: boolean;
 }
 
 type MarketDriverStatus = "loading" | "live" | "fallback";
@@ -269,6 +270,64 @@ const getMoveLabel = (changePercent: number) => {
 
 const isUrgentMove = (changePercent: number) => Math.abs(changePercent) >= URGENT_MOVE_THRESHOLD;
 
+const getMarketTone = (changePercent: number) => {
+  const magnitude = Math.abs(changePercent);
+  if (magnitude >= 1.5) return changePercent > 0 ? "買い優勢が鮮明" : "売り圧力が強い";
+  if (magnitude >= 0.7) return changePercent > 0 ? "堅調な値動き" : "軟調な値動き";
+  if (magnitude > 0.15) return changePercent > 0 ? "小幅高" : "小幅安";
+  return "方向感を探る展開";
+};
+
+const getIndexMarketBrief = (index: MarketIndex) => {
+  const tone = getMarketTone(index.changePercent);
+  const signedPercent = `${index.changePercent > 0 ? "+" : ""}${index.changePercent.toFixed(2)}%`;
+
+  if (/日経/.test(index.name)) {
+    return `${tone}（${signedPercent}）。値がさハイテク・半導体株の寄与度が出やすく、NASDAQ先物、米金利、ドル円の振れが短期の方向感を左右。TOPIXより強ければグロース主導、弱ければ内需・金融への資金移動を意識。`;
+  }
+  if (/TOPIX/.test(index.name)) {
+    return `${tone}（${signedPercent}）。東証全体の地合いを映しやすく、銀行、自動車、商社、内需株への資金の広がりを確認。日経平均との強弱差は、指数寄与度銘柄だけでなく市場全体に買いが回っているかの手掛かり。`;
+  }
+  if (/ダウ/.test(index.name)) {
+    return `${tone}（${signedPercent}）。景気敏感株、金融、資本財、ディフェンシブ大型株の動きが中心。米長期金利と景気指標、企業決算への反応を見て、リスク選好が大型バリュー株まで広がっているか確認。`;
+  }
+  if (/NASDAQ/.test(index.name)) {
+    return `${tone}（${signedPercent}）。AI、半導体、メガテックの売買が指数を動かしやすい局面。米長期金利が低下すると支援材料、上昇するとPERの高い成長株には重荷。SOX指数や大型テック決算も確認。`;
+  }
+  if (/S&P/.test(index.name)) {
+    return `${tone}（${signedPercent}）。米国大型株全体の体温計。NASDAQ主導か、ダウ・景気敏感株まで広がる全面高かで相場の質が変わる。金利、雇用・物価指標、決算ガイダンスが主な確認材料。`;
+  }
+  if (/USD|JPY|ドル|円/.test(index.name)) {
+    return `${tone}（${signedPercent}）。上昇はドル高・円安、下落はドル安・円高の方向。日米金利差、FRB・日銀発言、介入警戒、米指標の強弱が材料。日本株では輸出株と内需株の温度差にも影響。`;
+  }
+  if (/GOLD|金/.test(index.name)) {
+    return `${tone}（${signedPercent}）。米実質金利とドル指数に反応しやすく、金利低下・ドル安・地政学リスクは支援材料。株高でリスク選好が強まる場面では上値が重くなりやすい。`;
+  }
+  if (/BTC|ビットコイン/.test(index.name)) {
+    return `${tone}（${signedPercent}）。暗号資産全体のリスク許容度を反映。ETF資金フロー、米金利、ドル、NASDAQの動きと連動しやすい。急変時はレバレッジ解消や利益確定の有無を確認。`;
+  }
+
+  return `${tone}（${signedPercent}）。為替、金利、海外株、商品市況、先物の動きから短期の需給とリスク選好を確認。`;
+};
+
+const getIndexFocusTags = (index: MarketIndex) => {
+  if (/日経/.test(index.name)) return ["半導体", "ドル円", "米金利"];
+  if (/TOPIX/.test(index.name)) return ["銀行", "自動車", "内需"];
+  if (/ダウ/.test(index.name)) return ["景気敏感", "決算", "米金利"];
+  if (/NASDAQ/.test(index.name)) return ["AI", "半導体", "メガテック"];
+  if (/S&P/.test(index.name)) return ["米大型株", "決算", "雇用・物価"];
+  if (/USD|JPY|ドル|円/.test(index.name)) return ["日米金利差", "FRB", "日銀"];
+  if (/GOLD|金/.test(index.name)) return ["実質金利", "ドル", "地政学"];
+  if (/BTC|ビットコイン/.test(index.name)) return ["ETFフロー", "米金利", "リスク資産"];
+  return ["為替", "金利", "海外市場"];
+};
+
+const formatDriverMaterial = (text: string) =>
+  text
+    .replace(/^(急騰検知|急落検知|小幅に上昇|小幅に下落|やや大きく上昇|やや大きく下落|急上昇|急下落|横ばい)。/, "")
+    .replace(/^材料:\s*/, "")
+    .trim();
+
 const getDriverPanelClass = (changePercent: number) => {
   const magnitude = Math.abs(changePercent);
   if (magnitude >= 1.5 && changePercent > 0) return "border-red-200 bg-red-100/45";
@@ -278,7 +337,7 @@ const getDriverPanelClass = (changePercent: number) => {
   return "border-slate-300/70 bg-slate-100/50";
 };
 
-const ClampedDriverText = ({ text }: { text?: string }) => {
+const ClampedDriverText = ({ text, lines = 2 }: { text?: string; lines?: 2 | 3 }) => {
   const textRef = useRef<HTMLParagraphElement>(null);
   const [isClamped, setIsClamped] = useState(false);
 
@@ -303,11 +362,14 @@ const ClampedDriverText = ({ text }: { text?: string }) => {
 
   return (
     <>
-      <p ref={textRef} className="line-clamp-2 text-xxs leading-relaxed text-foreground">
+      <p
+        ref={textRef}
+        className={`${lines === 3 ? "line-clamp-3" : "line-clamp-2"} text-xxs leading-relaxed text-foreground`}
+      >
         {text}
       </p>
       {isClamped && (
-        <div className="pointer-events-none absolute left-2 right-2 top-full z-30 mt-1 hidden rounded border border-border bg-popover px-2 py-1.5 text-xxs leading-relaxed text-popover-foreground shadow-lg group-hover:block group-focus-within:block">
+        <div className="pointer-events-none absolute left-2 right-2 top-full z-30 mt-1 hidden rounded border border-slate-300 bg-slate-100 px-2 py-1.5 text-xxs leading-relaxed text-slate-800 shadow-lg group-hover:block group-focus-within:block">
           {text}
         </div>
       )}
@@ -315,9 +377,10 @@ const ClampedDriverText = ({ text }: { text?: string }) => {
   );
 };
 
-const MarketOverview = ({ indices }: MarketOverviewProps) => {
+const MarketOverview = ({ indices, detailed = false }: MarketOverviewProps) => {
   const cachedDrivers = loadCachedDrivers();
   const [showIndexCharts, setShowIndexCharts] = useState(false);
+  const [indexChartLayout, setIndexChartLayout] = useState<"8" | "4">("8");
   const [isMobileChartViewport, setIsMobileChartViewport] = useState(false);
   const [mobileDrawingToolsOpen, setMobileDrawingToolsOpen] = useState(false);
   const [driverNews, setDriverNews] = useState<MarketDriverNews[]>(cachedDrivers?.items ?? []);
@@ -484,7 +547,7 @@ const MarketOverview = ({ indices }: MarketOverviewProps) => {
         <div className="flex items-center gap-2">
           <h3 className="flex items-center gap-1 text-xs font-bold text-foreground">
             <Newspaper className="h-3.5 w-3.5 text-primary" />
-            主要指数
+            {detailed ? "主要指数詳細" : "主要指数"}
           </h3>
           <button
             type="button"
@@ -523,6 +586,7 @@ const MarketOverview = ({ indices }: MarketOverviewProps) => {
           const isUp = index.change > 0;
           const isDown = index.change < 0;
           const urgentMove = isUrgentMove(index.changePercent);
+          const driverText = urgentDrivers[index.name]?.text ?? marketDriverByName.get(index.name);
           return (
             <div
               key={index.name}
@@ -565,11 +629,44 @@ const MarketOverview = ({ indices }: MarketOverviewProps) => {
                 </span>
               </div>
               <div className={`group relative mt-2 rounded border px-2 py-1.5 ${getDriverPanelClass(index.changePercent)}`}>
-                <div className="mb-1 flex items-center gap-1 text-xxs font-bold text-muted-foreground">
-                  {urgentMove && <AlertTriangle className="h-3 w-3" />}
-                  {getMoveLabel(index.changePercent)}
-                </div>
-                <ClampedDriverText text={urgentDrivers[index.name]?.text ?? marketDriverByName.get(index.name)} />
+                {detailed ? (
+                  <>
+                    <div className="mb-1.5 flex flex-wrap items-center gap-1">
+                      <span className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold ${
+                        isUp
+                          ? "bg-red-600 text-white"
+                          : isDown
+                          ? "bg-blue-600 text-white"
+                          : "bg-slate-600 text-white"
+                      }`}>
+                        {urgentMove && <AlertTriangle className="h-3 w-3" />}
+                        {getMarketTone(index.changePercent)}
+                      </span>
+                      <span className="text-[10px] font-bold text-muted-foreground">{getMoveLabel(index.changePercent)}</span>
+                    </div>
+                    <div className="mb-1.5 flex flex-wrap gap-1">
+                      {getIndexFocusTags(index).map((tag) => (
+                        <span key={tag} className="rounded border border-border bg-background px-1.5 py-0.5 text-[10px] font-bold text-primary">
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                    <ClampedDriverText text={getIndexMarketBrief(index)} lines={3} />
+                    {driverText && (
+                      <div className="mt-1.5 line-clamp-2 border-t border-border/70 pt-1 text-[10px] leading-relaxed text-muted-foreground">
+                        <span className="font-bold text-foreground">ニュース材料:</span> {formatDriverMaterial(driverText)}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <div className="mb-1 flex items-center gap-1 text-xxs font-bold text-muted-foreground">
+                      {urgentMove && <AlertTriangle className="h-3 w-3" />}
+                      {getMoveLabel(index.changePercent)}
+                    </div>
+                    <ClampedDriverText text={driverText} />
+                  </>
+                )}
               </div>
             </div>
           );
@@ -578,7 +675,7 @@ const MarketOverview = ({ indices }: MarketOverviewProps) => {
       {showIndexCharts && (
         <div className="border-t border-border bg-background p-2">
           <div className="mb-2 flex flex-wrap items-center justify-between gap-2 px-1">
-            <div className="text-xs font-bold text-foreground">主要指数チャート 8分割</div>
+            <div className="text-xs font-bold text-foreground">主要指数チャート {indexChartLayout}分割</div>
             <div className="flex items-center gap-2">
               <button
                 type="button"
@@ -593,6 +690,7 @@ const MarketOverview = ({ indices }: MarketOverviewProps) => {
           <TradingViewQuadPanel
             symbols={indexChartConfigs}
             drawingEnabled={isMobileChartViewport ? mobileDrawingToolsOpen : true}
+            onLayoutChange={setIndexChartLayout}
           />
         </div>
       )}

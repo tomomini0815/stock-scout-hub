@@ -136,6 +136,62 @@ export const parseYahooQuote = async (symbol) => {
   };
 };
 
+const numberOrFallback = (value, fallback) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const parseYahooQuoteRow = (row) => {
+  if (!row?.symbol) return null;
+
+  const price = Number(row.regularMarketPrice);
+  const previousClose = Number(row.regularMarketPreviousClose);
+  if (!Number.isFinite(price) || !Number.isFinite(previousClose)) return null;
+
+  const change = numberOrFallback(row.regularMarketChange, price - previousClose);
+  const changePercent = numberOrFallback(
+    row.regularMarketChangePercent,
+    previousClose ? (change / previousClose) * 100 : 0
+  );
+  const code = String(row.symbol).replace(/\.T$/i, "");
+
+  return {
+    code,
+    symbol: row.symbol,
+    price,
+    change,
+    changePercent,
+    volume: numberOrFallback(row.regularMarketVolume, 0),
+    open: numberOrFallback(row.regularMarketOpen, price),
+    high: numberOrFallback(row.regularMarketDayHigh, price),
+    low: numberOrFallback(row.regularMarketDayLow, price),
+    previousClose,
+  };
+};
+
+export const parseYahooQuoteBatch = async (symbols) => {
+  const uniqueSymbols = [...new Set(symbols)].filter(Boolean);
+  if (!uniqueSymbols.length) return [];
+
+  const params = new URLSearchParams({
+    symbols: uniqueSymbols.join(","),
+    fields:
+      "symbol,regularMarketPrice,regularMarketChange,regularMarketChangePercent,regularMarketVolume,regularMarketOpen,regularMarketDayHigh,regularMarketDayLow,regularMarketPreviousClose",
+    region: "JP",
+    lang: "ja-JP",
+  });
+  const response = await fetchWithTimeout(
+    `https://query1.finance.yahoo.com/v7/finance/quote?${params.toString()}`,
+    7000
+  );
+  if (!response.ok) return [];
+
+  const payload = await response.json();
+  return (payload?.quoteResponse?.result ?? [])
+    .map(parseYahooQuoteRow)
+    .filter(Boolean);
+};
+
 export const parseYahooMarketAsset = async (name, symbol) => {
   const quote = await parseYahooQuote(symbol);
   return quote

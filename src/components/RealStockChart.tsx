@@ -13,68 +13,13 @@ interface RealStockChartProps {
 }
 
 type ChartState =
-  | { status: "loading"; data: CandleData[] }
-  | { status: "ready"; data: CandleData[]; currency: string }
-  | { status: "error"; data: CandleData[] };
+  | { status: "loading"; symbol: string; data: CandleData[] }
+  | { status: "ready"; symbol: string; data: CandleData[]; currency: string }
+  | { status: "error"; symbol: string; data: CandleData[] };
 
 type ChartPoint = CandleData & {
   sma20?: number;
   sma200?: number;
-};
-
-const fallbackProfiles: Record<string, { start: number; drift: number; volatility: number; volume: number; seed: number }> = {
-  "7203.T": { start: 2820, drift: 4.2, volatility: 34, volume: 23600000, seed: 11 },
-  "6758.T": { start: 3630, drift: 7.5, volatility: 58, volume: 13200000, seed: 23 },
-  "8035.T": { start: 27800, drift: 92, volatility: 470, volume: 4200000, seed: 37 },
-  "6857.T": { start: 6900, drift: 34, volatility: 175, volume: 12400000, seed: 41 },
-  "6146.T": { start: 38200, drift: 145, volatility: 980, volume: 2600000, seed: 53 },
-  "5803.T": { start: 5250, drift: 31, volatility: 155, volume: 9600000, seed: 67 },
-  "6723.T": { start: 2600, drift: 9, volatility: 68, volume: 17000000, seed: 73 },
-  "6315.T": { start: 2850, drift: 12, volatility: 92, volume: 4300000, seed: 79 },
-  "5801.T": { start: 3600, drift: 18, volatility: 130, volume: 6800000, seed: 83 },
-  "5802.T": { start: 2850, drift: 8, volatility: 72, volume: 9500000, seed: 89 },
-  "9432.T": { start: 150, drift: 0.2, volatility: 2.8, volume: 180000000, seed: 97 },
-  "3687.T": { start: 2350, drift: 10, volatility: 88, volume: 1800000, seed: 101 },
-  "285A.T": { start: 2400, drift: 26, volatility: 190, volume: 24000000, seed: 107 },
-  "^N225": { start: 39000, drift: 55, volatility: 520, volume: 0, seed: 71 },
-};
-
-const pseudoRandom = (seed: number) => {
-  const value = Math.sin(seed * 999) * 10000;
-  return value - Math.floor(value);
-};
-
-const generateFallbackData = (symbol: string): CandleData[] => {
-  const profile = fallbackProfiles[symbol] ?? { start: 3000, drift: 6, volatility: 40, volume: 8000000, seed: 7 };
-  const data: CandleData[] = [];
-  const startDate = new Date(2026, 2, 24);
-  let close = profile.start;
-
-  for (let day = 0; data.length < 520; day++) {
-    const date = new Date(startDate);
-    date.setDate(startDate.getDate() + day);
-    if (date.getDay() === 0 || date.getDay() === 6) continue;
-
-    const index = data.length;
-    const cycle = Math.sin(index / 5 + profile.seed) * profile.volatility * 0.22;
-    const noise = (pseudoRandom(profile.seed + index * 3) - 0.48) * profile.volatility;
-    const open = close + (pseudoRandom(profile.seed + index * 5) - 0.5) * profile.volatility * 0.6;
-    close = Math.max(1, open + profile.drift + cycle + noise * 0.42);
-    const high = Math.max(open, close) + profile.volatility * (0.18 + pseudoRandom(profile.seed + index * 7) * 0.35);
-    const low = Math.min(open, close) - profile.volatility * (0.18 + pseudoRandom(profile.seed + index * 11) * 0.35);
-    const volume = profile.volume * (0.75 + pseudoRandom(profile.seed + index * 13) * 0.65);
-
-    data.push({
-      date: `${date.getMonth() + 1}/${date.getDate()}`,
-      open: Math.round(open * 10) / 10,
-      high: Math.round(high * 10) / 10,
-      low: Math.round(low * 10) / 10,
-      close: Math.round(close * 10) / 10,
-      volume: Math.round(volume),
-    });
-  }
-
-  return data;
 };
 
 const formatChartDate = (timestamp: number) => {
@@ -135,7 +80,8 @@ const RealStockChart = ({
 }: RealStockChartProps) => {
   const [state, setState] = useState<ChartState>({
     status: "loading",
-    data: generateFallbackData(chartApiSymbol),
+    symbol: chartApiSymbol,
+    data: [],
   });
 
   useEffect(() => {
@@ -148,6 +94,7 @@ const RealStockChart = ({
       controller = new AbortController();
       const requestController = controller;
       const timeout = window.setTimeout(() => requestController.abort(), 8000);
+      if (isActive) setState({ status: "loading", symbol: chartApiSymbol, data: [] });
 
       try {
         const endpoint = `/api/stock-chart?symbol=${encodeURIComponent(chartApiSymbol)}&range=2y&interval=1d`;
@@ -162,9 +109,9 @@ const RealStockChart = ({
           .slice(-520);
 
         if (!data.length) throw new Error("有効なOHLCがありません");
-        if (isActive) setState({ status: "ready", data, currency: payload?.currency ?? "JPY" });
+        if (isActive) setState({ status: "ready", symbol: chartApiSymbol, data, currency: payload?.currency ?? "JPY" });
       } catch {
-        if (isActive) setState({ status: "error", data: generateFallbackData(chartApiSymbol) });
+        if (isActive) setState({ status: "error", symbol: chartApiSymbol, data: [] });
       } finally {
         window.clearTimeout(timeout);
       }
@@ -180,14 +127,18 @@ const RealStockChart = ({
     };
   }, [chartApiSymbol]);
 
-  const displayData = useMemo(() => {
-    if (!isValidCurrentPrice(currentPrice) || !state.data.length) return state.data;
+  const isCurrentChart = state.symbol === chartApiSymbol;
+  const chartStatus = isCurrentChart ? state.status : "loading";
+  const chartData = isCurrentChart ? state.data : [];
 
-    const latest = state.data.at(-1);
-    if (!latest) return state.data;
+  const displayData = useMemo(() => {
+    if (!isValidCurrentPrice(currentPrice) || !chartData.length) return chartData;
+
+    const latest = chartData.at(-1);
+    if (!latest) return chartData;
 
     return [
-      ...state.data.slice(0, -1),
+      ...chartData.slice(0, -1),
       {
         ...latest,
         close: currentPrice,
@@ -195,7 +146,7 @@ const RealStockChart = ({
         low: Math.min(latest.low, currentPrice),
       },
     ];
-  }, [currentPrice, state.data]);
+  }, [chartData, currentPrice]);
 
   const latestWithAverage = useMemo(() => appendMovingAverages(displayData).at(-1), [displayData]);
 
@@ -258,7 +209,7 @@ const RealStockChart = ({
           <span className="font-mono text-xxs text-muted-foreground">{chartSymbol}</span>
         </div>
         <div className="flex items-center gap-2 text-xxs text-muted-foreground">
-          {state.status === "ready" ? "Yahoo Finance日足・表示約1年" : state.status === "loading" ? "取得中" : "取得失敗時の参考チャート"}
+          {chartStatus === "ready" ? "Yahoo Finance日足・表示約1年" : chartStatus === "loading" ? "取得中" : "取得失敗"}
           <a
             href={`https://finance.yahoo.com/quote/${chartApiSymbol}/chart`}
             target="_blank"
@@ -271,7 +222,7 @@ const RealStockChart = ({
         </div>
       </div>
 
-      {state.data.length ? (
+      {chartData.length ? (
         <div className="p-2">
           <div className="mb-1 flex items-baseline justify-between gap-2">
             <div>
@@ -279,7 +230,7 @@ const RealStockChart = ({
                 {code} {name}
               </div>
               <div className="text-xxs text-muted-foreground">
-                {state.status === "ready" ? "外部データ取得済み" : "直近日足OHLC"}・20SMA/200SMA
+                {chartStatus === "ready" ? "外部データ取得済み" : "直近日足OHLC"}・20SMA/200SMA
               </div>
             </div>
             {latest && (
@@ -452,6 +403,11 @@ const RealStockChart = ({
               )}
             </svg>
           </div>
+        </div>
+      ) : chartStatus === "loading" ? (
+        <div className="flex h-[330px] flex-col items-center justify-center gap-2 p-2 text-xs font-semibold text-muted-foreground">
+          <div className="h-7 w-7 animate-spin rounded-full border-2 border-muted border-t-primary" />
+          チャートデータを取得中
         </div>
       ) : (
         <div className="p-6 text-center text-xs text-muted-foreground">

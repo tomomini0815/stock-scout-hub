@@ -85,6 +85,26 @@ const extractArticleText = (html) => {
     .sort((a, b) => b.length - a.length)[0] ?? "";
 };
 
+const trimSummaryAtSentence = (text, maxLength) => {
+  const cleaned = text.replace(/\s+/g, " ").trim();
+  if (cleaned.length <= maxLength) return cleaned;
+
+  const clipped = cleaned.slice(0, maxLength);
+  const sentenceEnd = Math.max(
+    clipped.lastIndexOf("。"),
+    clipped.lastIndexOf("！"),
+    clipped.lastIndexOf("？"),
+    clipped.lastIndexOf("!"),
+    clipped.lastIndexOf("?")
+  );
+
+  if (sentenceEnd >= 120) {
+    return clipped.slice(0, sentenceEnd + 1).trim();
+  }
+
+  return `${clipped.replace(/[、,。\s]+$/, "")}…`;
+};
+
 const summarizeJapaneseText = (text) => {
   const normalized = text
     .replace(/記事全文を読む[\s\S]*$/, " ")
@@ -98,8 +118,8 @@ const summarizeJapaneseText = (text) => {
     .map((sentence) => sentence.trim())
     .filter((sentence) => sentence.length >= 18 && !/^(写真|画像|Copyright|©)/i.test(sentence));
 
-  const summary = (sentences.length ? sentences.slice(0, 3).join("") : normalized.slice(0, 220)).trim();
-  return summary.length > 260 ? `${summary.slice(0, 257)}...` : summary;
+  const summary = (sentences.length ? sentences.slice(0, 4).join("") : normalized).trim();
+  return trimSummaryAtSentence(summary, 420);
 };
 
 export default async function handler(req, res) {

@@ -1,6 +1,8 @@
+import { fetchWithTimeout } from "./_shared/market.js";
+
 export default async function handler(_req, res) {
   try {
-    const response = await fetch("https://news.yahoo.co.jp/rss/topics/business.xml", {
+    const response = await fetchWithTimeout("https://news.yahoo.co.jp/rss/topics/business.xml", 5500, {
       headers: {
         "User-Agent": "stock-scout-hub/1.0",
       },
