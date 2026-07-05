@@ -131,6 +131,12 @@ const secHeaders = () => ({
   "User-Agent": SEC_USER_AGENT,
 });
 
+const edinetHeaders = (apiKey, accept = "application/json, text/plain, */*") => ({
+  Accept: accept,
+  "User-Agent": SEC_USER_AGENT,
+  "Subscription-Key": apiKey,
+});
+
 const formatJstDateKey = (date = new Date()) =>
   new Intl.DateTimeFormat("sv-SE", {
     timeZone: "Asia/Tokyo",
@@ -308,7 +314,9 @@ const fetchEdinetDocumentDetail = async (docId, apiKey, fallback = {}) => {
     const url = new URL(`https://api.edinet-fsa.go.jp/api/v2/documents/${encodeURIComponent(docId)}`);
     url.searchParams.set("type", "1");
     url.searchParams.set("Subscription-Key", apiKey);
-    const response = await fetchWithTimeout(url.toString(), 9000);
+    const response = await fetchWithTimeout(url.toString(), 9000, {
+      headers: edinetHeaders(apiKey, "application/octet-stream, application/zip, */*"),
+    });
     if (!response.ok) return {};
     const entries = unzipTextEntries(await response.arrayBuffer());
     const xbrlEntry =
@@ -341,7 +349,12 @@ export const fetchEdinetDocumentArchive = async (docId, type = "1") => {
   url.searchParams.set("type", normalizedType);
   url.searchParams.set("Subscription-Key", apiKey);
 
-  const response = await fetchWithTimeout(url.toString(), 12000);
+  const response = await fetchWithTimeout(url.toString(), 12000, {
+    headers: edinetHeaders(
+      apiKey,
+      normalizedType === "2" ? "application/pdf, application/octet-stream, */*" : "application/octet-stream, application/zip, */*"
+    ),
+  });
   if (!response.ok) {
     const error = new Error(`EDINET document download failed: ${response.status}`);
     error.statusCode = response.status;
@@ -488,14 +501,22 @@ const fetchEdinetSignals = async () => {
 
   const signals = [];
   const maxSignals = 42;
+  let successfulListRequests = 0;
+  let failedListRequests = 0;
   for (let offset = 0; offset < 5 && signals.length < maxSignals; offset += 1) {
     const date = daysAgo(offset);
     const url = new URL("https://api.edinet-fsa.go.jp/api/v2/documents.json");
     url.searchParams.set("date", date);
     url.searchParams.set("type", "2");
     url.searchParams.set("Subscription-Key", edinetApiKey);
-    const response = await fetchWithTimeout(url.toString(), 8000);
-    if (!response.ok) continue;
+    const response = await fetchWithTimeout(url.toString(), 8000, {
+      headers: edinetHeaders(edinetApiKey),
+    });
+    if (!response.ok) {
+      failedListRequests += 1;
+      continue;
+    }
+    successfulListRequests += 1;
     const payload = await response.json();
     const results = asArray(payload?.results);
     const targetDocs = results
@@ -531,7 +552,8 @@ const fetchEdinetSignals = async () => {
       });
     }
   }
-  return { signals, status: "live" };
+  const status = signals.length ? "live" : successfulListRequests ? "empty" : failedListRequests ? "error" : "empty";
+  return { signals, status };
 };
 
 const mergeMultiFundCounts = (signals) => {
