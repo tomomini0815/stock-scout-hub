@@ -1,6 +1,10 @@
 import { fetchEdinetDocumentArchive } from "./_shared/smart-money.js";
 import { sendJson } from "./_shared/market.js";
 
+export const config = {
+  regions: ["hnd1"],
+};
+
 export default async function handler(req, res) {
   try {
     const requestUrl = new URL(req.url ?? "", "http://localhost");
