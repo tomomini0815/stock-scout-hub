@@ -1,6 +1,7 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
+import { fetchEdinetDocumentArchive, fetchSmartMoneyData } from "./api/_shared/smart-money.js";
 
 const googleQuotes = [
   { name: "日経平均", path: "NI225:INDEXNIKKEI", ticker: "NI225", exchange: "INDEXNIKKEI" },
@@ -578,6 +579,38 @@ const stockChartPlugin = () => ({
   },
 });
 
+const smartMoneyPlugin = () => ({
+  name: "smart-money-api",
+  configureServer(server) {
+    server.middlewares.use("/api/smart-money", async (req, res) => {
+      try {
+        const requestUrl = new URL(req.url ?? "", "http://localhost");
+        const payload = await fetchSmartMoneyData({ force: requestUrl.searchParams.get("force") === "1" });
+        sendJson(res, payload);
+      } catch {
+        sendJson(res, { funds: [], signals: [], error: "smart money unavailable", source: "error" }, 502);
+      }
+    });
+    server.middlewares.use("/api/edinet-document", async (req, res) => {
+      try {
+        const requestUrl = new URL(req.url ?? "", "http://localhost");
+        const archive = await fetchEdinetDocumentArchive(
+          requestUrl.searchParams.get("docId") ?? "",
+          requestUrl.searchParams.get("type") ?? "1"
+        );
+        const disposition = requestUrl.searchParams.get("inline") === "1" ? "inline" : "attachment";
+        res.statusCode = 200;
+        res.setHeader("Content-Type", archive.contentType);
+        res.setHeader("Content-Disposition", `${disposition}; filename="${archive.filename}"`);
+        res.setHeader("Link", '</favicon.ico?v=3>; rel="icon"; type="image/x-icon"');
+        res.end(archive.buffer);
+      } catch (error) {
+        sendJson(res, { error: "edinet document unavailable" }, error?.statusCode || 502);
+      }
+    });
+  },
+});
+
 const newsSourcePlugin = () => ({
   name: "news-source-api",
   configureServer(server) {
@@ -804,7 +837,7 @@ export default defineConfig(({ mode }) => ({
       },
     },
   },
-  plugins: [marketDataPlugin(), stockQuotePlugin(), stockMetricsPlugin(), stockChartPlugin(), newsSourcePlugin(), react()],
+  plugins: [marketDataPlugin(), stockQuotePlugin(), stockMetricsPlugin(), stockChartPlugin(), smartMoneyPlugin(), newsSourcePlugin(), react()],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

@@ -43,6 +43,11 @@ const SiteHeader = ({ activeTab = "トップ" }: SiteHeaderProps) => {
       return;
     }
 
+    if (matchedStock?.sourceId === "chart" || matchedStock?.sourceId === "watchlist") {
+      navigate(`/chart?q=${encodeURIComponent(matchedStock.code)}`);
+      return;
+    }
+
     if (matchedStock) {
       navigate(`/market?highlight=${encodeURIComponent(matchedStock.code)}`);
       return;

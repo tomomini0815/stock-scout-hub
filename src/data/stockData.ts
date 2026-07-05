@@ -380,6 +380,7 @@ export const stockUniverse: StockData[] = [
   { code: "4813", name: "ACCESS", market: "プライム", price: 0, change: 0, changePercent: 0, volume: 0, open: 0, high: 0, low: 0, previousClose: 0 },
   { code: "3687", name: "フィックスターズ", market: "プライム", price: 0, change: 0, changePercent: 0, volume: 0, open: 0, high: 0, low: 0, previousClose: 0 },
   { code: "285A", name: "キオクシアHD", market: "プライム", price: 0, change: 0, changePercent: 0, volume: 0, open: 0, high: 0, low: 0, previousClose: 0 },
+  { code: "2656", name: "ベクターホールディングス", market: "東証スタンダード", price: 0, change: 0, changePercent: 0, volume: 0, open: 0, high: 0, low: 0, previousClose: 0 },
 ].filter((stock, index, stocks) => stocks.findIndex((item) => item.code === stock.code) === index);
 
 export const fundamentalPicks: FundamentalPick[] = [

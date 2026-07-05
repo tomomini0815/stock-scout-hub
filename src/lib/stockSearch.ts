@@ -6,13 +6,14 @@ import {
   toshoReitConstituentStocks,
 } from "@/data/japaneseIndexConstituents";
 import { nikkei225Stocks, stockUniverse, type StockData } from "@/data/stockData";
+import { readChartWatchlist } from "@/lib/chartWatchlist";
 
 export type SearchableStock = StockData & {
   sourceLabel: string;
   sourceId: string;
 };
 
-const searchSources: Array<{ stocks: StockData[]; sourceLabel: string; sourceId: string }> = [
+const baseSearchSources: Array<{ stocks: StockData[]; sourceLabel: string; sourceId: string }> = [
   { stocks: stockUniverse, sourceLabel: "銘柄・チャート", sourceId: "chart" },
   { stocks: nikkei225Stocks, sourceLabel: "日経225", sourceId: "nikkei225" },
   { stocks: topixConstituentStocks, sourceLabel: "TOPIX", sourceId: "topix" },
@@ -20,6 +21,11 @@ const searchSources: Array<{ stocks: StockData[]; sourceLabel: string; sourceId:
   { stocks: jpxNikkei400ConstituentStocks, sourceLabel: "JPX日経400", sourceId: "jpx400" },
   { stocks: growth250ConstituentStocks, sourceLabel: "東証グロース市場250", sourceId: "growth250" },
   { stocks: toshoReitConstituentStocks, sourceLabel: "東証REIT指数", sourceId: "reit" },
+];
+
+const getSearchSources = () => [
+  { stocks: readChartWatchlist(), sourceLabel: "追加銘柄", sourceId: "watchlist" },
+  ...baseSearchSources,
 ];
 
 const toSearchableStock = (
@@ -33,7 +39,7 @@ const toSearchableStock = (
 
 const findInSources = (predicate: (stock: StockData) => boolean) => {
   const seenCodes = new Set<string>();
-  for (const source of searchSources) {
+  for (const source of getSearchSources()) {
     for (const stock of source.stocks) {
       if (seenCodes.has(stock.code)) continue;
       seenCodes.add(stock.code);
