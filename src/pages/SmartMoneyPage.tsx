@@ -59,6 +59,7 @@ interface FilingSignalSeed {
   note: string;
   source?: "sec" | "edinet" | "fallback";
   sourceUrl?: string;
+  pdfPageImages?: string[];
   filerName?: string;
 }
 
@@ -910,6 +911,7 @@ const SmartMoneyPage = () => {
   const styles: Array<"すべて" | FundStyle> = ["すべて", "長期バリュー", "アクティビスト", "イベント", "グロース", "クオンツ"];
   const selectedSignal = scoredSignals.find((signal) => signal.id === selectedSignalId);
   const viewerSignal = scoredSignals.find((signal) => signal.id === viewerSignalId);
+  const viewerPdfPageImages = viewerSignal?.pdfPageImages ?? [];
   const selectedReportCards = selectedSignal ? buildSignalReportCards(selectedSignal) : [];
   const selectedChecklist = selectedSignal ? buildSignalChecklist(selectedSignal, autoRefreshedAt) : [];
   const selectedFollowBreakdown = selectedSignal ? buildFollowScoreBreakdown(selectedSignal) : [];
@@ -1688,7 +1690,7 @@ const SmartMoneyPage = () => {
                   className="inline-flex h-8 items-center gap-1 whitespace-nowrap rounded border border-slate-300 bg-white px-2 text-xs font-bold text-slate-700 transition-colors hover:bg-slate-50"
                 >
                   <ExternalLink className="h-3.5 w-3.5" />
-                  別タブ
+                  PDF原本
                 </a>
                 <button
                   type="button"
@@ -1700,11 +1702,27 @@ const SmartMoneyPage = () => {
                 </button>
               </div>
             </div>
-            <iframe
-              title={`${viewerSignal.company} 公式提出PDF`}
-              src={getSignalViewerUrl(viewerSignal)}
-              className="min-h-0 flex-1 border-0 bg-slate-200"
-            />
+            {viewerPdfPageImages.length ? (
+              <div className="min-h-0 flex-1 overflow-auto bg-slate-200 px-2 py-3">
+                <div className="mx-auto flex max-w-4xl flex-col gap-3">
+                  {viewerPdfPageImages.map((pageImage, index) => (
+                    <img
+                      key={pageImage}
+                      src={pageImage}
+                      alt={`${viewerSignal.company} 公式提出PDF ${index + 1}ページ`}
+                      className="w-full rounded-sm bg-white shadow ring-1 ring-slate-300"
+                      loading={index < 2 ? "eager" : "lazy"}
+                    />
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <iframe
+                title={`${viewerSignal.company} 公式提出PDF`}
+                src={getSignalViewerUrl(viewerSignal)}
+                className="min-h-0 flex-1 border-0 bg-slate-200"
+              />
+            )}
           </div>
         </div>
       )}

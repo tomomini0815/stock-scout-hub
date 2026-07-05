@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { inflateRawSync } from "node:zlib";
+import { EDINET_PDF_PAGE_MAP } from "./edinet-page-manifest.js";
 import { EDINET_SNAPSHOT_SIGNALS } from "./edinet-snapshot.js";
 
 const readLocalEnv = () => {
@@ -26,6 +27,13 @@ const getEnv = (...names) => names.map((name) => process.env[name] || localEnv[n
 const SEC_USER_AGENT = getEnv("SEC_USER_AGENT") || "stock-scout-hub/1.0 contact@example.com";
 const getEdinetApiKey = () => getEnv("EDINET_API_KEY", "VITE_EDINET_API_KEY");
 const makeEdinetDocumentUrl = (docId) => `/api/edinet-document?docId=${encodeURIComponent(docId)}&type=2&inline=1`;
+
+const withEdinetSnapshotPages = (signals) =>
+  signals.map((signal) => {
+    const docId = String(signal.sourceUrl ?? "").match(/\/([^/]+)\.pdf(?:$|[?#])/)?.[1];
+    const pdfPageImages = docId ? EDINET_PDF_PAGE_MAP[docId] : undefined;
+    return pdfPageImages?.length ? { ...signal, pdfPageImages } : signal;
+  });
 
 const WATCHED_FUNDS = [
   { id: "brk", name: "Berkshire Hathaway", manager: "Warren Buffett", style: "長期バリュー", jurisdiction: "US", cik: "0001067983", reliability: 96, readable: 88, lagRisk: 72 },
@@ -555,7 +563,7 @@ const fetchEdinetSignals = async () => {
   }
   if (signals.length) return { signals, status: "live" };
   if (!successfulListRequests && failedListRequests && EDINET_SNAPSHOT_SIGNALS.length) {
-    return { signals: EDINET_SNAPSHOT_SIGNALS, status: "snapshot" };
+    return { signals: withEdinetSnapshotPages(EDINET_SNAPSHOT_SIGNALS), status: "snapshot" };
   }
   return { signals, status: successfulListRequests ? "empty" : failedListRequests ? "error" : "empty" };
 };
