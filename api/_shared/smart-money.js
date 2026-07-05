@@ -25,6 +25,8 @@ const getEnv = (...names) => names.map((name) => process.env[name] || localEnv[n
 
 const SEC_USER_AGENT = getEnv("SEC_USER_AGENT") || "stock-scout-hub/1.0 contact@example.com";
 const getEdinetApiKey = () => getEnv("EDINET_API_KEY", "VITE_EDINET_API_KEY");
+const getEdinetProxyBaseUrl = () => getEnv("EDINET_PROXY_BASE_URL");
+const getEdinetProxyAuthToken = () => getEnv("EDINET_PROXY_AUTH_TOKEN");
 const makeEdinetDocumentUrl = (docId) => `/api/edinet-document?docId=${encodeURIComponent(docId)}&type=2&inline=1`;
 
 const WATCHED_FUNDS = [
@@ -132,11 +134,27 @@ const secHeaders = () => ({
   "User-Agent": SEC_USER_AGENT,
 });
 
-const edinetHeaders = (apiKey, accept = "application/json, text/plain, */*") => ({
-  Accept: accept,
-  "User-Agent": SEC_USER_AGENT,
-  "Subscription-Key": apiKey,
-});
+const edinetHeaders = (apiKey, accept = "application/json, text/plain, */*") => {
+  const proxyAuthToken = getEdinetProxyAuthToken();
+  const proxyBaseUrl = getEdinetProxyBaseUrl();
+  return {
+    Accept: accept,
+    "User-Agent": SEC_USER_AGENT,
+    ...(apiKey ? { "Subscription-Key": apiKey } : {}),
+    ...(proxyBaseUrl && proxyAuthToken ? { Authorization: `Bearer ${proxyAuthToken}` } : {}),
+  };
+};
+
+const edinetApiUrl = (path) => {
+  const proxyBaseUrl = getEdinetProxyBaseUrl();
+  if (!proxyBaseUrl) return new URL(`https://api.edinet-fsa.go.jp${path}`);
+  return new URL(path.replace(/^\/+/, ""), `${proxyBaseUrl.replace(/\/+$/, "")}/`);
+};
+
+const setEdinetSubscriptionKey = (url, apiKey) => {
+  if (apiKey) url.searchParams.set("Subscription-Key", apiKey);
+  return url;
+};
 
 const formatJstDateKey = (date = new Date()) =>
   new Intl.DateTimeFormat("sv-SE", {
@@ -308,13 +326,13 @@ const parseEdinetLargeHoldingXbrl = (xbrlText, fallback = {}) => {
 };
 
 const fetchEdinetDocumentDetail = async (docId, apiKey, fallback = {}) => {
-  if (!docId || !apiKey) return {};
+  if (!docId || (!apiKey && !getEdinetProxyBaseUrl())) return {};
   if (edinetDocumentCache.has(docId)) return edinetDocumentCache.get(docId);
 
   try {
-    const url = new URL(`https://api.edinet-fsa.go.jp/api/v2/documents/${encodeURIComponent(docId)}`);
+    const url = edinetApiUrl(`/api/v2/documents/${encodeURIComponent(docId)}`);
     url.searchParams.set("type", "1");
-    url.searchParams.set("Subscription-Key", apiKey);
+    setEdinetSubscriptionKey(url, apiKey);
     const response = await fetchWithTimeout(url.toString(), 9000, {
       headers: edinetHeaders(apiKey, "application/octet-stream, application/zip, */*"),
     });
@@ -334,7 +352,7 @@ const fetchEdinetDocumentDetail = async (docId, apiKey, fallback = {}) => {
 
 export const fetchEdinetDocumentArchive = async (docId, type = "1") => {
   const apiKey = getEdinetApiKey();
-  if (!apiKey) {
+  if (!apiKey && !getEdinetProxyBaseUrl()) {
     const error = new Error("EDINET API key is missing");
     error.statusCode = 401;
     throw error;
@@ -346,9 +364,9 @@ export const fetchEdinetDocumentArchive = async (docId, type = "1") => {
   }
 
   const normalizedType = ["1", "2", "3", "4", "5"].includes(String(type)) ? String(type) : "1";
-  const url = new URL(`https://api.edinet-fsa.go.jp/api/v2/documents/${encodeURIComponent(docId)}`);
+  const url = edinetApiUrl(`/api/v2/documents/${encodeURIComponent(docId)}`);
   url.searchParams.set("type", normalizedType);
-  url.searchParams.set("Subscription-Key", apiKey);
+  setEdinetSubscriptionKey(url, apiKey);
 
   const response = await fetchWithTimeout(url.toString(), 12000, {
     headers: edinetHeaders(
@@ -496,7 +514,7 @@ const fetchSecSignals = async () => {
 
 const fetchEdinetSignals = async () => {
   const edinetApiKey = getEdinetApiKey();
-  if (!edinetApiKey) {
+  if (!edinetApiKey && !getEdinetProxyBaseUrl()) {
     return { signals: [], status: "missing-key" };
   }
 
@@ -506,10 +524,10 @@ const fetchEdinetSignals = async () => {
   let failedListRequests = 0;
   for (let offset = 0; offset < 5 && signals.length < maxSignals; offset += 1) {
     const date = daysAgo(offset);
-    const url = new URL("https://api.edinet-fsa.go.jp/api/v2/documents.json");
+    const url = edinetApiUrl("/api/v2/documents.json");
     url.searchParams.set("date", date);
     url.searchParams.set("type", "2");
-    url.searchParams.set("Subscription-Key", edinetApiKey);
+    setEdinetSubscriptionKey(url, edinetApiKey);
     const response = await fetchWithTimeout(url.toString(), 8000, {
       headers: edinetHeaders(edinetApiKey),
     });
