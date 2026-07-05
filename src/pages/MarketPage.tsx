@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
 import MarketTicker from "@/components/MarketTicker";
 import MarketOverview from "@/components/MarketOverview";
 import RealStockChart from "@/components/RealStockChart";
 import { Checkbox } from "@/components/ui/checkbox";
+import { toast } from "@/components/ui/sonner";
 import {
   growth250ConstituentStocks,
   jpxNikkei400ConstituentStocks,
@@ -374,14 +375,14 @@ const IndexConstituentSection = ({ config, chartWatchlistCodes, onToggleChartSto
     });
   };
   const renderSectionSortIcon = (key: NikkeiSortKey) => {
-    if (sectionSortKey !== key) return <ArrowUpDown className="h-3 w-3 text-muted-foreground/70" />;
-    return sectionSortDirection === "asc" ? <ArrowUp className="h-3 w-3 text-primary" /> : <ArrowDown className="h-3 w-3 text-primary" />;
+    if (sectionSortKey !== key) return <ArrowUpDown className="h-3 w-3 shrink-0 text-muted-foreground/70" />;
+    return sectionSortDirection === "asc" ? <ArrowUp className="h-3 w-3 shrink-0 text-primary" /> : <ArrowDown className="h-3 w-3 shrink-0 text-primary" />;
   };
   const renderSectionSortHeader = (key: NikkeiSortKey, label: string, align: "left" | "right" = "left") => (
     <button
       type="button"
       onClick={() => handleSort(key)}
-      className={`inline-flex w-full items-center gap-1 text-xxs font-semibold text-muted-foreground hover:text-foreground ${
+      className={`inline-flex w-full items-center gap-1 whitespace-nowrap text-xxs font-semibold text-muted-foreground hover:text-foreground ${
         align === "right" ? "justify-end" : "justify-start"
       }`}
     >
@@ -546,7 +547,7 @@ const IndexConstituentSection = ({ config, chartWatchlistCodes, onToggleChartSto
         )}
       </div>
       <div className="max-h-[420px] overflow-auto">
-        <table className="w-full text-xs">
+        <table className="w-full min-w-[760px] text-xs">
           <thead className="sticky top-0 z-10">
             <tr className="border-b border-border bg-table-header-bg">
               <th className="w-10 px-2 py-1.5 text-left">{renderSectionSortHeader("index", "#")}</th>
@@ -557,7 +558,7 @@ const IndexConstituentSection = ({ config, chartWatchlistCodes, onToggleChartSto
               <th className="px-2 py-1.5 text-right">{renderSectionSortHeader("change", "前日比", "right")}</th>
               <th className="px-2 py-1.5 text-right">{renderSectionSortHeader("changePercent", "騰落率", "right")}</th>
               <th className="px-2 py-1.5 text-right">{renderSectionSortHeader("volume", "出来高", "right")}</th>
-              <th className="px-2 py-1.5 text-right font-semibold text-muted-foreground">チャート</th>
+              <th className="whitespace-nowrap px-2 py-1.5 text-right font-semibold text-muted-foreground">チャート</th>
             </tr>
           </thead>
           <tbody>
@@ -596,7 +597,7 @@ const IndexConstituentSection = ({ config, chartWatchlistCodes, onToggleChartSto
                     <button
                       type="button"
                       onClick={() => onToggleChartStock(stock, sourceLabel)}
-                      className={`inline-flex h-7 items-center gap-1 rounded border px-2 text-xxs font-semibold transition-colors ${
+                      className={`inline-flex h-7 items-center gap-1 whitespace-nowrap rounded border px-2 text-xxs font-semibold transition-colors ${
                         isAdded
                           ? "border-stock-down/30 bg-stock-down-bg text-stock-down hover:bg-stock-down-bg/80"
                           : "border-primary/40 bg-background text-primary hover:bg-primary/10"
@@ -625,6 +626,7 @@ const IndexConstituentSection = ({ config, chartWatchlistCodes, onToggleChartSto
 };
 
 const MarketPage = () => {
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const highlightCode = searchParams.get("highlight") ?? undefined;
   const [chartWatchlistCodes, setChartWatchlistCodes] = useState<string[]>(() =>
@@ -668,6 +670,13 @@ const MarketPage = () => {
   const handleAddChartStock = (stock: StockData, sourceLabel?: string) => {
     const nextStocks = addChartWatchlistStock({ ...stock, sourceLabel });
     setChartWatchlistCodes(nextStocks.map((item) => item.code));
+    toast.success(`${stock.code} ${stock.name}を追加しました`, {
+      description: `銘柄・チャートページの銘柄選択に追加しました${sourceLabel ? `（${sourceLabel}）` : ""}。`,
+      action: {
+        label: "表示",
+        onClick: () => navigate(`/chart?q=${encodeURIComponent(stock.code)}`),
+      },
+    });
   };
   const handleRemoveChartStock = (code: string) => {
     const nextStocks = removeChartWatchlistStock(code);
@@ -796,14 +805,14 @@ const MarketPage = () => {
     [filteredNikkei225Stocks]
   );
   const renderSortIcon = (key: NikkeiSortKey) => {
-    if (sortKey !== key) return <ArrowUpDown className="h-3 w-3 text-muted-foreground/70" />;
-    return sortDirection === "asc" ? <ArrowUp className="h-3 w-3 text-primary" /> : <ArrowDown className="h-3 w-3 text-primary" />;
+    if (sortKey !== key) return <ArrowUpDown className="h-3 w-3 shrink-0 text-muted-foreground/70" />;
+    return sortDirection === "asc" ? <ArrowUp className="h-3 w-3 shrink-0 text-primary" /> : <ArrowDown className="h-3 w-3 shrink-0 text-primary" />;
   };
   const renderSortHeader = (key: NikkeiSortKey, label: string, align: "left" | "right" = "left") => (
     <button
       type="button"
       onClick={() => handleSort(key)}
-      className={`inline-flex w-full items-center gap-1 text-xxs font-semibold text-muted-foreground hover:text-foreground ${
+      className={`inline-flex w-full items-center gap-1 whitespace-nowrap text-xxs font-semibold text-muted-foreground hover:text-foreground ${
         align === "right" ? "justify-end" : "justify-start"
       }`}
     >
@@ -1079,7 +1088,7 @@ const MarketPage = () => {
               )}
             </div>
             <div className="max-h-[520px] overflow-auto">
-              <table className="w-full text-xs">
+              <table className="w-full min-w-[760px] text-xs">
                 <thead className="sticky top-0 z-10">
                   <tr className="border-b border-border bg-table-header-bg">
                     <th className="w-10 px-2 py-1.5 text-left">{renderSortHeader("index", "#")}</th>
@@ -1090,8 +1099,8 @@ const MarketPage = () => {
                     <th className="px-2 py-1.5 text-right">{renderSortHeader("change", "前日比", "right")}</th>
                     <th className="px-2 py-1.5 text-right">{renderSortHeader("changePercent", "騰落率", "right")}</th>
                     <th className="px-2 py-1.5 text-right">{renderSortHeader("volume", "出来高", "right")}</th>
-                    <th className="px-2 py-1.5 text-right font-semibold text-muted-foreground">
-                      <span className="inline-flex items-center justify-end gap-1">
+                    <th className="whitespace-nowrap px-2 py-1.5 text-right font-semibold text-muted-foreground">
+                      <span className="inline-flex items-center justify-end gap-1 whitespace-nowrap">
                         チャート
                         <span className="group relative inline-flex" tabIndex={0}>
                           <Info className="h-3.5 w-3.5 cursor-help text-muted-foreground hover:text-foreground" />
@@ -1151,7 +1160,7 @@ const MarketPage = () => {
                           <button
                             type="button"
                             onClick={() => handleToggleChartStock(stock, "日経225")}
-                            className={`inline-flex h-7 items-center gap-1 rounded border px-2 text-xxs font-semibold transition-colors ${
+                            className={`inline-flex h-7 items-center gap-1 whitespace-nowrap rounded border px-2 text-xxs font-semibold transition-colors ${
                               isAdded
                                 ? "border-stock-down/30 bg-stock-down-bg text-stock-down hover:bg-stock-down-bg/80"
                                 : "border-primary/40 bg-background text-primary hover:bg-primary/10"

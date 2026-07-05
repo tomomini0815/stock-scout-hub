@@ -383,6 +383,7 @@ const MarketOverview = ({ indices, detailed = false }: MarketOverviewProps) => {
   const [indexChartLayout, setIndexChartLayout] = useState<"8" | "4">("8");
   const [isMobileChartViewport, setIsMobileChartViewport] = useState(false);
   const [mobileDrawingToolsOpen, setMobileDrawingToolsOpen] = useState(false);
+  const indexChartsRef = useRef<HTMLDivElement | null>(null);
   const [driverNews, setDriverNews] = useState<MarketDriverNews[]>(cachedDrivers?.items ?? []);
   const [driverStatus, setDriverStatus] = useState<MarketDriverStatus>(cachedDrivers ? "live" : "loading");
   const [urgentDrivers, setUrgentDrivers] = useState<Record<string, { status: UrgentDriverStatus; text: string }>>({});
@@ -551,7 +552,17 @@ const MarketOverview = ({ indices, detailed = false }: MarketOverviewProps) => {
           </h3>
           <button
             type="button"
-            onClick={() => setShowIndexCharts((value) => !value)}
+            onClick={() => {
+              setShowIndexCharts((value) => {
+                const nextValue = !value;
+                if (nextValue) {
+                  window.setTimeout(() => {
+                    indexChartsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+                  }, 80);
+                }
+                return nextValue;
+              });
+            }}
             className={`inline-flex h-7 items-center justify-center gap-1 rounded border px-2 text-xxs font-bold transition-colors ${
               showIndexCharts
                 ? "border-primary bg-primary text-primary-foreground"
@@ -673,7 +684,7 @@ const MarketOverview = ({ indices, detailed = false }: MarketOverviewProps) => {
         })}
       </div>
       {showIndexCharts && (
-        <div className="border-t border-border bg-background p-2">
+        <div ref={indexChartsRef} className="scroll-mt-3 border-t border-border bg-background p-2">
           <div className="mb-2 flex flex-wrap items-center justify-between gap-2 px-1">
             <div className="text-xs font-bold text-foreground">主要指数チャート {indexChartLayout}分割</div>
             <div className="flex items-center gap-2">
