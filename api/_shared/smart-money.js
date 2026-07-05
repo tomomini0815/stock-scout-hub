@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { inflateRawSync } from "node:zlib";
+import { EDINET_SNAPSHOT_SIGNALS } from "./edinet-snapshot.js";
 
 const readLocalEnv = () => {
   const filePath = join(process.cwd(), ".env.local");
@@ -552,8 +553,11 @@ const fetchEdinetSignals = async () => {
       });
     }
   }
-  const status = signals.length ? "live" : successfulListRequests ? "empty" : failedListRequests ? "error" : "empty";
-  return { signals, status };
+  if (signals.length) return { signals, status: "live" };
+  if (!successfulListRequests && failedListRequests && EDINET_SNAPSHOT_SIGNALS.length) {
+    return { signals: EDINET_SNAPSHOT_SIGNALS, status: "snapshot" };
+  }
+  return { signals, status: successfulListRequests ? "empty" : failedListRequests ? "error" : "empty" };
 };
 
 const mergeMultiFundCounts = (signals) => {

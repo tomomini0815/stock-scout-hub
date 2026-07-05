@@ -700,6 +700,7 @@ const checklistStatusClass = (status: string) => {
 
 const sourceStatusLabel = (status?: string) => {
   if (status === "live") return "接続中";
+  if (status === "snapshot") return "保存データ";
   if (status === "partial") return "一部接続";
   if (status === "empty") return "提出なし";
   if (status === "missing-key") return "キー未設定";
@@ -710,6 +711,7 @@ const sourceStatusLabel = (status?: string) => {
 
 const sourceStatusClass = (status?: string) => {
   if (status === "live") return "bg-emerald-50 text-emerald-700";
+  if (status === "snapshot") return "bg-sky-50 text-sky-700";
   if (status === "partial") return "bg-sky-50 text-sky-700";
   if (status === "missing-key" || status === "not-connected") return "bg-amber-50 text-amber-700";
   if (status === "error") return "bg-rose-50 text-rose-700";
