@@ -588,48 +588,70 @@ const buildFollowScoreBreakdown = (signal: ScoredSignal) => {
     (signal.signalType === "縮小" ? 16 : signal.signalType === "全売却" ? 28 : 0)
     + (signal.fund.style === "イベント" ? 4 : 0)
     + (signal.risk === "戦略不透明" ? 6 : 0);
+  const freshnessReason = signal.filingType === "13F"
+    ? `13Fは四半期末の保有情報なので、提出まで${signal.filingLagDays}日ある分だけ鮮度を下げています。次回提出で継続保有なら評価を上げます。`
+    : `大量保有系は保有目的を読みやすい一方、報告日から提出日まで${signal.filingLagDays}日あるため、遅いほど既に売買済みの可能性を差し引きます。`;
+  const priceReason = signal.priceMoveSinceReport >= 12
+    ? `報告日以降に${formatSignedPercent(signal.priceMoveSinceReport)}上昇しており、材料がかなり織り込まれた前提で点数を抑えています。`
+    : signal.priceMoveSinceReport >= 6
+      ? `報告日以降に${formatSignedPercent(signal.priceMoveSinceReport)}上昇済みです。まだ余地はありますが、短期の追随買いは少し慎重に見ます。`
+      : signal.priceMoveSinceReport >= 0
+        ? `報告日以降の上昇は${formatSignedPercent(signal.priceMoveSinceReport)}にとどまり、開示材料がまだ十分に織り込まれていない可能性を加点しています。`
+        : `報告日以降は${formatSignedPercent(signal.priceMoveSinceReport)}です。市場が嫌った理由がなければ、逆張り候補として確認します。`;
+  const intentReason = [
+    `${signal.multiFundCount}ファンドが同じ方向で検出されています`,
+    signal.activistIntent ? "保有目的に経営関与・資本政策の可能性があるため加点" : "明確な経営関与意図は未確認",
+    signal.concentrationRank <= 5 ? `保有集中順位${signal.concentrationRank}位で、重要ポジションとして加点` : `保有集中順位${signal.concentrationRank}位で、集中度加点は限定的`,
+  ].join("。");
+  const riskReason = riskPenalty > 0
+    ? [
+        signal.signalType === "縮小" ? "縮小シグナルなので買い材料として減点" : signal.signalType === "全売却" ? "全売却シグナルなので大きく減点" : "",
+        signal.fund.style === "イベント" ? "イベント型は保有期間が短い場合があるため小さく減点" : "",
+        signal.risk === "戦略不透明" ? "戦略不透明のため、意図を読みにくい分を減点" : "",
+      ].filter(Boolean).join("。")
+    : "売却・全売却・イベント性・戦略不透明による自動減点はありません。";
 
   return [
     {
       label: "開示鮮度",
       value: Math.round(freshness),
       max: 18,
-      note: getFreshnessBadge(signal).detail,
+      note: `${freshnessReason} ${getFreshnessBadge(signal).detail}`,
       tone: freshness >= 13 ? "bg-emerald-500" : freshness >= 8 ? "bg-sky-500" : "bg-amber-500",
     },
     {
       label: "ファンド品質",
       value: Math.round(fundQuality),
       max: 26,
-      note: `信頼${signal.fund.reliability}・読解${signal.fund.readable}を反映。`,
+      note: `${signal.fund.name}の過去の信頼度${signal.fund.reliability}と、提出内容の読みやすさ${signal.fund.readable}を点数化しています。高いほど「真似してよい根拠を確認しやすい」扱いです。`,
       tone: "bg-primary",
     },
     {
       label: "保有強度",
       value: Math.round(conviction),
       max: 22,
-      note: `比率${signal.portfolioWeight.toFixed(1)}%、変化${formatSignedPercent(signal.positionChange)}、集中順位${signal.concentrationRank}位。`,
+      note: `保有比率${signal.portfolioWeight.toFixed(1)}%、ポジション変化${formatSignedPercent(signal.positionChange)}、集中順位${signal.concentrationRank}位を見ています。比率が高く、買い増しで、上位保有ほど本気度が高いと判断します。`,
       tone: signal.positionChange >= 0 ? "bg-emerald-500" : "bg-rose-500",
     },
     {
       label: "未織り込み",
       value: Math.round(notPricedIn),
       max: 20,
-      note: getPricingBadge(signal).detail,
+      note: `${priceReason} ${getPricingBadge(signal).detail}`,
       tone: notPricedIn >= 14 ? "bg-emerald-500" : notPricedIn >= 8 ? "bg-amber-500" : "bg-rose-500",
     },
     {
       label: "意図・一致",
       value: Math.round(intent),
       max: 16,
-      note: `${signal.multiFundCount}ファンド一致${signal.activistIntent ? "、経営関与の可能性あり" : ""}。`,
+      note: `${intentReason}。単独ファンドだけの偶然より、複数ファンド一致や経営関与の意図がある場合を重く見ます。`,
       tone: signal.activistIntent ? "bg-rose-500" : "bg-sky-500",
     },
     {
       label: "反証減点",
       value: -Math.round(riskPenalty),
       max: 28,
-      note: riskPenalty > 0 ? "売却系、イベント性、戦略不透明を減点。" : "大きな自動減点はありません。",
+      note: `${riskReason} ここは「買ってよい理由」ではなく、「真似しない方がよい理由」があるかを確認する欄です。`,
       tone: riskPenalty > 0 ? "bg-rose-500" : "bg-slate-300",
     },
   ];
@@ -924,47 +946,56 @@ const SmartMoneyPage = () => {
       <MarketTicker indices={marketIndices} />
 
       <main className="container mx-auto px-4 py-3">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <h2 className="flex items-center gap-2 text-sm font-bold text-foreground">
-              <Eye className="h-4 w-4 text-primary" />
-              スマートマネー監視
-            </h2>
-            <BeginnerGuideButton topic="overview" onOpen={setBeginnerGuideTopic} label="初心者ガイド" />
+        <div className="mb-3 overflow-hidden rounded border border-border bg-card">
+          <div className="flex flex-col gap-2 border-b border-border px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="flex items-center gap-2 text-sm font-bold text-foreground">
+                <Eye className="h-4 w-4 text-primary" />
+                スマートマネー監視
+              </h2>
+              <BeginnerGuideButton topic="overview" onOpen={setBeginnerGuideTopic} label="初心者ガイド" />
+            </div>
+            <div className="flex flex-wrap items-center gap-2 text-xs font-semibold">
+              <span className="inline-flex items-center gap-1 whitespace-nowrap rounded bg-emerald-50 px-2 py-1 text-emerald-700">
+                <RefreshCw className="h-3 w-3" />
+                自動再評価 {formatJstDateTime(autoRefreshedAt)}
+              </span>
+              <button
+                type="button"
+                onClick={handleManualRefresh}
+                className="inline-flex h-7 items-center gap-1 whitespace-nowrap rounded border border-border bg-background px-2 text-xs font-bold text-primary transition-colors hover:bg-muted disabled:opacity-60"
+                disabled={smartMoneyStatus === "loading"}
+              >
+                <RefreshCw className={`h-3 w-3 ${smartMoneyStatus === "loading" ? "animate-spin" : ""}`} />
+                手動再評価
+              </button>
+            </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-600">
-            <span className="whitespace-nowrap rounded bg-muted px-2 py-1">SEC 13F / 13D / 13G</span>
-            <span className="whitespace-nowrap rounded bg-muted px-2 py-1">EDINET 大量保有</span>
-            <span className="whitespace-nowrap rounded bg-amber-50 px-2 py-1 text-amber-700">開示遅延補正</span>
-            <span className="inline-flex items-center gap-1 whitespace-nowrap rounded bg-emerald-50 px-2 py-1 text-emerald-700">
-              <RefreshCw className="h-3 w-3" />
-              自動再評価 {formatJstDateTime(autoRefreshedAt)}
-            </span>
-            <button
-              type="button"
-              onClick={handleManualRefresh}
-              className="inline-flex h-7 items-center gap-1 whitespace-nowrap rounded border border-border bg-background px-2 text-xs font-bold text-primary transition-colors hover:bg-muted disabled:opacity-60"
-              disabled={smartMoneyStatus === "loading"}
-            >
-              <RefreshCw className={`h-3 w-3 ${smartMoneyStatus === "loading" ? "animate-spin" : ""}`} />
-              手動再評価
-            </button>
-          </div>
-        </div>
 
-        <div className="mb-3 flex flex-wrap items-center gap-2 text-xs font-bold">
-          <span className={`rounded px-2 py-1 ${sourceStatusClass(smartMoneyData.source === "live" ? "live" : smartMoneyStatus === "error" ? "error" : "empty")}`}>
-            データ {smartMoneyData.source === "live" ? "実取得" : smartMoneyStatus === "error" ? "取得失敗" : "フォールバック"}
-          </span>
-          <span className={`rounded px-2 py-1 ${sourceStatusClass(smartMoneyData.sourceStatus?.sec)}`}>
-            SEC {sourceStatusLabel(smartMoneyData.sourceStatus?.sec)}
-          </span>
-          <span className={`rounded px-2 py-1 ${sourceStatusClass(smartMoneyData.sourceStatus?.edinet)}`}>
-            EDINET {sourceStatusLabel(smartMoneyData.sourceStatus?.edinet)}
-          </span>
-          <span className={`rounded px-2 py-1 ${sourceStatusClass(smartMoneyData.sourceStatus?.price)}`}>
-            価格 {sourceStatusLabel(smartMoneyData.sourceStatus?.price)}
-          </span>
+          <div className="grid gap-2 px-3 py-2 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+            <div className="flex flex-wrap items-center gap-1.5 text-xs font-semibold text-slate-600">
+              <span className="mr-1 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">監視対象</span>
+              <span className="whitespace-nowrap rounded bg-muted px-2 py-1">SEC 13F / 13D / 13G</span>
+              <span className="whitespace-nowrap rounded bg-muted px-2 py-1">EDINET 大量保有</span>
+              <span className="whitespace-nowrap rounded bg-amber-50 px-2 py-1 text-amber-700">開示遅延補正</span>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-1.5 text-xs font-bold lg:justify-end">
+              <span className="mr-1 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">接続状態</span>
+              <span className={`rounded px-2 py-1 ${sourceStatusClass(smartMoneyData.source === "live" ? "live" : smartMoneyStatus === "error" ? "error" : "empty")}`}>
+                データ {smartMoneyData.source === "live" ? "実取得" : smartMoneyStatus === "error" ? "取得失敗" : "フォールバック"}
+              </span>
+              <span className={`rounded px-2 py-1 ${sourceStatusClass(smartMoneyData.sourceStatus?.sec)}`}>
+                SEC {sourceStatusLabel(smartMoneyData.sourceStatus?.sec)}
+              </span>
+              <span className={`rounded px-2 py-1 ${sourceStatusClass(smartMoneyData.sourceStatus?.edinet)}`}>
+                EDINET {sourceStatusLabel(smartMoneyData.sourceStatus?.edinet)}
+              </span>
+              <span className={`rounded px-2 py-1 ${sourceStatusClass(smartMoneyData.sourceStatus?.price)}`}>
+                価格 {sourceStatusLabel(smartMoneyData.sourceStatus?.price)}
+              </span>
+            </div>
+          </div>
         </div>
 
         <div className="mb-3 grid grid-cols-2 gap-2 md:grid-cols-4">
@@ -1072,7 +1103,7 @@ const SmartMoneyPage = () => {
 
           <div className="overflow-x-auto">
             <table className="w-full min-w-[1240px] text-xs">
-              <thead className="bg-muted/40 text-xs text-slate-600">
+              <thead className="whitespace-nowrap bg-muted/40 text-xs text-slate-600">
                 <tr>
                   <th className="px-3 py-2 text-left">判定</th>
                   <th className="px-3 py-2 text-left">ファンド</th>
@@ -1481,7 +1512,12 @@ const SmartMoneyPage = () => {
                 <div className="space-y-4">
                   <section className="overflow-hidden rounded-md border border-slate-300 bg-white shadow-sm">
                     <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-300 bg-slate-100 px-4 py-2">
-                      <div className="text-sm font-black text-slate-950">追随価値スコア分解</div>
+                      <div>
+                        <div className="text-sm font-black text-slate-950">追随価値スコア分解</div>
+                        <div className="mt-0.5 text-xs font-semibold leading-relaxed text-slate-600">
+                          大口投資家の開示をそのまま真似せず、鮮度・本気度・株価の織り込み・反証材料に分けて再評価しています。
+                        </div>
+                      </div>
                       <span className={`rounded border px-2 py-1 text-xs font-black ${getPricingBadge(selectedSignal).className}`}>
                         {getPricingBadge(selectedSignal).label}
                       </span>

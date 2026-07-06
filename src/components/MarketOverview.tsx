@@ -337,6 +337,124 @@ const getDriverPanelClass = (changePercent: number) => {
   return "border-slate-300/70 bg-slate-100/50";
 };
 
+const getSummaryToneClass = (score: number) => {
+  if (score >= 1.2) return "border-red-200 bg-red-50 text-red-700";
+  if (score <= -1.2) return "border-blue-200 bg-blue-50 text-blue-700";
+  return "border-slate-300 bg-slate-100 text-slate-700";
+};
+
+const getRiskModeClass = (mode: "risk-on" | "risk-off" | "neutral") => {
+  if (mode === "risk-on") return "border-red-300 bg-red-600 text-white";
+  if (mode === "risk-off") return "border-blue-300 bg-blue-600 text-white";
+  return "border-slate-300 bg-slate-700 text-white";
+};
+
+const formatSignedPercent = (value?: number) => {
+  if (typeof value !== "number" || !Number.isFinite(value)) return "--";
+  return `${value > 0 ? "+" : ""}${value.toFixed(2)}%`;
+};
+
+const findIndexByName = (indices: MarketIndex[], pattern: RegExp) =>
+  indices.find((index) => pattern.test(index.name));
+
+const averageDefined = (values: Array<number | undefined>) => {
+  const filtered = values.filter((value): value is number => typeof value === "number" && Number.isFinite(value));
+  return filtered.length ? filtered.reduce((sum, value) => sum + value, 0) / filtered.length : 0;
+};
+
+const buildMarketSummary = (indices: MarketIndex[], driverMap: Map<string, string | undefined>) => {
+  const nikkei = findIndexByName(indices, /日経/);
+  const topix = findIndexByName(indices, /TOPIX/);
+  const dow = findIndexByName(indices, /ダウ/);
+  const nasdaq = findIndexByName(indices, /NASDAQ/);
+  const sp500 = findIndexByName(indices, /S&P/);
+  const usdjpy = findIndexByName(indices, /USD|JPY|ドル|円/);
+  const gold = findIndexByName(indices, /GOLD|金/);
+  const btc = findIndexByName(indices, /BTC|ビットコイン/);
+
+  const japanScore = averageDefined([nikkei?.changePercent, topix?.changePercent]);
+  const usScore = averageDefined([dow?.changePercent, nasdaq?.changePercent, sp500?.changePercent]);
+  const riskScore = averageDefined([btc?.changePercent, nasdaq?.changePercent, gold ? -gold.changePercent * 0.35 : undefined]);
+  const broadScore = averageDefined([japanScore, usScore, riskScore * 0.6]);
+  const strongest = [...indices].sort((a, b) => b.changePercent - a.changePercent)[0];
+  const weakest = [...indices].sort((a, b) => a.changePercent - b.changePercent)[0];
+  const mainDriver = [nikkei, topix, nasdaq, usdjpy, gold, btc]
+    .map((index) => (index ? driverMap.get(index.name) : undefined))
+    .find(Boolean);
+
+  const headline =
+    broadScore >= 1
+      ? "リスク選好が強く、買いが優勢です"
+      : broadScore <= -1
+      ? "リスク回避が強く、守りを優先したい地合いです"
+      : broadScore > 0.2
+      ? "やや買い優勢ですが、指数ごとの強弱差があります"
+      : broadScore < -0.2
+      ? "やや売り優勢で、戻りの持続力を確認したい地合いです"
+      : "方向感は中立で、材料待ちの地合いです";
+
+  const riskMode =
+    broadScore >= 0.7 || riskScore >= 0.8
+      ? "risk-on"
+      : broadScore <= -0.7 || riskScore <= -0.8
+      ? "risk-off"
+      : "neutral";
+  const riskModeLabel =
+    riskMode === "risk-on" ? "リスクオン" : riskMode === "risk-off" ? "リスクオフ" : "中立";
+  const riskModeReason =
+    riskMode === "risk-on"
+      ? "株・BTCなどリスク資産が買われやすい"
+      : riskMode === "risk-off"
+      ? "株・BTCが弱く、安全資産や守りを確認"
+      : "株・為替・商品に方向感のズレあり";
+
+  const japanText =
+    nikkei && topix
+      ? `日本株: 日経 ${formatSignedPercent(nikkei.changePercent)} / TOPIX ${formatSignedPercent(topix.changePercent)}。${
+          nikkei.changePercent > topix.changePercent + 0.25
+            ? "値がさ・グロース寄りの動き。"
+            : topix.changePercent > nikkei.changePercent + 0.25
+            ? "市場全体やバリュー株への広がりを確認。"
+            : "指数寄与度と市場全体の温度差は小さめ。"
+        }`
+      : "日本株: 日経平均とTOPIXの強弱差を確認。";
+
+  const usText =
+    dow && nasdaq && sp500
+      ? `米国株: ダウ ${formatSignedPercent(dow.changePercent)} / NASDAQ ${formatSignedPercent(nasdaq.changePercent)} / S&P500 ${formatSignedPercent(sp500.changePercent)}。${
+          nasdaq.changePercent > dow.changePercent + 0.4
+            ? "ハイテク主導。米金利と半導体を重視。"
+            : dow.changePercent > nasdaq.changePercent + 0.4
+            ? "景気敏感・大型バリューへの資金移動を確認。"
+            : "米大型株全体の方向感を確認。"
+        }`
+      : "米国株: ダウ、NASDAQ、S&P500の主導役を確認。";
+
+  const crossAssetText = `クロスアセット: ${
+    usdjpy ? `ドル円 ${formatSignedPercent(usdjpy.changePercent)}` : "ドル円 --"
+  } / ${gold ? `金 ${formatSignedPercent(gold.changePercent)}` : "金 --"} / ${
+    btc ? `BTC ${formatSignedPercent(btc.changePercent)}` : "BTC --"
+  }。${
+    riskScore >= 0.8
+      ? "リスク資産に買いが入りやすい状態。"
+      : riskScore <= -0.8
+      ? "リスク資産の売りや安全資産需要を確認。"
+      : "株、為替、商品に方向感のズレがないか確認。"
+  }`;
+
+  return {
+    headline,
+    toneClass: getSummaryToneClass(broadScore),
+    riskMode,
+    riskModeLabel,
+    riskModeReason,
+    points: [japanText, usText, crossAssetText],
+    strongest: strongest ? `${strongest.name} ${formatSignedPercent(strongest.changePercent)}` : "強い指数 --",
+    weakest: weakest ? `${weakest.name} ${formatSignedPercent(weakest.changePercent)}` : "弱い指数 --",
+    driver: mainDriver ? formatDriverMaterial(mainDriver) : "為替、米金利、海外株、半導体、商品市況を確認。",
+  };
+};
+
 const ClampedDriverText = ({ text, lines = 2 }: { text?: string; lines?: 2 | 3 }) => {
   const textRef = useRef<HTMLParagraphElement>(null);
   const [isClamped, setIsClamped] = useState(false);
@@ -395,6 +513,10 @@ const MarketOverview = ({ indices, detailed = false }: MarketOverviewProps) => {
   const marketDriverByName = useMemo(
     () => buildMarketDriverMap(displayIndices, driverNews),
     [displayIndices, driverNews]
+  );
+  const marketSummary = useMemo(
+    () => buildMarketSummary(displayIndices, marketDriverByName),
+    [displayIndices, marketDriverByName]
   );
 
   const updatedLabel = updatedAt
@@ -683,6 +805,35 @@ const MarketOverview = ({ indices, detailed = false }: MarketOverviewProps) => {
           );
         })}
       </div>
+      {detailed && (
+        <section className="border-t border-border bg-background px-3 py-1.5">
+          <div className="flex flex-col gap-1.5 lg:flex-row lg:items-center">
+            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5 lg:flex-nowrap">
+              <span className={`shrink-0 rounded border px-2 py-0.5 text-xxs font-black ${marketSummary.toneClass}`}>
+                市況まとめ
+              </span>
+              <span
+                className={`shrink-0 rounded border px-2 py-0.5 text-xxs font-black ${getRiskModeClass(marketSummary.riskMode)}`}
+                title={marketSummary.riskModeReason}
+              >
+                {marketSummary.riskModeLabel}
+              </span>
+              <span className="min-w-0 truncate text-xs font-black leading-tight text-foreground">{marketSummary.headline}</span>
+            </div>
+            <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-xxs lg:flex-nowrap">
+              <span className="rounded border border-red-200 bg-red-50 px-2 py-0.5 font-bold text-red-700">
+                強い: {marketSummary.strongest}
+              </span>
+              <span className="rounded border border-blue-200 bg-blue-50 px-2 py-0.5 font-bold text-blue-700">
+                弱い: {marketSummary.weakest}
+              </span>
+              <span className="min-w-0 max-w-full truncate rounded border border-slate-300 bg-slate-100 px-2 py-0.5 font-semibold text-slate-700 lg:max-w-96">
+                材料: {marketSummary.driver}
+              </span>
+            </div>
+          </div>
+        </section>
+      )}
       {showIndexCharts && (
         <div ref={indexChartsRef} className="scroll-mt-3 border-t border-border bg-background p-2">
           <div className="mb-2 flex flex-wrap items-center justify-between gap-2 px-1">
