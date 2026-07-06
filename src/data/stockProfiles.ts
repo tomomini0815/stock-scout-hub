@@ -369,6 +369,12 @@ const profileByIndustry: Record<string, StockProfile> = {
     watchPoints: ["売上成長率", "黒字化時期", "資金繰り", "テーマ材料"],
     features: ["グロース市場", "成長株", "値動き大きめ", "材料株"],
   },
+  "EDINET検知": {
+    description: "はEDINETの大量保有報告書・変更報告書から検知された銘柄です。通常の指数採用銘柄という意味ではなく、大株主の新規保有、買い増し、売却、保有目的の変化をきっかけに確認する候補です。",
+    segments: ["大量保有報告書", "変更報告書", "提出者・共同保有者", "保有目的・取得処分"],
+    watchPoints: ["保有割合の変化", "提出者の意図", "直近60日の売買", "開示後の株価織り込み"],
+    features: ["EDINET検知", "大株主動向", "保有目的確認", "一次開示優先"],
+  },
   "REIT": {
     description: "は上場不動産投資法人です。オフィス、物流、住宅、商業施設、ホテルなどの不動産から得る賃料収入と分配金が中心です。",
     segments: ["保有不動産", "賃料収入", "物件取得", "分配金"],
@@ -423,6 +429,27 @@ const inferIndustryProfileFromName = (name: string) => {
 };
 
 const buildGeneratedProfile = (code: string, name: string, market?: string): StockProfile => {
+  if (market === "EDINET検知") {
+    const inferredProfile = inferIndustryProfileFromName(name);
+    const baseDescription = inferredProfile
+      ? `${name}${inferredProfile.description}`
+      : `${name}はEDINETの大量保有報告書・変更報告書から検知された銘柄です。事業内容、決算、株価材料、セクター内での位置づけを、提出書類とあわせて確認します。`;
+
+    return {
+      description:
+        `${baseDescription} EDINET検知では、通常の指数採用やランキングではなく、大株主の保有割合、提出者、共同保有者、保有目的の変化が注目点になります。`,
+      segments: inferredProfile
+        ? [...inferredProfile.segments.slice(0, 3), "EDINET大量保有"]
+        : ["主力事業", "決算・IR", "EDINET大量保有", "保有目的・取得処分"],
+      watchPoints: inferredProfile
+        ? [...inferredProfile.watchPoints.slice(0, 2), "保有割合の変化", "提出者の意図"]
+        : ["保有割合の変化", "提出者の意図", "直近60日の売買", "開示後の株価織り込み"],
+      features: inferredProfile
+        ? ["EDINET検知", ...inferredProfile.features.slice(0, 3)]
+        : ["EDINET検知", "大株主動向", "保有目的確認", "一次開示優先"],
+    };
+  }
+
   const industryProfile = isListingMarketOnly(market)
     ? inferIndustryProfileFromName(name)
     : getIndustryProfile(market) ?? inferIndustryProfileFromName(name);
@@ -573,6 +600,19 @@ export const stockProfiles: Record<string, StockProfile> = {
   },
 };
 
+const withEdinetContext = (profile: StockProfile): StockProfile => ({
+  description:
+    `${profile.description} EDINET検知では、通常の指数採用やランキングではなく、大株主の保有割合、提出者、共同保有者、保有目的の変化もあわせて確認します。`,
+  segments: [...profile.segments.slice(0, 3), "EDINET大量保有"],
+  watchPoints: [...profile.watchPoints.slice(0, 2), "保有割合の変化", "提出者の意図"],
+  features: ["EDINET検知", ...profile.features.slice(0, 3)],
+});
+
 export const getStockProfile = (code: string, name: string, market?: string): StockProfile => {
-  return stockProfiles[code] ?? buildGeneratedProfile(code, name, market);
+  const profile = stockProfiles[code];
+  if (profile) {
+    return market === "EDINET検知" ? withEdinetContext(profile) : profile;
+  }
+
+  return buildGeneratedProfile(code, name, market);
 };
