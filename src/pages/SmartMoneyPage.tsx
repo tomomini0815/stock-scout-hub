@@ -1017,7 +1017,7 @@ const SmartMoneyPage = () => {
           ))}
         </div>
 
-        <section className="mb-3 rounded border border-border bg-card">
+        <section className="mb-3 overflow-hidden rounded border border-border bg-card">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-table-header-bg px-3 py-2">
             <div className="flex items-center gap-2">
               <Gauge className="h-4 w-4 text-primary" />
@@ -1027,7 +1027,7 @@ const SmartMoneyPage = () => {
               鮮度・未織り込み・反証減点で順位付け
             </span>
           </div>
-          <div className="grid gap-2 p-3 lg:grid-cols-3">
+          <div className="grid min-w-0 gap-2 p-3 lg:grid-cols-3">
             {displaySignals.slice(0, 3).map((signal) => {
               const freshness = getFreshnessBadge(signal);
               const pricing = getPricingBadge(signal);
@@ -1037,7 +1037,7 @@ const SmartMoneyPage = () => {
                   key={signal.id}
                   type="button"
                   onClick={() => setSelectedSignalId(signal.id)}
-                  className="rounded border border-border bg-background p-3 text-left transition-colors hover:border-primary/40 hover:bg-primary/5"
+                  className="min-w-0 rounded border border-border bg-background p-3 text-left transition-colors hover:border-primary/40 hover:bg-primary/5"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
@@ -1045,11 +1045,11 @@ const SmartMoneyPage = () => {
                         <div className="font-mono text-xs font-black text-primary">{signal.ticker}</div>
                       )}
                       <div className="truncate text-sm font-black text-foreground">{signal.company}</div>
-                      <div className="mt-0.5 truncate text-xs font-semibold text-slate-600">
+                      <div className="mt-0.5 truncate text-xs font-semibold text-slate-600" title={signal.source === "edinet" && signal.filerName ? `提出者: ${signal.filerName}` : signal.fund.name}>
                         {signal.source === "edinet" && signal.filerName ? `提出者: ${signal.filerName}` : signal.fund.name}
                       </div>
                     </div>
-                    <div className="text-right">
+                    <div className="shrink-0 text-right">
                       <div className="text-2xl font-black tabular-nums text-foreground">{signal.score}</div>
                       <div className="text-xs font-bold text-slate-600">追随価値</div>
                     </div>
@@ -1101,22 +1101,22 @@ const SmartMoneyPage = () => {
             </div>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[1240px] text-xs">
-              <thead className="whitespace-nowrap bg-muted/40 text-xs text-slate-600">
+          <div className="max-h-[72vh] overflow-auto overscroll-contain">
+            <table className="w-full min-w-[1500px] table-fixed text-xs">
+              <thead className="sticky top-0 z-10 whitespace-nowrap bg-muted text-xs text-slate-600 shadow-sm">
                 <tr>
-                  <th className="px-3 py-2 text-left">判定</th>
-                  <th className="px-3 py-2 text-left">ファンド</th>
-                  <th className="px-3 py-2 text-left">対象銘柄 / 提出者</th>
-                  <th className="px-3 py-2 text-right">追随価値</th>
-                  <th className="px-3 py-2 text-left">織り込み</th>
-                  <th className="px-3 py-2 text-right">比率</th>
-                  <th className="px-3 py-2 text-right">変化</th>
-                  <th className="px-3 py-2 text-right">遅延</th>
-                  <th className="px-3 py-2 text-right">開示後</th>
-                  <th className="px-3 py-2 text-left">反証</th>
-                  <th className="px-3 py-2 text-left">次アクション</th>
-                  <th className="px-3 py-2 text-right">調査</th>
+                  <th className="w-[92px] px-3 py-2 text-left">判定</th>
+                  <th className="w-[190px] px-3 py-2 text-left">ファンド</th>
+                  <th className="w-[250px] px-3 py-2 text-left">対象銘柄 / 提出者</th>
+                  <th className="w-[92px] px-3 py-2 text-right">追随価値</th>
+                  <th className="w-[120px] px-3 py-2 text-left">織り込み</th>
+                  <th className="w-[80px] px-3 py-2 text-right">比率</th>
+                  <th className="w-[80px] px-3 py-2 text-right">変化</th>
+                  <th className="w-[70px] px-3 py-2 text-right">遅延</th>
+                  <th className="w-[84px] px-3 py-2 text-right">開示後</th>
+                  <th className="w-[250px] px-3 py-2 text-left">反証</th>
+                  <th className="w-[250px] px-3 py-2 text-left">次アクション</th>
+                  <th className="w-[110px] px-3 py-2 text-right">調査</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -1196,13 +1196,13 @@ const SmartMoneyPage = () => {
                           )}
                           <div>
                             <div className="font-bold text-foreground">{signal.risk}</div>
-                            <div className="max-w-[260px] text-xs font-semibold leading-relaxed text-slate-600">
+                            <div className="text-xs font-semibold leading-[1.65] text-slate-600">
                               {buildCounterReasons(signal)[0]}
                             </div>
                           </div>
                         </div>
                       </td>
-                      <td className="max-w-[260px] px-3 py-2 text-xs font-semibold leading-relaxed text-slate-600">
+                      <td className="px-3 py-2 text-xs font-semibold leading-[1.65] text-slate-600">
                         {getNextAction(signal)}
                       </td>
                       <td className="px-3 py-2 text-right">

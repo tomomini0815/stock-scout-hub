@@ -16,6 +16,7 @@ const ThemesPage = lazy(() => import("./pages/ThemesPage"));
 const ChartPage = lazy(() => import("./pages/ChartPage"));
 const NewsPage = lazy(() => import("./pages/NewsPage"));
 const SmartMoneyPage = lazy(() => import("./pages/SmartMoneyPage"));
+const TermsPage = lazy(() => import("./pages/TermsPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -45,6 +46,7 @@ const App = () => (
             <Route path="/chart" element={<ChartPage />} />
             <Route path="/news" element={<NewsPage />} />
             <Route path="/smart-money" element={<SmartMoneyPage />} />
+            <Route path="/terms" element={<TermsPage />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

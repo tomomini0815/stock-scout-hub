@@ -39,6 +39,17 @@ const indexChartConfigs = [
   { id: "btc", name: "BTC/USDT", symbol: "BINANCE:BTCUSDT" },
 ];
 
+const chartIndexMatchers: Record<string, RegExp> = {
+  nikkei: /日経/,
+  topix: /TOPIX/,
+  dow: /ダウ/,
+  nasdaq: /NASDAQ/,
+  sp500: /S&P/,
+  usdjpy: /USD|JPY|ドル|円/,
+  gold: /GOLD|金/,
+  btc: /BTC|ビットコイン/,
+};
+
 const driverFallbackNews: MarketDriverNews[] = [
   { title: "日本株は為替、米金利、海外株、半導体関連の動きをにらみながら推移", source: "市況推定" },
   { title: "日経平均は値がさ株、TOPIXは銀行・自動車など主力株の広がりを確認", source: "市況推定" },
@@ -354,6 +365,15 @@ const formatSignedPercent = (value?: number) => {
   return `${value > 0 ? "+" : ""}${value.toFixed(2)}%`;
 };
 
+const formatIndexValue = (index?: MarketIndex) => {
+  if (!index) return undefined;
+  const decimals = /USD|JPY|ドル|円|GOLD|金/.test(index.name) ? 2 : index.value >= 1000 ? 0 : 2;
+  return `${index.value.toLocaleString(undefined, {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  })} / ${formatSignedPercent(index.changePercent)}`;
+};
+
 const findIndexByName = (indices: MarketIndex[], pattern: RegExp) =>
   indices.find((index) => pattern.test(index.name));
 
@@ -449,6 +469,12 @@ const buildMarketSummary = (indices: MarketIndex[], driverMap: Map<string, strin
     riskModeLabel,
     riskModeReason,
     points: [japanText, usText, crossAssetText],
+    action:
+      riskMode === "risk-on"
+        ? "確認順: 強い指数の押し目、半導体・大型株の出来高、ドル円の追い風を優先。急騰銘柄は高値掴みを避けます。"
+        : riskMode === "risk-off"
+        ? "確認順: 下げ止まり、円高・米金利・NASDAQの弱さ、ディフェンシブや現金比率を優先。反発だけで飛びつかない状態です。"
+        : "確認順: 日経とTOPIXの差、NASDAQと金利、ドル円の方向を見て、指数が同じ方向にそろうまで候補を絞ります。",
     strongest: strongest ? `${strongest.name} ${formatSignedPercent(strongest.changePercent)}` : "強い指数 --",
     weakest: weakest ? `${weakest.name} ${formatSignedPercent(weakest.changePercent)}` : "弱い指数 --",
     driver: mainDriver ? formatDriverMaterial(mainDriver) : "為替、米金利、海外株、半導体、商品市況を確認。",
@@ -517,6 +543,17 @@ const MarketOverview = ({ indices, detailed = false }: MarketOverviewProps) => {
   const marketSummary = useMemo(
     () => buildMarketSummary(displayIndices, marketDriverByName),
     [displayIndices, marketDriverByName]
+  );
+  const indexChartSymbols = useMemo(
+    () =>
+      indexChartConfigs.map((config) => {
+        const matchingIndex = displayIndices.find((index) => chartIndexMatchers[config.id]?.test(index.name));
+        return {
+          ...config,
+          currentPrice: formatIndexValue(matchingIndex),
+        };
+      }),
+    [displayIndices]
   );
 
   const updatedLabel = updatedAt
@@ -807,8 +844,8 @@ const MarketOverview = ({ indices, detailed = false }: MarketOverviewProps) => {
       </div>
       {detailed && (
         <section className="border-t border-border bg-background px-3 py-1.5">
-          <div className="flex flex-col gap-1.5 lg:flex-row lg:items-center">
-            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5 lg:flex-nowrap">
+          <div className="flex flex-col gap-2">
+            <div className="flex min-w-0 flex-wrap items-center gap-1.5">
               <span className={`shrink-0 rounded border px-2 py-0.5 text-xxs font-black ${marketSummary.toneClass}`}>
                 市況まとめ
               </span>
@@ -818,17 +855,27 @@ const MarketOverview = ({ indices, detailed = false }: MarketOverviewProps) => {
               >
                 {marketSummary.riskModeLabel}
               </span>
-              <span className="min-w-0 truncate text-xs font-black leading-tight text-foreground">{marketSummary.headline}</span>
+              <span className="min-w-0 text-xs font-black leading-tight text-foreground">{marketSummary.headline}</span>
             </div>
-            <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-xxs lg:flex-nowrap">
+            <div className="grid gap-1.5 text-xxs md:grid-cols-3">
+              {marketSummary.points.map((point) => (
+                <div key={point} className="rounded border border-slate-200 bg-card px-2 py-1 font-semibold leading-relaxed text-slate-700">
+                  {point}
+                </div>
+              ))}
+            </div>
+            <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-xxs">
               <span className="rounded border border-red-200 bg-red-50 px-2 py-0.5 font-bold text-red-700">
                 強い: {marketSummary.strongest}
               </span>
               <span className="rounded border border-blue-200 bg-blue-50 px-2 py-0.5 font-bold text-blue-700">
                 弱い: {marketSummary.weakest}
               </span>
-              <span className="min-w-0 max-w-full truncate rounded border border-slate-300 bg-slate-100 px-2 py-0.5 font-semibold text-slate-700 lg:max-w-96">
+              <span className="min-w-0 max-w-full rounded border border-slate-300 bg-slate-100 px-2 py-0.5 font-semibold leading-relaxed text-slate-700">
                 材料: {marketSummary.driver}
+              </span>
+              <span className="min-w-0 max-w-full rounded border border-primary/30 bg-primary/5 px-2 py-0.5 font-bold leading-relaxed text-primary">
+                {marketSummary.action}
               </span>
             </div>
           </div>
@@ -850,7 +897,7 @@ const MarketOverview = ({ indices, detailed = false }: MarketOverviewProps) => {
             </div>
           </div>
           <TradingViewQuadPanel
-            symbols={indexChartConfigs}
+            symbols={indexChartSymbols}
             drawingEnabled={isMobileChartViewport ? mobileDrawingToolsOpen : true}
             onLayoutChange={setIndexChartLayout}
           />

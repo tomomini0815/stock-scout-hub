@@ -5,6 +5,8 @@ interface TradingViewSymbolConfig {
   id: string;
   name: string;
   symbol: string;
+  currentPrice?: string;
+  changeLabel?: string;
 }
 
 interface TradingViewQuadPanelProps {
@@ -283,28 +285,32 @@ const TradingViewQuadPanel = ({ symbols, drawingEnabled, onLayoutChange }: Tradi
         </button>
       </div>
 
-      <div className={`p-1.5 ${activeTab === "all" ? "h-[1440px] md:h-[1680px] xl:h-[1920px]" : "h-[960px] md:h-[1120px] xl:h-[1280px]"}`}>
+      <div className={`p-1.5 ${activeTab === "all" ? "h-[2560px] md:h-[1680px] xl:h-[1920px]" : "h-[1040px] md:h-[1120px] xl:h-[1280px]"}`}>
         {activeTab === "all" ? (
-          <div className="grid h-full grid-cols-2 gap-1.5">
+          <div className="grid h-full grid-cols-1 gap-1.5 md:grid-cols-2">
             {visibleSymbols.map((item) => (
               <div key={item.id} className="flex min-h-0 flex-col overflow-hidden rounded border border-border bg-background">
                 <div className="flex h-7 shrink-0 items-center justify-between border-b border-border bg-muted/60 px-2">
                   <span className="truncate text-[10px] font-bold text-foreground">{item.name} (4時間足)</span>
-                  <span className="truncate pl-2 font-mono text-[9px] text-muted-foreground">{item.symbol}</span>
+                  <span className="shrink-0 pl-2 text-right font-mono text-[9px] font-bold text-foreground">
+                    {item.currentPrice ?? item.symbol}
+                  </span>
                 </div>
                 <div id={`${instanceId}-all-${item.id}`} className="min-h-0 flex-1" />
               </div>
             ))}
           </div>
         ) : (
-          <div className={`grid h-full gap-1.5 ${stackMode ? "grid-cols-1 grid-rows-4" : "grid-cols-2 grid-rows-2"}`}>
+          <div className={`grid h-full gap-1.5 ${stackMode ? "grid-cols-1 grid-rows-4" : "grid-cols-1 md:grid-cols-2 md:grid-rows-2"}`}>
             {intervals.map((interval) => (
               <div key={interval.value} className="flex min-h-0 flex-col overflow-hidden rounded border border-border bg-background">
                 <div className="flex h-7 shrink-0 items-center justify-between border-b border-border bg-muted/60 px-2">
                   <span className="truncate text-[10px] font-bold text-foreground">
                     {activeSymbol?.name} ({interval.label})
                   </span>
-                  <span className="truncate pl-2 font-mono text-[9px] text-muted-foreground">{activeSymbol?.symbol}</span>
+                  <span className="shrink-0 pl-2 text-right font-mono text-[9px] font-bold text-foreground">
+                    {activeSymbol?.currentPrice ?? activeSymbol?.symbol}
+                  </span>
                 </div>
                 <div id={`${instanceId}-${activeTab}-${interval.value}`} className="min-h-0 flex-1" />
               </div>

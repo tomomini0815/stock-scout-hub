@@ -398,7 +398,7 @@ const ChartPage = () => {
               currentPriceUpdatedAt={liveChartUpdatedAt}
             />
 
-            <div className="mt-3 flex gap-2 overflow-x-auto pb-1 md:grid md:grid-cols-5 md:gap-3 md:overflow-visible md:pb-0">
+            <div className="mt-3 grid grid-cols-3 gap-2 md:grid-cols-5 md:gap-3">
               {[
                 { label: "始値", value: selected.open.toLocaleString() },
                 { label: "高値", value: selected.high.toLocaleString() },
@@ -406,7 +406,7 @@ const ChartPage = () => {
                 { label: "前日終値", value: selected.previousClose.toLocaleString() },
                 { label: "出来高", value: selected.volume.toLocaleString() + "株" },
               ].map((item) => (
-                <div key={item.label} className="min-w-[7.6rem] shrink-0 rounded border border-border bg-card p-2 text-center md:min-w-0 md:shrink">
+                <div key={item.label} className="min-w-0 rounded border border-border bg-card p-2 text-center">
                   <div className="text-xxs text-muted-foreground">{item.label}</div>
                   <div className="text-sm font-bold tabular-nums text-foreground">{item.value}</div>
                 </div>
