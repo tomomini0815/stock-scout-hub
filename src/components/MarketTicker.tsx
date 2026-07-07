@@ -62,7 +62,7 @@ const MarketTicker = ({ indices }: MarketTickerProps) => {
 
     const loadHeadlines = async () => {
       try {
-        const response = await fetch("/api/yahoo-business-rss", { signal: controller.signal });
+        const response = await fetch("/api/news-feeds?source=yahoo", { signal: controller.signal });
         if (!response.ok) throw new Error("news ticker unavailable");
         const text = await response.text();
         setHeadlines(extractRssTitles(text));

@@ -600,7 +600,7 @@ const NewsFeed = ({ news: incomingNews }: NewsFeedProps) => {
       };
 
       yahooItems = await withTimeout(
-        fetchText("/api/yahoo-business-rss").then((text) =>
+        fetchText("/api/news-feeds?source=yahoo").then((text) =>
           trimNewsItems(mapRssNews(text, "Yahoo!ニュースRSS", "Yahoo!ニュース", 100))
         ),
         3500
@@ -609,12 +609,16 @@ const NewsFeed = ({ news: incomingNews }: NewsFeedProps) => {
 
       const [googleResult, gdeltResult] = await Promise.allSettled([
         withTimeout(
-          fetchText(`/api/google-news?${googleParams.toString()}`).then((text) =>
+          fetchText(`/api/news-feeds?source=google&${googleParams.toString()}`).then((text) =>
             trimNewsItems(mapRssNews(text, "Google News RSS", "Google News", 200))
           )
         ),
         withTimeout(
-          fetchJson(`/api/gdelt?${gdeltParams.toString()}`).then((payload) =>
+          (() => {
+            const gParams = new URLSearchParams(gdeltParams.toString());
+            gParams.set("source", "gdelt");
+            return fetchJson(`/api/news-feeds?${gParams.toString()}`);
+          })().then((payload) =>
             trimNewsItems(mapGdeltNews(payload.articles ?? []))
           )
         ),

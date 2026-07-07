@@ -225,14 +225,14 @@ export const useLiveNewsSearch = ({
             ? [
                 async () => ({
                   status: "live" as const,
-                  news: mapTdnetNews(await fetchText(`/api/tdnet-list?date=${getJstDateKey()}`), Math.max(limit * 5, 120)),
+                  news: mapTdnetNews(await fetchText(`/api/news-feeds?source=tdnet&date=${getJstDateKey()}`), Math.max(limit * 5, 120)),
                 }),
               ]
             : []),
           async () => ({
             status: "live" as const,
             news: mapRssNews(
-              await fetchText(`/api/google-news?${googleParams.toString()}`),
+              await fetchText(`/api/news-feeds?source=google&${googleParams.toString()}`),
               "Google News RSS",
               "Google News",
               limit
@@ -241,14 +241,16 @@ export const useLiveNewsSearch = ({
           async () => ({
             status: "fallback" as const,
             news: mapRssNews(
-              await fetchText("/api/yahoo-business-rss"),
+              await fetchText("/api/news-feeds?source=yahoo"),
               "Yahoo!ニュースRSS",
               "Yahoo!ニュース",
               limit
             ),
           }),
           async () => {
-            const response = await fetch(`/api/gdelt?${gdeltParams.toString()}`, { signal: controller.signal });
+            const gParams = new URLSearchParams(gdeltParams.toString());
+            gParams.set("source", "gdelt");
+            const response = await fetch(`/api/news-feeds?${gParams.toString()}`, { signal: controller.signal });
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
             const payload = await response.json();
             return {

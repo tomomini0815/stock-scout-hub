@@ -598,8 +598,8 @@ const MarketOverview = ({ indices, detailed = false }: MarketOverviewProps) => {
           return response.text();
         };
         const results = await Promise.allSettled([
-          fetchText(`/api/google-news?${googleParams.toString()}`).then((text) => mapRssTitles(text, "Google News")),
-          fetchText("/api/yahoo-business-rss").then((text) => mapRssTitles(text, "Yahoo!ニュース")),
+          fetchText(`/api/news-feeds?source=google&${googleParams.toString()}`).then((text) => mapRssTitles(text, "Google News")),
+          fetchText("/api/news-feeds?source=yahoo").then((text) => mapRssTitles(text, "Yahoo!ニュース")),
         ]);
         const items = results.flatMap((result) => (result.status === "fulfilled" ? result.value : []));
         const uniqueItems = items.filter(
@@ -668,7 +668,7 @@ const MarketOverview = ({ indices, detailed = false }: MarketOverviewProps) => {
               ceid: "JP:ja",
               ts: String(Date.now()),
             });
-            const text = await fetchText(`/api/google-news?${params.toString()}`);
+            const text = await fetchText(`/api/news-feeds?source=google&${params.toString()}`);
             const items = mapRssTitles(text, "Google News");
             return [
               index.name,

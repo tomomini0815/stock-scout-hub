@@ -387,26 +387,30 @@ const NewsPage = () => {
         {
           provider: "Google News RSS",
           load: async () => ({
-            news: mapRssNews(await fetchText(`/api/google-news?${rssParams.toString()}`), "Google News RSS", "Google News"),
+            news: mapRssNews(await fetchText(`/api/news-feeds?source=google&${rssParams.toString()}`), "Google News RSS", "Google News"),
           }),
         },
         {
           provider: "Yahoo!ニュースRSS",
           load: async () => ({
-            news: mapRssNews(await fetchText("/api/yahoo-business-rss"), "Yahoo!ニュースRSS", "Yahoo!ニュース", 30),
+            news: mapRssNews(await fetchText("/api/news-feeds?source=yahoo"), "Yahoo!ニュースRSS", "Yahoo!ニュース", 30),
           }),
         },
         {
           provider: "GDELT",
           load: async () => {
-            const payload = await fetchJson(`/api/gdelt?${gdeltParams.toString()}`);
+            const gdeltSearchParams = new URLSearchParams(gdeltParams.toString());
+            gdeltSearchParams.set("source", "gdelt");
+            const payload = await fetchJson(`/api/news-feeds?${gdeltSearchParams.toString()}`);
             return { news: mapGdeltArticles(payload.articles ?? []) };
           },
         },
         {
           provider: "NewsAPI",
           load: async () => {
-            const payload = await fetchJson(`/api/newsapi?${newsApiParams.toString()}`);
+            const newsParams = new URLSearchParams(newsApiParams.toString());
+            newsParams.set("source", "newsapi");
+            const payload = await fetchJson(`/api/news-premium?${newsParams.toString()}`);
             return {
               news: mapNewsApiArticles(payload.articles ?? []),
               status: payload.sourceStatus === "missing-key" ? "missing-key" : undefined,
@@ -416,7 +420,7 @@ const NewsPage = () => {
         {
           provider: "Finnhub",
           load: async () => {
-            const payload = await fetchJson("/api/finnhub-news");
+            const payload = await fetchJson("/api/news-premium?source=finnhub");
             return {
               news: mapFinnhubArticles(payload.articles ?? []),
               status: payload.sourceStatus === "missing-key" ? "missing-key" : undefined,
@@ -426,7 +430,9 @@ const NewsPage = () => {
         {
           provider: "Marketaux",
           load: async () => {
-            const payload = await fetchJson(`/api/marketaux-news?${marketauxParams.toString()}`);
+            const mParams = new URLSearchParams(marketauxParams.toString());
+            mParams.set("source", "marketaux");
+            const payload = await fetchJson(`/api/news-premium?${mParams.toString()}`);
             return {
               news: mapMarketauxArticles(payload.data ?? []),
               status: payload.sourceStatus === "missing-key" ? "missing-key" : undefined,
