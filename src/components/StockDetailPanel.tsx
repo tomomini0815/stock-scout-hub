@@ -581,25 +581,15 @@ const StockDetailPanel = ({ stock }: StockDetailPanelProps) => {
   }, [isGenericProfile, metrics.businessSummaryJa, metrics.sector, metrics.industry, edinetSignal, profile.description, displayStock.name]);
 
   const displaySegments = useMemo(() => {
-    if (isGenericProfile) {
-      if (edinetSignal) {
-        return [
-          `提出者: ${edinetSignal.filerName}`,
-          `保有比率: ${edinetSignal.portfolioWeight > 0 ? `${edinetSignal.portfolioWeight.toFixed(2)}%` : "確認中"}`,
-          `変動内容: ${edinetSignal.signalType}`,
-          `提出日: ${edinetSignal.filingDate}`
-        ];
-      }
-      if (metrics.sector || metrics.industry) {
-        return [
-          metrics.sector ? `セクター: ${metrics.sector}` : "",
-          metrics.industry ? `業種: ${metrics.industry}` : "",
-          ...profile.segments.slice(0, 2)
-        ].filter(Boolean);
-      }
+    if (isGenericProfile && (metrics.sector || metrics.industry)) {
+      return [
+        metrics.sector ? `セクター: ${metrics.sector}` : "",
+        metrics.industry ? `業種: ${metrics.industry}` : "",
+        ...profile.segments.slice(0, 2)
+      ].filter(Boolean);
     }
     return profile.segments;
-  }, [isGenericProfile, edinetSignal, metrics.sector, metrics.industry, profile.segments]);
+  }, [isGenericProfile, metrics.sector, metrics.industry, profile.segments]);
 
   const displayWatchPoints = useMemo(() => {
     if (isGenericProfile && edinetSignal) {
@@ -793,8 +783,39 @@ const StockDetailPanel = ({ stock }: StockDetailPanelProps) => {
                     <div className="opacity-70">従業員数</div>
                     <div className="text-xs font-black tabular-nums">{formatEmployees(metrics.employees)}</div>
                   </div>
-                </div>
               </div>
+
+              {/* EDINET大量保有報告が検知されている場合は、大株主開示状況の専用カードを表示 */}
+              {edinetSignal && (
+                <div className="mt-3 rounded border border-blue-200 bg-blue-50/50 p-2 text-left">
+                  <div className="flex items-center gap-1.5 text-xxs font-bold text-blue-700 mb-2">
+                    <span className="rounded bg-blue-600 px-1 py-0.5 text-[9px] text-white">EDINET</span>
+                    大量保有報告データ
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xxs font-semibold text-slate-700">
+                    <div className="rounded border border-blue-100 bg-white px-2 py-1">
+                      <div className="opacity-70 text-slate-500">提出者 (大株主)</div>
+                      <div className="text-xs font-black truncate" title={edinetSignal.filerName}>
+                        {edinetSignal.filerName}
+                      </div>
+                    </div>
+                    <div className="rounded border border-blue-100 bg-white px-2 py-1">
+                      <div className="opacity-70 text-slate-500">保有割合</div>
+                      <div className="text-xs font-black tabular-nums">
+                        {edinetSignal.portfolioWeight > 0 ? `${edinetSignal.portfolioWeight.toFixed(2)}%` : "確認中"}
+                      </div>
+                    </div>
+                    <div className="rounded border border-blue-100 bg-white px-2 py-1">
+                      <div className="opacity-70 text-slate-500">変動内容</div>
+                      <div className="text-xs font-black text-primary">{edinetSignal.signalType}</div>
+                    </div>
+                    <div className="rounded border border-blue-100 bg-white px-2 py-1">
+                      <div className="opacity-70 text-slate-500">報告・開示日</div>
+                      <div className="text-xs font-black tabular-nums">{edinetSignal.filingDate}</div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="mb-1 mt-3 text-xs font-bold text-foreground">主な事業</div>
               <ul className="space-y-0.5 text-xs leading-relaxed text-foreground">
