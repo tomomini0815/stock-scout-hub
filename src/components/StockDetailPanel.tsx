@@ -15,6 +15,10 @@ interface StockMetrics {
   marketCap?: number | null;
   enterpriseValue?: number | null;
   employees?: number | null;
+  // Yahoo Finance 企業プロフィール
+  sector?: string | null;
+  industry?: string | null;
+  businessSummaryJa?: string | null;
 }
 
 type MetricsState =
@@ -486,6 +490,15 @@ const StockDetailPanel = ({ stock }: StockDetailPanelProps) => {
   const isUp = displayStock.change > 0;
   const isDown = displayStock.change < 0;
   const profile = getStockProfile(displayStock.code, displayStock.name, displayStock.market);
+  // stockProfiles.ts に手動登録済みかどうかを判定するフラグ
+  // （description がデフォルトのEDINETテンプレート文言を含む場合はAPI優先）
+  const isGenericProfile =
+    profile.description.includes("EDINETの大量保有報告書") ||
+    profile.description.includes("独自の技術や製品を持つ") ||
+    profile.description.includes("特定の産業・セクターで強みや") ||
+    profile.description.includes("特定のニッチ市場で実力を") ||
+    profile.description.includes("安定した需要を持つビジネス領域") ||
+    profile.description.includes("チャートページに追加された");
   const [metricsState, setMetricsState] = useState<MetricsState>({ status: "loading" });
   const rangeWidth = displayStock.high - displayStock.low;
   const rangePosition =
@@ -685,7 +698,12 @@ const StockDetailPanel = ({ stock }: StockDetailPanelProps) => {
 
             <div className="min-w-0 border-t border-border/70 pt-3 md:border-l md:border-t-0 md:pl-3 md:pt-0">
               <div className="mb-1 text-xs font-bold text-foreground">企業説明</div>
-              <p className="text-xs leading-relaxed text-foreground">{profile.description}</p>
+              {/* APIから日本語説明が取れた場合かつ手動データが汎用の場合はAPI優先 */}
+              {isGenericProfile && metrics.businessSummaryJa ? (
+                <p className="text-xs leading-relaxed text-foreground">{metrics.businessSummaryJa}</p>
+              ) : (
+                <p className="text-xs leading-relaxed text-foreground">{profile.description}</p>
+              )}
 
               <div className="mt-3 rounded border border-slate-200 bg-slate-50 p-2">
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -710,12 +728,23 @@ const StockDetailPanel = ({ stock }: StockDetailPanelProps) => {
                 </div>
               </div>
 
+              {/* 主な事業: APIのsector/industryが取れた場合はそれも表示 */}
               <div className="mb-1 mt-3 text-xs font-bold text-foreground">主な事業</div>
-              <ul className="space-y-0.5 text-xs leading-relaxed text-foreground">
-                {profile.segments.map((segment) => (
-                  <li key={segment}>・{segment}</li>
-                ))}
-              </ul>
+              {isGenericProfile && (metrics.sector || metrics.industry) ? (
+                <ul className="space-y-0.5 text-xs leading-relaxed text-foreground">
+                  {metrics.sector && <li>・{metrics.sector}</li>}
+                  {metrics.industry && <li>・{metrics.industry}</li>}
+                  {profile.segments.slice(0, 2).map((segment) => (
+                    <li key={segment}>・{segment}</li>
+                  ))}
+                </ul>
+              ) : (
+                <ul className="space-y-0.5 text-xs leading-relaxed text-foreground">
+                  {profile.segments.map((segment) => (
+                    <li key={segment}>・{segment}</li>
+                  ))}
+                </ul>
+              )}
 
               <div className="mb-1 mt-3 text-xs font-bold text-foreground">見るポイント</div>
               <ul className="space-y-0.5 text-xs leading-relaxed text-foreground">

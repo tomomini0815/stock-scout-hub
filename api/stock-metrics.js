@@ -37,6 +37,11 @@ const parseQuoteSummaryMetrics = (payload, symbol) => {
     marketCap,
     enterpriseValue,
     employees,
+    sector: assetProfile.sector ?? null,
+    industry: assetProfile.industry ?? null,
+    longBusinessSummary: assetProfile.longBusinessSummary ?? null,
+    website: assetProfile.website ?? null,
+    country: assetProfile.country ?? null,
   };
 };
 
@@ -54,6 +59,11 @@ const parseQuoteMetrics = (payload, symbol) => {
     marketCap: Number.isFinite(quote.marketCap) ? Number(quote.marketCap) : null,
     enterpriseValue: Number.isFinite(quote.enterpriseValue) ? Number(quote.enterpriseValue) : null,
     employees: Number.isFinite(quote.fullTimeEmployees) ? Number(quote.fullTimeEmployees) : null,
+    sector: null,
+    industry: null,
+    longBusinessSummary: null,
+    website: null,
+    country: null,
   };
 };
 
@@ -79,6 +89,27 @@ const fetchYahooMetrics = async (symbol) => {
   return parseQuoteMetrics(await quoteResponse.json(), symbol);
 };
 
+/**
+ * Google翻訳の無料エンドポイントを使い、英語テキストを日本語に翻訳する。
+ * APIキー不要。失敗時はnullを返す。
+ */
+const translateToJapanese = async (text) => {
+  if (!text) return null;
+  // 長すぎる場合は最初の500文字のみ翻訳
+  const truncated = text.length > 500 ? text.slice(0, 500) + "…" : text;
+  try {
+    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=ja&dt=t&q=${encodeURIComponent(truncated)}`;
+    const response = await fetchWithTimeout(url, 5000);
+    if (!response.ok) return null;
+    const json = await response.json();
+    // レスポンス形式: [[["翻訳", "原文", ...], ...], ...]
+    const translated = json?.[0]?.map((chunk) => chunk?.[0]).filter(Boolean).join("") ?? null;
+    return translated || null;
+  } catch {
+    return null;
+  }
+};
+
 export default async function handler(req, res) {
   try {
     const requestUrl = new URL(req.url ?? "", `https://${req.headers.host ?? "localhost"}`);
@@ -93,6 +124,14 @@ export default async function handler(req, res) {
     if (!metrics) {
       sendJson(res, { error: "stock metrics unavailable" }, 502);
       return;
+    }
+
+    // 企業説明が英語で取得できた場合のみ翻訳を実行
+    if (metrics.longBusinessSummary) {
+      const translated = await translateToJapanese(metrics.longBusinessSummary);
+      metrics.businessSummaryJa = translated;
+    } else {
+      metrics.businessSummaryJa = null;
     }
 
     sendJson(res, { metrics, updatedAt: new Date().toISOString() });
