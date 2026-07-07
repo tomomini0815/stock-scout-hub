@@ -393,43 +393,60 @@ const isListingMarketOnly = (market?: string) =>
   !market || /^(?:東証)?(?:プライム|スタンダード|グロース)$/.test(market);
 
 const inferIndustryProfileFromName = (name: string) => {
-  if (/銀行|フィナンシャル|FG|ＦＧ|証券|保険|リース|カード|ファイナンス/.test(name)) {
+  const cleanName = name.replace(/(?:ホールディングス|HD|ＨＤ|グループ|G|Ｇ)$/i, "");
+
+  if (/銀行|フィナンシャル|FG|ＦＧ|証券|保険|損保|生保|リース|カード|ファイナンス|インベストメント|キャピタル|ファンド|信託|クレジット|金融|投信/.test(cleanName)) {
     return profileByIndustry["銀行業"];
   }
-  if (/医療|メディカル|アズワン|メディアス/.test(name)) return profileByIndustry["卸売業"];
-  if (/化粧品|コスメ|コーセー|資生堂|ポーラ/.test(name)) return profileByIndustry["化学"];
-  if (/魚|水産|鮮魚|魚喜/.test(name)) return profileByIndustry["小売業"];
-  if (/映像|動画|配信|USEN|ＵＳＥＮ|U-NEXT|Ｕ－ＮＥＸＴ|メディア|コンテンツ/.test(name)) {
-    return profileByIndustry["情報・通信業"];
+  if (/不動産|地所|土地|レジデン|リート|投資法人|エステート|ビル|タウン|プロパティ|アセット|リアルティ|開発|デベロッパー/.test(cleanName)) {
+    return profileByIndustry["不動産業"];
   }
-  if (/時計|時間|勤怠|駐車場|アマノ/.test(name)) return profileByIndustry["機械"];
-  if (/不動産|地所|土地|レジデン|リート|投資法人/.test(name)) return profileByIndustry["不動産業"];
-  if (/建設|建|工務|道路|コーポレーション|コンストラクション/.test(name)) return profileByIndustry["建設業"];
-  if (/自動車|ホンダ|トヨタ|日産|マツダ|スズキ|ＳＵＢＡＲＵ|SUBARU|デンソー|アイシン|タイヤ/.test(name)) {
+  if (/建設|建|工務|道路|コーポレーション|コンストラクション|エンジニアリング|設計|土木|基礎|ハウス|ホーム|ファシリティ|アクア|テクノ|設備|舗装/.test(cleanName)) {
+    return profileByIndustry["建設業"];
+  }
+  if (/自動車|ホンダ|トヨタ|日産|マツダ|スズキ|ＳＵＢＡＲＵ|SUBARU|デンソー|アイシン|タイヤ|パーツ|ギア|精機|プレス|車体|ボディ|ヤマハ|二輪|シマノ/.test(cleanName)) {
     return profileByIndustry["輸送用機器"];
   }
-  if (/電機|電気|エレクト|電子|半導体|アドバンテスト|ディスコ|ルネサス|キーエンス|ソニー|パナソニック|キオクシア/.test(name)) {
+  if (/薬品|製薬|医薬|中外|第一三共|武田|アステラス|エーザイ|大塚|バイオ|創薬|ゲノム|ファーマ|ライフサイエンス|製薬|ドラッグ/.test(cleanName)) {
+    return profileByIndustry["医薬品"];
+  }
+  if (/電機|電気|エレクト|電子|半導体|アドバンテスト|ディスコ|ルネサス|キーエンス|ソニー|パナソニック|キオクシア|デバイス|ディスプレイ|回路|センサー|レーザー|レーザ|光|抵抗|コンデンサ/.test(cleanName)) {
     return profileByIndustry["電気機器"];
   }
-  if (/機械|重工|精工|製作所|工業|TOWA|ＴＯＷＡ|ロボット/.test(name)) return profileByIndustry["機械"];
-  if (/薬品|製薬|医薬|中外|第一三共|武田|アステラス|エーザイ|大塚/.test(name)) return profileByIndustry["医薬品"];
-  if (/通信|テレコム|NTT|ＮＴＴ|KDDI|ＫＤＤＩ|ソフトバンク|ACCESS|フィックスターズ|システム|情報|データ|ネット|サイバー|クラウド|メディア/.test(name)) {
+  if (/機械|重工|精工|製作所|工業|TOWA|ＴＯＷＡ|ロボット|マシン|工業|バルブ|プラント|金型|ツール|ボイラ|ポンプ|ベアリング|精機|ダイカスト|鍛造/.test(cleanName)) {
+    return profileByIndustry["機械"];
+  }
+  if (/通信|テレコム|NTT|ＮＴＴ|KDDI|ＫＤＤＩ|ソフトバンク|ACCESS|フィックスターズ|システム|情報|データ|ネット|サイバー|クラウド|メディア|ソフトウェア|SaaS|アプリ|IT|ＩＴ|アイティ|デザイン|デジタル|テック|ソリューション|インテグ|ラボ|コンサル|ブレイン|テクノロジー/.test(cleanName)) {
     return profileByIndustry["情報・通信業"];
   }
-  if (/商事|物産|商社|通商|卸|丸紅|伊藤忠|住友商事|三菱商事|双日/.test(name)) return profileByIndustry["卸売業"];
-  if (/小売|ストア|リテイ|百貨店|セブン|イオン|ニトリ|ファーストリテイリング|しまむら|良品計画/.test(name)) {
+  if (/商事|物産|商社|通商|卸|丸紅|伊藤忠|住友商事|三菱商事|双日|トレーディング|商会|卸売|専門商社|マテリアル/.test(cleanName)) {
+    return profileByIndustry["卸売業"];
+  }
+  if (/小売|ストア|リテイ|百貨店|セブン|イオン|ニトリ|ファーストリテイリング|しまむら|良品計画|マート|ブティック|ショッピング|スーパー|ショップ|ドラッグストア|カメラ|ブック/.test(cleanName)) {
     return profileByIndustry["小売業"];
   }
-  if (/食品|フーズ|水産|農|ビール|飲料|味の素|キリン|アサヒ|ニッスイ|たばこ|JT|ＪＴ/.test(name)) {
+  if (/食品|フーズ|水産|農|ビール|飲料|味の素|キリン|アサヒ|ニッスイ|たばこ|JT|ＪＴ|ハム|パン|製粉|製糖|酪農|ミート|コカ/.test(cleanName)) {
     return profileByIndustry["食料品"];
   }
-  if (/化学|ケミカル|素材|フィルム|樹脂|信越|三井化学|旭化成|クラレ|花王/.test(name)) return profileByIndustry["化学"];
-  if (/鉄|スチール|鋼|金属/.test(name)) return profileByIndustry["鉄鋼"];
-  if (/電線|電工|フジクラ|古河|住友電気|非鉄|銅|鉱/.test(name)) return profileByIndustry["非鉄金属"];
-  if (/海運|郵船|商船|汽船/.test(name)) return profileByIndustry["海運業"];
-  if (/鉄道|電鉄|旅客|運輸|物流|倉庫|航空|ANA|ＡＮＡ|JAL|ＪＡＬ/.test(name)) return profileByIndustry["陸運業"];
-  if (/電力|ガス|エナジー/.test(name)) return profileByIndustry["電気・ガス業"];
-  if (/サービス|人材|リクルート|オリエンタルランド|セコム|ALSOK|ＡＬＳＯＫ|メンバーズ|学情/.test(name)) {
+  if (/化学|ケミカル|素材|フィルム|樹脂|信越|三井化学|旭化成|クラレ|花王|ポリマー|インキ|顔料|ペイント|塗料|シリカ|有機/.test(cleanName)) {
+    return profileByIndustry["化学"];
+  }
+  if (/鉄|スチール|鋼|金属|合金|鋳物|製鉄/.test(cleanName)) {
+    return profileByIndustry["鉄鋼"];
+  }
+  if (/電線|電工|フジクラ|古河|住友電気|非鉄|銅|鉱|軽金属/.test(cleanName)) {
+    return profileByIndustry["非鉄金属"];
+  }
+  if (/海運|郵船|商船|汽船|船舶/.test(cleanName)) {
+    return profileByIndustry["海運業"];
+  }
+  if (/鉄道|電鉄|旅客|運輸|物流|倉庫|航空|ANA|ＡＮＡ|JAL|ＪＡＬ|ロジ|急便|トランポ|運送/.test(cleanName)) {
+    return profileByIndustry["陸運業"];
+  }
+  if (/電力|ガス|エナジー|パワー|発電|クリーン/.test(cleanName)) {
+    return profileByIndustry["電気・ガス業"];
+  }
+  if (/サービス|サービス|人材|リクルート|オリエンタルランド|セコム|ALSOK|ＡＬＳＯＫ|メンバーズ|学情|派遣|キャリア|ウェディング|エンタメ|ゲーム|アミューズ|パーク|エージェンシー/.test(cleanName)) {
     return profileByIndustry["サービス業"];
   }
   return undefined;
@@ -766,22 +783,60 @@ const buildGeneratedProfile = (code: string, name: string, market?: string): Sto
       });
     }
 
+    // 業種がどうしても推測できない場合の決定論的バリエーション
+    const seed = parseInt(code.replace(/\D/g, ""), 10) || 1000;
+    const variantIndex = seed % 4;
+
+    const fallbackDescriptions = [
+      `${name}は、独自の技術や製品を持つ中小型の事業会社です。大量保有報告書等の開示から、主要株主の出資比率変化と、企業統治の改善や将来の戦略的アライメントへの影響が注目されます。`,
+      `${name}は、特定の産業・セクターで強みや顧客基盤を持つ上場企業です。大株主の保有割合の変更により、中長期的な株主構成の変化や経営の方向性、潜在的な資本効率の向上に関心が寄せられます。`,
+      `${name}は、特定のニッチ市場で実力を発揮する成長志向の中堅企業です。大量保有報告を通じて明らかになった大口買い増しや保有目的の変化が、市場での再評価や出来高急増に繋がっています。`,
+      `${name}は、安定した需要を持つビジネス領域を展開する独立系上場企業です。EDINETでの提出書類を契機に、提出者の長期投資としての保有意図、買い増し継続性、または再編に向けた動向が焦点になります。`
+    ];
+
+    const fallbackSegmentsList = [
+      ["コア事業", "新規・成長分野", "EDINET大量保有", "投資・内部留保"],
+      ["主力サービス", "顧客サポート", "EDINET保有分", "新規事業展開"],
+      ["製品製造・販売", "部材調達", "EDINET検知", "研究開発・保守"],
+      ["既存取引事業", "事業開発", "EDINET検知", "ライセンス・知財"]
+    ];
+
+    const fallbackWatchPointsList = [
+      ["大株主の保有目的", "保有割合の増減", "経営陣との対話有無", "出来高の急増"],
+      ["提出者の取得原資", "共同保有者の有無", "主要取引先の動向", "PBR・資産割安度"],
+      ["買い増し・処分の動向", "保有目的の変更記述", "開示後の出来高推移", "配当・株主還元"],
+      ["提出者の意図・目的", "大株主の保有比率", "直近60日の売買", "開示後の株価織り込み"]
+    ];
+
+    const fallbackFeaturesList = [
+      ["EDINET検知", "大株主動向", "保有目的確認", "一次開示優先"],
+      ["EDINET検知", "資本効率", "コーポレートガバナンス", "需給材料"],
+      ["EDINET検知", "割安株・バリュー", "ファンド動向", "流動性注目"],
+      ["EDINET検知", "大口買い", "対話型株主", "材料性高め"]
+    ];
+
     const baseDescription = inferredProfile
       ? `${name}${inferredProfile.description}`
-      : `${name}はEDINETの大量保有報告書・変更報告書から検知された銘柄です。事業内容、決算、株価材料、セクター内での位置づけを、提出書類とあわせて確認します。`;
+      : fallbackDescriptions[variantIndex];
+
+    const baseSegments = inferredProfile
+      ? inferredProfile.segments
+      : fallbackSegmentsList[variantIndex];
+
+    const baseWatchPoints = inferredProfile
+      ? inferredProfile.watchPoints
+      : fallbackWatchPointsList[variantIndex];
+
+    const baseFeatures = inferredProfile
+      ? inferredProfile.features
+      : fallbackFeaturesList[variantIndex];
 
     return {
       description:
         `${baseDescription} EDINET検知では、通常の指数採用やランキングではなく、大株主の保有割合、提出者、共同保有者、保有目的の変化が注目点になります。`,
-      segments: inferredProfile
-        ? [...inferredProfile.segments.slice(0, 3), "EDINET大量保有"]
-        : ["主力事業", "決算・IR", "EDINET大量保有", "保有目的・取得処分"],
-      watchPoints: inferredProfile
-        ? [...inferredProfile.watchPoints.slice(0, 2), "保有割合の変化", "提出者の意図"]
-        : ["保有割合の変化", "提出者の意図", "直近60日の売買", "開示後の株価織り込み"],
-      features: inferredProfile
-        ? ["EDINET検知", ...inferredProfile.features.slice(0, 3)]
-        : ["EDINET検知", "大株主動向", "保有目的確認", "一次開示優先"],
+      segments: [...baseSegments.slice(0, 3), "EDINET大量保有"],
+      watchPoints: [...baseWatchPoints.slice(0, 2), "保有割合の変化", "提出者の意図"],
+      features: ["EDINET検知", ...baseFeatures.slice(0, 3)],
     };
   }
 
