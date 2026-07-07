@@ -493,6 +493,30 @@ const StockDetailPanel = ({ stock }: StockDetailPanelProps) => {
   // stockProfiles.ts に個別登録済みでない銘柄はジェネリックプロフィールと判定する
   const isGenericProfile = !hasManualProfile(displayStock.code);
   const [metricsState, setMetricsState] = useState<MetricsState>({ status: "loading" });
+  const [smartMoneySignals, setSmartMoneySignals] = useState<any[]>([]);
+
+  // 大口投資家(smart-money)のシグナル一覧を取得
+  useEffect(() => {
+    fetch("/api/smart-money")
+      .then((res) => {
+        if (!res.ok) throw new Error();
+        return res.json();
+      })
+      .then((payload) => {
+        if (payload && Array.isArray(payload.signals)) {
+          setSmartMoneySignals(payload.signals);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  // 現在表示されている銘柄に一致する大量保有報告(EDINET)を検出
+  const edinetSignal = useMemo(() => {
+    return smartMoneySignals.find(
+      (sig) => sig.ticker === displayStock.code && sig.source === "edinet"
+    );
+  }, [smartMoneySignals, displayStock.code]);
+
   const rangeWidth = displayStock.high - displayStock.low;
   const rangePosition =
     rangeWidth > 0 ? Math.min(100, Math.max(0, ((displayStock.price - displayStock.low) / rangeWidth) * 100)) : 50;
@@ -540,6 +564,62 @@ const StockDetailPanel = ({ stock }: StockDetailPanelProps) => {
         ? "株価位置は高値圏寄り"
         : "株価位置は中立";
   const valuationReasons = [...positiveReasons, ...negativeReasons, priceReason].slice(0, 4);
+
+  // 大量保有情報とAPI情報の合成プロフィールデータ
+  const displayDescription = useMemo(() => {
+    if (isGenericProfile) {
+      if (metrics.businessSummaryJa) return metrics.businessSummaryJa;
+      if (edinetSignal) {
+        const weightStr = edinetSignal.portfolioWeight > 0 ? `保有比率 ${edinetSignal.portfolioWeight.toFixed(2)}%` : "大量保有報告";
+        return `【EDINET大量保有報告検知】${edinetSignal.filingDate}に大株主「${edinetSignal.filerName}」による${weightStr}（変動内容: ${edinetSignal.signalType}）が報告されました。提出書類の保有目的や、直近の出来高と株価推移を確認する必要があります。`;
+      }
+      if (metrics.sector || metrics.industry) {
+        return `${displayStock.name}は、主に ${metrics.sector ?? ""}・${metrics.industry ?? ""} の事業領域に属する上場企業です。最新の開示データや業績指標とあわせて確認します。`;
+      }
+    }
+    return profile.description;
+  }, [isGenericProfile, metrics.businessSummaryJa, metrics.sector, metrics.industry, edinetSignal, profile.description, displayStock.name]);
+
+  const displaySegments = useMemo(() => {
+    if (isGenericProfile) {
+      if (edinetSignal) {
+        return [
+          `提出者: ${edinetSignal.filerName}`,
+          `保有比率: ${edinetSignal.portfolioWeight > 0 ? `${edinetSignal.portfolioWeight.toFixed(2)}%` : "確認中"}`,
+          `変動内容: ${edinetSignal.signalType}`,
+          `提出日: ${edinetSignal.filingDate}`
+        ];
+      }
+      if (metrics.sector || metrics.industry) {
+        return [
+          metrics.sector ? `セクター: ${metrics.sector}` : "",
+          metrics.industry ? `業種: ${metrics.industry}` : "",
+          ...profile.segments.slice(0, 2)
+        ].filter(Boolean);
+      }
+    }
+    return profile.segments;
+  }, [isGenericProfile, edinetSignal, metrics.sector, metrics.industry, profile.segments]);
+
+  const displayWatchPoints = useMemo(() => {
+    if (isGenericProfile && edinetSignal) {
+      return [
+        `提出者「${edinetSignal.filerName}」の具体的な保有目的・意図`,
+        "共同保有者の有無とそれぞれの保有比率",
+        "報告後の市場出来高の急増と買い増しの継続性",
+        "開示日（提出日）以降の株価チャートの織り込み状況"
+      ];
+    }
+    return profile.watchPoints;
+  }, [isGenericProfile, edinetSignal, profile.watchPoints]);
+
+  const displayFeatures = useMemo(() => {
+    if (isGenericProfile && edinetSignal) {
+      return ["EDINET大量保有", edinetSignal.filerName.slice(0, 12), edinetSignal.signalType, "提出: " + edinetSignal.filingDate];
+    }
+    return profile.features;
+  }, [isGenericProfile, edinetSignal, profile.features]);
+
   const updatedLabel = updatedAt
     ? new Intl.DateTimeFormat("ja-JP", {
         month: "2-digit",
@@ -691,18 +771,7 @@ const StockDetailPanel = ({ stock }: StockDetailPanelProps) => {
 
             <div className="min-w-0 border-t border-border/70 pt-3 md:border-l md:border-t-0 md:pl-3 md:pt-0">
               <div className="mb-1 text-xs font-bold text-foreground">企業説明</div>
-              {/* APIから日本語説明が取れた場合かつ手動データが汎用の場合はAPI優先 */}
-              {isGenericProfile && (metrics.businessSummaryJa || metrics.sector || metrics.industry) ? (
-                <p className="text-xs leading-relaxed text-foreground">
-                  {metrics.businessSummaryJa ? (
-                    metrics.businessSummaryJa
-                  ) : (
-                    `${displayStock.name}は、主に ${metrics.sector ?? ""}・${metrics.industry ?? ""} の事業領域に属する上場企業です。事業内容、決算、株価材料、セクター内での位置づけを、最新の開示データや業績指標とあわせて確認します。`
-                  )}
-                </p>
-              ) : (
-                <p className="text-xs leading-relaxed text-foreground">{profile.description}</p>
-              )}
+              <p className="text-xs leading-relaxed text-foreground">{displayDescription}</p>
 
               <div className="mt-3 rounded border border-slate-200 bg-slate-50 p-2">
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -727,32 +796,21 @@ const StockDetailPanel = ({ stock }: StockDetailPanelProps) => {
                 </div>
               </div>
 
-              {/* 主な事業: APIのsector/industryが取れた場合はそれも表示 */}
               <div className="mb-1 mt-3 text-xs font-bold text-foreground">主な事業</div>
-              {isGenericProfile && (metrics.sector || metrics.industry) ? (
-                <ul className="space-y-0.5 text-xs leading-relaxed text-foreground">
-                  {metrics.sector && <li>・{metrics.sector}</li>}
-                  {metrics.industry && <li>・{metrics.industry}</li>}
-                  {profile.segments.slice(0, 2).map((segment) => (
-                    <li key={segment}>・{segment}</li>
-                  ))}
-                </ul>
-              ) : (
-                <ul className="space-y-0.5 text-xs leading-relaxed text-foreground">
-                  {profile.segments.map((segment) => (
-                    <li key={segment}>・{segment}</li>
-                  ))}
-                </ul>
-              )}
+              <ul className="space-y-0.5 text-xs leading-relaxed text-foreground">
+                {displaySegments.map((segment) => (
+                  <li key={segment}>・{segment}</li>
+                ))}
+              </ul>
 
               <div className="mb-1 mt-3 text-xs font-bold text-foreground">見るポイント</div>
               <ul className="space-y-0.5 text-xs leading-relaxed text-foreground">
-                {profile.watchPoints.map((point) => (
+                {displayWatchPoints.map((point) => (
                   <li key={point}>・{point}</li>
                 ))}
               </ul>
               <div className="mt-2 flex flex-wrap gap-1">
-                {profile.features.map((feature) => (
+                {displayFeatures.map((feature) => (
                   <span
                     key={feature}
                     className="rounded border border-primary/20 bg-primary/5 px-1.5 py-0.5 text-xxs font-bold text-primary"
