@@ -783,6 +783,7 @@ const StockDetailPanel = ({ stock }: StockDetailPanelProps) => {
                     <div className="opacity-70">従業員数</div>
                     <div className="text-xs font-black tabular-nums">{formatEmployees(metrics.employees)}</div>
                   </div>
+                </div>
               </div>
 
               {/* EDINET大量保有報告が検知されている場合は、大株主開示状況の専用カードを表示 */}
