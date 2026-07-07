@@ -29,6 +29,16 @@ const getEdinetProxyBaseUrl = () => getEnv("EDINET_PROXY_BASE_URL");
 const getEdinetProxyAuthToken = () => getEnv("EDINET_PROXY_AUTH_TOKEN");
 const makeEdinetDocumentUrl = (docId) => `/api/edinet-document?docId=${encodeURIComponent(docId)}&type=2&inline=1`;
 
+const readCachedEdinetPdf = (docId) => {
+  const cachePath = join(process.cwd(), "public", "edinet-cache", `${docId}.pdf`);
+  if (!existsSync(cachePath)) return null;
+  return {
+    buffer: readFileSync(cachePath),
+    contentType: "application/pdf",
+    filename: `edinet-${docId}.pdf`,
+  };
+};
+
 const WATCHED_FUNDS = [
   { id: "brk", name: "Berkshire Hathaway", manager: "Warren Buffett", style: "長期バリュー", jurisdiction: "US", cik: "0001067983", reliability: 96, readable: 88, lagRisk: 72 },
   { id: "pershing", name: "Pershing Square", manager: "Bill Ackman", style: "アクティビスト", jurisdiction: "US", cik: "0001336528", reliability: 89, readable: 82, lagRisk: 58 },
@@ -364,6 +374,7 @@ export const fetchEdinetDocumentArchive = async (docId, type = "1") => {
   }
 
   const normalizedType = ["1", "2", "3", "4", "5"].includes(String(type)) ? String(type) : "1";
+  const cachedPdf = normalizedType === "2" ? readCachedEdinetPdf(docId) : null;
   const url = edinetApiUrl(`/api/v2/documents/${encodeURIComponent(docId)}`);
   url.searchParams.set("type", normalizedType);
   setEdinetSubscriptionKey(url, apiKey);
@@ -375,6 +386,7 @@ export const fetchEdinetDocumentArchive = async (docId, type = "1") => {
     ),
   });
   if (!response.ok) {
+    if (cachedPdf) return cachedPdf;
     const error = new Error(`EDINET document download failed: ${response.status}`);
     error.statusCode = response.status;
     throw error;

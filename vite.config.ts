@@ -58,6 +58,15 @@ const sendJson = (res, payload, statusCode = 200) => {
   res.end(JSON.stringify(payload));
 };
 
+const sendOptionalSourceError = (res, payloadKey: "articles" | "data", statusCode?: number, message?: string) => {
+  sendJson(res, {
+    [payloadKey]: [],
+    sourceStatus: "external-error",
+    ...(statusCode ? { statusCode } : {}),
+    ...(message ? { message } : {}),
+  });
+};
+
 const sendText = (res, text: string, contentType = "text/plain; charset=utf-8", statusCode = 200) => {
   res.statusCode = statusCode;
   res.setHeader("Content-Type", contentType);
@@ -761,9 +770,15 @@ const newsSourcePlugin = () => ({
         url.searchParams.set("apiKey", apiKey);
 
         const response = await fetchWithTimeout(url.toString(), 7000);
-        sendJson(res, await response.json(), response.ok ? 200 : response.status);
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          sendOptionalSourceError(res, "articles", response.status, payload?.message);
+          return;
+        }
+
+        sendJson(res, payload);
       } catch {
-        sendJson(res, { articles: [], error: "newsapi unavailable" }, 502);
+        sendOptionalSourceError(res, "articles");
       }
     });
 
@@ -777,10 +792,15 @@ const newsSourcePlugin = () => ({
       try {
         const url = `https://finnhub.io/api/v1/news?category=general&token=${encodeURIComponent(apiKey)}`;
         const response = await fetchWithTimeout(url, 7000);
-        const payload = await response.json();
-        sendJson(res, { articles: Array.isArray(payload) ? payload : [], sourceStatus: "live" }, response.ok ? 200 : response.status);
+        const payload = await response.json().catch(() => []);
+        if (!response.ok) {
+          sendOptionalSourceError(res, "articles", response.status);
+          return;
+        }
+
+        sendJson(res, { articles: Array.isArray(payload) ? payload : [], sourceStatus: "live" });
       } catch {
-        sendJson(res, { articles: [], error: "finnhub news unavailable" }, 502);
+        sendOptionalSourceError(res, "articles");
       }
     });
 
@@ -803,9 +823,15 @@ const newsSourcePlugin = () => ({
         url.searchParams.set("search", search);
 
         const response = await fetchWithTimeout(url.toString(), 7000);
-        sendJson(res, await response.json(), response.ok ? 200 : response.status);
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          sendOptionalSourceError(res, "data", response.status, payload?.error?.message);
+          return;
+        }
+
+        sendJson(res, payload);
       } catch {
-        sendJson(res, { data: [], error: "marketaux news unavailable" }, 502);
+        sendOptionalSourceError(res, "data");
       }
     });
   },
