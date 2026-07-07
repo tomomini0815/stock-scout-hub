@@ -1370,3 +1370,7 @@ export const getStockProfile = (code: string, name: string, market?: string): St
 
   return buildGeneratedProfile(code, name, market);
 };
+
+export const hasManualProfile = (code: string): boolean => {
+  return (code in stockProfiles) || (code in edinetSpecificProfiles);
+};

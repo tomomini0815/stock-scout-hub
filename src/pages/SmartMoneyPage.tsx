@@ -1101,8 +1101,9 @@ const SmartMoneyPage = () => {
             </div>
           </div>
 
-          <div className="max-h-[72vh] overflow-auto overscroll-contain">
-            <table className="w-full min-w-[1500px] table-fixed text-xs">
+          <div className="w-full overflow-x-auto overscroll-x-contain rounded-md border border-border">
+            <div className="max-h-[72vh] overflow-y-auto overscroll-y-contain">
+              <table className="w-full min-w-[1500px] table-fixed text-xs">
               <thead className="sticky top-0 z-10 whitespace-nowrap bg-muted text-xs text-slate-600 shadow-sm">
                 <tr>
                   <th className="w-[92px] px-3 py-2 text-left">判定</th>
@@ -1244,7 +1245,8 @@ const SmartMoneyPage = () => {
                   );
                 })}
               </tbody>
-            </table>
+              </table>
+            </div>
           </div>
         </div>
 

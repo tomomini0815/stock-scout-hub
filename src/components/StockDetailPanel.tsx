@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { type StockData } from "@/data/stockData";
-import { getStockProfile } from "@/data/stockProfiles";
+import { getStockProfile, hasManualProfile } from "@/data/stockProfiles";
 import { useLiveStockQuote } from "@/hooks/useLiveStockQuote";
 
 interface StockDetailPanelProps {
@@ -490,15 +490,8 @@ const StockDetailPanel = ({ stock }: StockDetailPanelProps) => {
   const isUp = displayStock.change > 0;
   const isDown = displayStock.change < 0;
   const profile = getStockProfile(displayStock.code, displayStock.name, displayStock.market);
-  // stockProfiles.ts に手動登録済みかどうかを判定するフラグ
-  // （description がデフォルトのEDINETテンプレート文言を含む場合はAPI優先）
-  const isGenericProfile =
-    profile.description.includes("EDINETの大量保有報告書") ||
-    profile.description.includes("独自の技術や製品を持つ") ||
-    profile.description.includes("特定の産業・セクターで強みや") ||
-    profile.description.includes("特定のニッチ市場で実力を") ||
-    profile.description.includes("安定した需要を持つビジネス領域") ||
-    profile.description.includes("チャートページに追加された");
+  // stockProfiles.ts に個別登録済みでない銘柄はジェネリックプロフィールと判定する
+  const isGenericProfile = !hasManualProfile(displayStock.code);
   const [metricsState, setMetricsState] = useState<MetricsState>({ status: "loading" });
   const rangeWidth = displayStock.high - displayStock.low;
   const rangePosition =
@@ -699,8 +692,14 @@ const StockDetailPanel = ({ stock }: StockDetailPanelProps) => {
             <div className="min-w-0 border-t border-border/70 pt-3 md:border-l md:border-t-0 md:pl-3 md:pt-0">
               <div className="mb-1 text-xs font-bold text-foreground">企業説明</div>
               {/* APIから日本語説明が取れた場合かつ手動データが汎用の場合はAPI優先 */}
-              {isGenericProfile && metrics.businessSummaryJa ? (
-                <p className="text-xs leading-relaxed text-foreground">{metrics.businessSummaryJa}</p>
+              {isGenericProfile && (metrics.businessSummaryJa || metrics.sector || metrics.industry) ? (
+                <p className="text-xs leading-relaxed text-foreground">
+                  {metrics.businessSummaryJa ? (
+                    metrics.businessSummaryJa
+                  ) : (
+                    `${displayStock.name}は、主に ${metrics.sector ?? ""}・${metrics.industry ?? ""} の事業領域に属する上場企業です。事業内容、決算、株価材料、セクター内での位置づけを、最新の開示データや業績指標とあわせて確認します。`
+                  )}
+                </p>
               ) : (
                 <p className="text-xs leading-relaxed text-foreground">{profile.description}</p>
               )}
