@@ -8,5 +8,22 @@
       "source": "/(.*)",
       "destination": "/index.html"
     }
-  ]
+  ],
+  "functions": {
+    "api/smart-money.js": {
+      "maxDuration": 25
+    },
+    "api/edinet-document.js": {
+      "maxDuration": 25
+    },
+    "api/stock-metrics.js": {
+      "maxDuration": 15
+    },
+    "api/stock-chart.js": {
+      "maxDuration": 15
+    },
+    "api/market-data.js": {
+      "maxDuration": 15
+    }
+  }
 }

@@ -129,7 +129,7 @@ let smartMoneyCache = {
 
 const edinetDocumentCache = new Map();
 
-const fetchWithTimeout = async (url, timeoutMs = 8000, init = {}) => {
+const fetchWithTimeout = async (url, timeoutMs = 6000, init = {}) => {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -379,7 +379,7 @@ export const fetchEdinetDocumentArchive = async (docId, type = "1") => {
   url.searchParams.set("type", normalizedType);
   setEdinetSubscriptionKey(url, apiKey);
 
-  const response = await fetchWithTimeout(url.toString(), 12000, {
+  const response = await fetchWithTimeout(url.toString(), 9000, {
     headers: edinetHeaders(
       apiKey,
       normalizedType === "2" ? "application/pdf, application/octet-stream, */*" : "application/octet-stream, application/zip, */*"
@@ -510,8 +510,9 @@ const buildScheduleSignals = async (fund, filings) => {
   return signals;
 };
 
+// Vercel制限対応: 上位4ファンドのみ取得（実行時間削減）
 const fetchSecSignals = async () => {
-  const activeFunds = WATCHED_FUNDS.filter((fund) => fund.jurisdiction === "US");
+  const activeFunds = WATCHED_FUNDS.filter((fund) => fund.jurisdiction === "US").slice(0, 4);
   const settled = await Promise.allSettled(activeFunds.map(async (fund) => {
     const filings = (await getRecentFilings(fund)).filter((filing) => isRecentFilingDate(filing.filingDate));
     const [thirteenFSignals, scheduleSignals] = await Promise.all([
@@ -524,70 +525,93 @@ const fetchSecSignals = async () => {
   return settled.flatMap((result) => result.status === "fulfilled" ? result.value : []);
 };
 
+// Vercel制限対応: 2日分のみ並列取得、上位20件に制限
 const fetchEdinetSignals = async () => {
   const edinetApiKey = getEdinetApiKey();
   if (!edinetApiKey && !getEdinetProxyBaseUrl()) {
     return { signals: [], status: "missing-key" };
   }
 
-  const signals = [];
-  const maxSignals = 42;
+  const maxSignals = 20;
+  const maxDays = 2;
   let successfulListRequests = 0;
   let failedListRequests = 0;
-  for (let offset = 0; offset < 5 && signals.length < maxSignals; offset += 1) {
-    const date = daysAgo(offset);
+
+  // 日付リストを作成して並列リクエスト
+  const dates = Array.from({ length: maxDays }, (_, i) => daysAgo(i));
+  const listResults = await Promise.allSettled(dates.map(async (date) => {
     const url = edinetApiUrl("/api/v2/documents.json");
     url.searchParams.set("date", date);
     url.searchParams.set("type", "2");
     setEdinetSubscriptionKey(url, edinetApiKey);
-    const response = await fetchWithTimeout(url.toString(), 8000, {
+    const response = await fetchWithTimeout(url.toString(), 6000, {
       headers: edinetHeaders(edinetApiKey),
     });
-    if (!response.ok) {
-      failedListRequests += 1;
-      continue;
-    }
-    successfulListRequests += 1;
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const payload = await response.json();
-    const results = asArray(payload?.results);
-    const targetDocs = results
-      .filter((doc) => /大量保有報告書|変更報告書/.test(String(doc.docDescription ?? "")))
-      .slice(0, Math.max(0, maxSignals - signals.length));
-    for (const doc of targetDocs) {
-      const description = String(doc.docDescription ?? "");
-      const listedFilerName = doc.filerName || doc.submitterName || "";
-      const detail = await fetchEdinetDocumentDetail(doc.docID, edinetApiKey, { filerName: listedFilerName });
-      const issuerName = detail.issuerName || "対象銘柄不明";
-      const issuerCode = detail.issuerCode || "";
-      const filerName = detail.filerName || listedFilerName || "提出者不明";
-      const holdingRatio = detail.holdingRatio ?? 5;
-      signals.push({
-        id: `edinet-${doc.docID}`,
-        fundId: "japan-activist",
-        ticker: issuerCode || "EDINET",
-        company: issuerName,
-        filerName,
-        filingType: "EDINET",
-        signalType: "大量保有",
-        reportDate: doc.periodEnd ?? date,
-        filingDate: date,
-        portfolioWeight: holdingRatio,
-        positionChange: 100,
-        priceMoveSinceReport: 0,
-        multiFundCount: 1,
-        activistIntent: true,
-        concentrationRank: 4,
-        note: `${description}をEDINET APIから自動検知。${detail.issuerName ? "XBRLから対象銘柄を解析済み。" : "対象銘柄はXBRLから自動特定できませんでした。"}保有目的、共同保有者、変更理由の本文確認が必要です。`,
-        source: "edinet",
-        sourceUrl: makeEdinetDocumentUrl(doc.docID),
-      });
+    return { date, results: asArray(payload?.results) };
+  }));
+
+  // 対象書類を収集
+  const targetDocs = [];
+  for (const result of listResults) {
+    if (result.status === "fulfilled") {
+      successfulListRequests += 1;
+      const { date, results } = result.value;
+      const docs = results
+        .filter((doc) => /大量保有報告書|変更報告書/.test(String(doc.docDescription ?? "")))
+        .map((doc) => ({ ...doc, _date: date }));
+      targetDocs.push(...docs);
+    } else {
+      failedListRequests += 1;
     }
   }
-  if (signals.length) return { signals, status: "live" };
-  if (!successfulListRequests && failedListRequests && EDINET_SNAPSHOT_SIGNALS.length) {
-    return { signals: EDINET_SNAPSHOT_SIGNALS, status: "snapshot" };
+
+  if (!targetDocs.length) {
+    if (!successfulListRequests && failedListRequests && EDINET_SNAPSHOT_SIGNALS.length) {
+      return { signals: EDINET_SNAPSHOT_SIGNALS, status: "snapshot" };
+    }
+    return { signals: [], status: successfulListRequests ? "empty" : failedListRequests ? "error" : "empty" };
   }
-  return { signals, status: successfulListRequests ? "empty" : failedListRequests ? "error" : "empty" };
+
+  // 上位件数を並列でXBRL取得
+  const slicedDocs = targetDocs.slice(0, maxSignals);
+  const detailResults = await Promise.allSettled(slicedDocs.map(async (doc) => {
+    const description = String(doc.docDescription ?? "");
+    const listedFilerName = doc.filerName || doc.submitterName || "";
+    const detail = await fetchEdinetDocumentDetail(doc.docID, edinetApiKey, { filerName: listedFilerName });
+    const issuerName = detail.issuerName || "対象銘柄不明";
+    const issuerCode = detail.issuerCode || "";
+    const filerName = detail.filerName || listedFilerName || "提出者不明";
+    const holdingRatio = detail.holdingRatio ?? 5;
+    return {
+      id: `edinet-${doc.docID}`,
+      fundId: "japan-activist",
+      ticker: issuerCode || "EDINET",
+      company: issuerName,
+      filerName,
+      filingType: "EDINET",
+      signalType: "大量保有",
+      reportDate: doc.periodEnd ?? doc._date,
+      filingDate: doc._date,
+      portfolioWeight: holdingRatio,
+      positionChange: 100,
+      priceMoveSinceReport: 0,
+      multiFundCount: 1,
+      activistIntent: true,
+      concentrationRank: 4,
+      note: `${description}をEDINET APIから自動検知。${detail.issuerName ? "XBRLから対象銘柄を解析済み。" : "対象銘柄はXBRLから自動特定できませんでした。"}保有目的、共同保有者、変更理由の本文確認が必要です。`,
+      source: "edinet",
+      sourceUrl: makeEdinetDocumentUrl(doc.docID),
+    };
+  }));
+
+  const signals = detailResults
+    .filter((r) => r.status === "fulfilled")
+    .map((r) => r.value);
+
+  if (signals.length) return { signals, status: "live" };
+  return { signals: EDINET_SNAPSHOT_SIGNALS.length ? EDINET_SNAPSHOT_SIGNALS : [], status: EDINET_SNAPSHOT_SIGNALS.length ? "snapshot" : "empty" };
 };
 
 const mergeMultiFundCounts = (signals) => {
@@ -633,9 +657,13 @@ const fetchPriceMoveSinceReport = async (signal) => {
   return ((latestRow.close - reportRow.close) / reportRow.close) * 100;
 };
 
+// Vercel制限対応: 価格取得は上位12件のみ（高スコア優先）
 const enrichPriceMoves = async (signals) => {
   let enrichedCount = 0;
-  const enriched = await Promise.all(signals.map(async (signal) => {
+  // 上位12件のみ価格を取得、残りはそのまま返す
+  const MAX_PRICE_ENRICH = 12;
+  const enriched = await Promise.all(signals.map(async (signal, index) => {
+    if (index >= MAX_PRICE_ENRICH) return signal;
     try {
       const priceMove = await fetchPriceMoveSinceReport(signal);
       if (priceMove === null) return signal;
@@ -652,7 +680,7 @@ const enrichPriceMoves = async (signals) => {
 
   return {
     signals: enriched,
-    status: enrichedCount ? (enrichedCount === signals.length ? "live" : "partial") : "not-connected",
+    status: enrichedCount ? (enrichedCount === Math.min(signals.length, MAX_PRICE_ENRICH) ? "live" : "partial") : "not-connected",
   };
 };
 
@@ -669,10 +697,10 @@ export const fetchSmartMoneyData = async ({ force = false } = {}) => {
   const secSignals = secResult.status === "fulfilled" ? secResult.value : [];
   const edinetPayload = edinetResult.status === "fulfilled" ? edinetResult.value : { signals: [], status: "error" };
   const balancedSignals = [
-    ...edinetPayload.signals.slice(0, 42),
-    ...secSignals.slice(0, 36),
+    ...edinetPayload.signals.slice(0, 20),
+    ...secSignals.slice(0, 20),
   ];
-  const liveSignals = mergeMultiFundCounts(balancedSignals).slice(0, 78);
+  const liveSignals = mergeMultiFundCounts(balancedSignals).slice(0, 40);
   const pricePayload = liveSignals.length ? await enrichPriceMoves(liveSignals) : { signals: [], status: "not-connected" };
   const signals = pricePayload.signals.length ? pricePayload.signals : fallbackSignals;
   const sourceStatus = {

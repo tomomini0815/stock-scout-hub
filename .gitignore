@@ -23,3 +23,6 @@ dist-ssr
 *.sln
 *.sw?
 .vercel
+
+# EDINET PDF cache (サイズが大きいためコミット対象外)
+public/edinet-cache/*.pdf
