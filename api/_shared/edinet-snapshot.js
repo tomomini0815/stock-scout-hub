@@ -451,7 +451,7 @@ export const EDINET_SNAPSHOT_SIGNALS = [
     "filingDate": "2026-07-07",
     "portfolioWeight": 9.99,
     "positionChange": 100,
-    "priceMoveSinceReport": 0,
+    "priceMoveSinceReport": -15.092290988056462,
     "multiFundCount": 1,
     "activistIntent": true,
     "concentrationRank": 4,
