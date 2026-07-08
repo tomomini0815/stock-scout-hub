@@ -947,51 +947,53 @@ const SmartMoneyPage = () => {
 
       <main className="container mx-auto px-4 py-3">
         <div className="mb-3 overflow-hidden rounded border border-border bg-card">
-          <div className="flex flex-col gap-2 border-b border-border px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex flex-wrap items-center gap-2">
-              <h2 className="flex items-center gap-2 text-sm font-bold text-foreground">
-                <Eye className="h-4 w-4 text-primary" />
+          {/* タイトル + ボタン行（常に最上部） */}
+          <div className="flex flex-wrap items-center justify-between gap-1.5 border-b border-border px-3 py-1.5 sm:gap-2 sm:py-2">
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+              <h2 className="flex items-center gap-1.5 text-xs font-bold text-foreground sm:text-sm">
+                <Eye className="h-3.5 w-3.5 text-primary sm:h-4 sm:w-4" />
                 スマートマネー監視
               </h2>
               <BeginnerGuideButton topic="overview" onOpen={setBeginnerGuideTopic} label="初心者ガイド" />
             </div>
-            <div className="flex flex-wrap items-center gap-2 text-xs font-semibold">
-              <span className="inline-flex items-center gap-1 whitespace-nowrap rounded bg-emerald-50 px-2 py-1 text-emerald-700">
-                <RefreshCw className="h-3 w-3" />
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+              <span className="inline-flex items-center gap-1 whitespace-nowrap rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 sm:px-2 sm:py-1 sm:text-xs">
+                <RefreshCw className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
                 自動再評価 {formatJstDateTime(autoRefreshedAt)}
               </span>
               <button
                 type="button"
                 onClick={handleManualRefresh}
-                className="inline-flex h-7 items-center gap-1 whitespace-nowrap rounded border border-border bg-background px-2 text-xs font-bold text-primary transition-colors hover:bg-muted disabled:opacity-60"
+                className="inline-flex h-6 items-center gap-1 whitespace-nowrap rounded border border-border bg-background px-1.5 text-[10px] font-bold text-primary transition-colors hover:bg-muted disabled:opacity-60 sm:h-7 sm:px-2 sm:text-xs"
                 disabled={smartMoneyStatus === "loading"}
               >
-                <RefreshCw className={`h-3 w-3 ${smartMoneyStatus === "loading" ? "animate-spin" : ""}`} />
+                <RefreshCw className={`h-2.5 w-2.5 sm:h-3 sm:w-3 ${smartMoneyStatus === "loading" ? "animate-spin" : ""}`} />
                 手動再評価
               </button>
             </div>
           </div>
 
-          <div className="grid gap-2 px-3 py-2 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
-            <div className="flex flex-wrap items-center gap-1.5 text-xs font-semibold text-slate-600">
-              <span className="mr-1 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">監視対象</span>
-              <span className="whitespace-nowrap rounded bg-muted px-2 py-1">SEC 13F / 13D / 13G</span>
-              <span className="whitespace-nowrap rounded bg-muted px-2 py-1">EDINET 大量保有</span>
-              <span className="whitespace-nowrap rounded bg-amber-50 px-2 py-1 text-amber-700">開示遅延補正</span>
+          {/* 監視対象・接続状態行（スマホでは下部） */}
+          <div className="grid gap-1.5 px-3 py-1.5 sm:gap-2 sm:py-2 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+            <div className="flex flex-wrap items-center gap-1 text-[10px] font-semibold text-slate-600 sm:gap-1.5 sm:text-xs">
+              <span className="mr-0.5 text-[9px] font-bold uppercase tracking-wide text-muted-foreground sm:mr-1 sm:text-[10px]">監視対象</span>
+              <span className="whitespace-nowrap rounded bg-muted px-1.5 py-0.5 sm:px-2 sm:py-1">SEC 13F / 13D / 13G</span>
+              <span className="whitespace-nowrap rounded bg-muted px-1.5 py-0.5 sm:px-2 sm:py-1">EDINET 大量保有</span>
+              <span className="whitespace-nowrap rounded bg-amber-50 px-1.5 py-0.5 text-amber-700 sm:px-2 sm:py-1">開示遅延補正</span>
             </div>
 
-            <div className="flex flex-wrap items-center gap-1.5 text-xs font-bold lg:justify-end">
-              <span className="mr-1 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">接続状態</span>
-              <span className={`rounded px-2 py-1 ${sourceStatusClass(smartMoneyData.source === "live" ? "live" : smartMoneyStatus === "error" ? "error" : "empty")}`}>
+            <div className="flex flex-wrap items-center gap-1 text-[10px] font-bold sm:gap-1.5 sm:text-xs lg:justify-end">
+              <span className="mr-0.5 text-[9px] font-bold uppercase tracking-wide text-muted-foreground sm:mr-1 sm:text-[10px]">接続状態</span>
+              <span className={`rounded px-1.5 py-0.5 sm:px-2 sm:py-1 ${sourceStatusClass(smartMoneyData.source === "live" ? "live" : smartMoneyStatus === "error" ? "error" : "empty")}`}>
                 データ {smartMoneyData.source === "live" ? "実取得" : smartMoneyStatus === "error" ? "取得失敗" : "フォールバック"}
               </span>
-              <span className={`rounded px-2 py-1 ${sourceStatusClass(smartMoneyData.sourceStatus?.sec)}`}>
+              <span className={`rounded px-1.5 py-0.5 sm:px-2 sm:py-1 ${sourceStatusClass(smartMoneyData.sourceStatus?.sec)}`}>
                 SEC {sourceStatusLabel(smartMoneyData.sourceStatus?.sec)}
               </span>
-              <span className={`rounded px-2 py-1 ${sourceStatusClass(smartMoneyData.sourceStatus?.edinet)}`}>
+              <span className={`rounded px-1.5 py-0.5 sm:px-2 sm:py-1 ${sourceStatusClass(smartMoneyData.sourceStatus?.edinet)}`}>
                 EDINET {sourceStatusLabel(smartMoneyData.sourceStatus?.edinet)}
               </span>
-              <span className={`rounded px-2 py-1 ${sourceStatusClass(smartMoneyData.sourceStatus?.price)}`}>
+              <span className={`rounded px-1.5 py-0.5 sm:px-2 sm:py-1 ${sourceStatusClass(smartMoneyData.sourceStatus?.price)}`}>
                 価格 {sourceStatusLabel(smartMoneyData.sourceStatus?.price)}
               </span>
             </div>
@@ -1220,7 +1222,7 @@ const SmartMoneyPage = () => {
                             <button
                               type="button"
                               onClick={() => setViewerSignalId(signal.id)}
-                              className="inline-flex h-7 items-center gap-1 whitespace-nowrap rounded border border-emerald-200 bg-emerald-50 px-2 text-xs font-bold text-emerald-700 transition-colors hover:bg-emerald-100"
+                              className="inline-flex h-7 items-center gap-1 whitespace-nowrap rounded border border-primary/30 bg-primary/5 px-2 text-xs font-bold text-primary transition-colors hover:bg-primary hover:text-primary-foreground"
                               title="画面内でEDINET提出PDFを表示します"
                             >
                               <ExternalLink className="h-3 w-3" />
@@ -1232,7 +1234,7 @@ const SmartMoneyPage = () => {
                               href={sourceUrl}
                               target="_blank"
                               rel="noreferrer"
-                              className="inline-flex h-7 items-center gap-1 whitespace-nowrap rounded border border-emerald-200 bg-emerald-50 px-2 text-xs font-bold text-emerald-700 transition-colors hover:bg-emerald-100"
+                              className="inline-flex h-7 items-center gap-1 whitespace-nowrap rounded border border-primary/30 bg-primary/5 px-2 text-xs font-bold text-primary transition-colors hover:bg-primary hover:text-primary-foreground"
                               title="実際の提出書類を開きます"
                             >
                               <ExternalLink className="h-3 w-3" />

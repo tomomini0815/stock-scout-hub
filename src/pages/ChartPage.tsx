@@ -107,7 +107,12 @@ const getStockLabels = (
 
   const watchstock = watchlistStocks.find((item) => item.code === stock.code);
   const watchLabel = watchstock?.sourceLabel;
-  if (watchLabel && watchLabel !== "追加" && !/EDINET/.test(watchLabel)) {
+
+  // watchLabelが指数のshortLabelのいずれかと一致する場合のみ追加（業種名は除外）
+  const allIndexShortLabels = [...staticIndexOptions, { shortLabel: "EDINET" }, { shortLabel: "追加" }].map((o) => o.shortLabel);
+  const isIndexLabel = (label: string) => allIndexShortLabels.includes(label);
+
+  if (watchLabel && watchLabel !== "追加" && !/EDINET/.test(watchLabel) && isIndexLabel(watchLabel)) {
     labels.push(watchLabel);
   }
 
@@ -305,7 +310,9 @@ const ChartPage = () => {
     ];
     const found = allStaticStocks.find((s) => s.code === queryFromUrl);
     if (found) {
-      addChartWatchlistStock({ ...found, sourceLabel: found.market });
+      // 指数のshortLabel（例：TOPIX、日経225）を優先してsourceLabelに設定する
+      const foundIndexOption = staticIndexOptions.find((opt) => opt.stocks.some((s) => s.code === queryFromUrl));
+      addChartWatchlistStock({ ...found, sourceLabel: foundIndexOption?.shortLabel ?? found.market });
       setWatchlistStocks(readChartWatchlist());
       // 追加リストが選択されていなければ追加する
       setSelectedIndexIds((prev) =>
