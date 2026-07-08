@@ -878,8 +878,37 @@ const SmartMoneyPage = () => {
     };
   }, []);
 
+  const [cooldownSeconds, setCooldownSeconds] = useState<number>(() => {
+    if (typeof window === "undefined") return 0;
+    const lastRefresh = localStorage.getItem("stock-scout-last-manual-refresh");
+    if (!lastRefresh) return 0;
+    const passed = Date.now() - Number(lastRefresh);
+    const remaining = 180 - Math.floor(passed / 1000);
+    return remaining > 0 ? remaining : 0;
+  });
+
+  useEffect(() => {
+    if (cooldownSeconds <= 0) return;
+    const interval = window.setInterval(() => {
+      setCooldownSeconds((prev) => {
+        if (prev <= 1) {
+          window.clearInterval(interval);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => window.clearInterval(interval);
+  }, [cooldownSeconds]);
+
   const handleManualRefresh = async () => {
+    if (cooldownSeconds > 0) return;
     setSmartMoneyStatus("loading");
+
+    const now = Date.now();
+    localStorage.setItem("stock-scout-last-manual-refresh", String(now));
+    setCooldownSeconds(180);
+
     try {
       const response = await fetch("/api/smart-money?force=1");
       if (!response.ok) throw new Error("smart money unavailable");
@@ -965,10 +994,10 @@ const SmartMoneyPage = () => {
                 type="button"
                 onClick={handleManualRefresh}
                 className="inline-flex h-6 items-center gap-1 whitespace-nowrap rounded border border-border bg-background px-1.5 text-[10px] font-bold text-primary transition-colors hover:bg-muted disabled:opacity-60 sm:h-7 sm:px-2 sm:text-xs"
-                disabled={smartMoneyStatus === "loading"}
+                disabled={smartMoneyStatus === "loading" || cooldownSeconds > 0}
               >
                 <RefreshCw className={`h-2.5 w-2.5 sm:h-3 sm:w-3 ${smartMoneyStatus === "loading" ? "animate-spin" : ""}`} />
-                手動再評価
+                {cooldownSeconds > 0 ? `手動再評価 (${cooldownSeconds}s)` : "手動再評価"}
               </button>
             </div>
           </div>

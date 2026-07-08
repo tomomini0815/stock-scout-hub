@@ -665,25 +665,40 @@ const fetchPriceMoveSinceReport = async (signal) => {
 };
 
 // Vercel制限対応: 価格取得は上位12件のみ（高スコア優先）
+// Yahoo Financeへの同時アクセス（バースト）を避け、直列で200msの遅延を挟みながら安全に取得します。
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 const enrichPriceMoves = async (signals) => {
   let enrichedCount = 0;
-  // 上位12件のみ価格を取得、残りはそのまま返す
   const MAX_PRICE_ENRICH = 12;
-  const enriched = await Promise.all(signals.map(async (signal, index) => {
-    if (index >= MAX_PRICE_ENRICH) return signal;
+  const enriched = [];
+
+  for (let index = 0; index < signals.length; index += 1) {
+    const signal = signals[index];
+    if (index >= MAX_PRICE_ENRICH) {
+      enriched.push(signal);
+      continue;
+    }
+
     try {
+      if (index > 0) {
+        await sleep(200);
+      }
       const priceMove = await fetchPriceMoveSinceReport(signal);
-      if (priceMove === null) return signal;
+      if (priceMove === null) {
+        enriched.push(signal);
+        continue;
+      }
       enrichedCount += 1;
-      return {
+      enriched.push({
         ...signal,
         priceMoveSinceReport: priceMove,
         note: `${signal.note} 報告日以降の価格反応をYahoo Finance日足で再評価済み。`,
-      };
+      });
     } catch {
-      return signal;
+      enriched.push(signal);
     }
-  }));
+  }
 
   return {
     signals: enriched,
@@ -693,7 +708,12 @@ const enrichPriceMoves = async (signals) => {
 
 export const fetchSmartMoneyData = async ({ force = false } = {}) => {
   const now = Date.now();
-  if (!force && smartMoneyCache.payload && now - smartMoneyCache.updatedAt < 10 * 60 * 1000) {
+  const minimumForceInterval = 3 * 60 * 1000; // 3分
+
+  // force=true であっても、前回の実データ取得（smartMoneyCache.updatedAt）から3分未満ならキャッシュを返してAPIキー/接続制限を守る
+  const forceBlocked = force && smartMoneyCache.payload && (now - smartMoneyCache.updatedAt < minimumForceInterval);
+
+  if ((!force || forceBlocked) && smartMoneyCache.payload && now - smartMoneyCache.updatedAt < 10 * 60 * 1000) {
     return smartMoneyCache.payload;
   }
 
