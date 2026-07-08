@@ -41,17 +41,6 @@ const logoLabelForIndex = (name: string) => {
   return "TV";
 };
 
-const logoSrcForIndex = (name: string) => {
-  if (/日経/.test(name)) return "https://s3-symbol-logo.tradingview.com/indices/nikkei-225.svg";
-  if (/TOPIX/.test(name)) return "https://s3-symbol-logo.tradingview.com/indices/topix-100.svg";
-  if (/ダウ/.test(name)) return "https://s3-symbol-logo.tradingview.com/indices/dow-30.svg";
-  if (/NASDAQ/.test(name)) return "https://s3-symbol-logo.tradingview.com/indices/nasdaq-composite.svg";
-  if (/S&P/.test(name)) return "https://s3-symbol-logo.tradingview.com/indices/s-and-p-500.svg";
-  if (/GOLD/.test(name)) return "https://s3-symbol-logo.tradingview.com/metal/gold.svg";
-  if (/BTC/.test(name)) return "https://s3-symbol-logo.tradingview.com/crypto/XTVCBTC.svg";
-  if (/USD|JPY/.test(name)) return "https://s3-symbol-logo.tradingview.com/country/US.svg";
-  return "";
-};
 
 const MarketTicker = ({ indices }: MarketTickerProps) => {
   const { indices: displayIndices } = useLiveMarketData(indices);
@@ -80,32 +69,18 @@ const MarketTicker = ({ indices }: MarketTickerProps) => {
     <div className="overflow-hidden border-b border-border bg-card">
       <div className="flex animate-ticker-scroll items-center gap-4 whitespace-nowrap bg-background px-4 py-1">
         <div className="flex items-center gap-1.5 text-[10px] font-bold text-muted-foreground">
-          <img
-            src="https://static.tradingview.com/static/images/logo-preview.png"
-            alt="TradingView"
-            className="h-4 w-4 rounded object-cover"
-          />
+          <span className="relative inline-flex h-4 w-4 shrink-0 items-center justify-center overflow-hidden rounded bg-primary/10 text-primary">
+            <TrendingUp className="h-3 w-3" />
+          </span>
           <span className="font-bold text-foreground">TradingView</span>
         </div>
         {[...displayIndices, ...displayIndices].map((index, i) => {
           const isUp = index.change >= 0;
-          const logoSrc = logoSrcForIndex(index.name);
 
           return (
             <div key={`${index.name}-${i}`} className="flex items-center gap-1.5 text-[11px]">
-              <span className="relative inline-flex h-4 w-4 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted">
-                {logoSrc && (
-                  <img
-                    src={logoSrc}
-                    alt=""
-                    className="h-full w-full object-cover"
-                    onError={(event) => {
-                      event.currentTarget.style.display = "none";
-                      event.currentTarget.nextElementSibling?.classList.remove("hidden");
-                    }}
-                  />
-                )}
-                <span className={`${logoSrc ? "hidden" : ""} text-[8px] font-black text-muted-foreground`}>
+              <span className="relative inline-flex h-4 w-4 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary/10 border border-primary/20">
+                <span className="text-[8px] font-black text-primary">
                   {logoLabelForIndex(index.name)}
                 </span>
               </span>

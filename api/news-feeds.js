@@ -69,7 +69,13 @@ const handleGdelt = async (requestUrl, res) => {
   const payload = await response.text();
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   res.setHeader("Cache-Control", "s-maxage=180, stale-while-revalidate=600");
-  res.status(response.ok ? 200 : response.status).send(payload);
+  const statusCode =
+    response.ok
+      ? 200
+      : response.status === 401 || response.status === 403
+      ? 502
+      : response.status;
+  res.status(statusCode).send(payload);
 };
 
 const handleTdnet = async (requestUrl, res) => {

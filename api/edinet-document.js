@@ -19,6 +19,10 @@ export default async function handler(req, res) {
     res.setHeader("Link", '</favicon.ico?v=3>; rel="icon"; type="image/x-icon"');
     res.end(archive.buffer);
   } catch (error) {
-    sendJson(res, { error: "edinet document unavailable" }, error?.statusCode || 502);
+    const statusCode =
+      error?.statusCode === 401 || error?.statusCode === 403
+        ? 502
+        : error?.statusCode || 502;
+    sendJson(res, { error: "edinet document unavailable" }, statusCode);
   }
 }
