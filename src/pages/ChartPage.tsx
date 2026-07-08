@@ -15,7 +15,7 @@ import {
 } from "@/data/japaneseIndexConstituents";
 import { marketIndices, featuredStock, nikkei225Stocks, stockUniverse, type StockData } from "@/data/stockData";
 import { useLiveStockQuotes } from "@/hooks/useLiveStockQuote";
-import { CHART_WATCHLIST_UPDATED_EVENT, readChartWatchlist } from "@/lib/chartWatchlist";
+import { addChartWatchlistStock, CHART_WATCHLIST_UPDATED_EVENT, readChartWatchlist } from "@/lib/chartWatchlist";
 import { BarChart3, ChevronDown, Search } from "lucide-react";
 
 type ChartIndexOption = { id: string; label: string; shortLabel: string; stocks: StockData[] };
@@ -283,17 +283,6 @@ const ChartPage = () => {
     setSelectedCode(queryFromUrl);
     setSearchQuery("");
 
-    // 選択中リストに含まれない場合、fullStockUniverseから探してウォッチリストに追加する
-    const alreadyInList = mergedChartStocks.some((s) => s.code === queryFromUrl);
-    if (!alreadyInList) {
-      const found = fullStockUniverse.find((s) => s.code === queryFromUrl);
-      if (found) {
-        const { addChartWatchlistStock } = require("@/lib/chartWatchlist");
-        addChartWatchlistStock({ ...found, sourceLabel: found.market });
-        setWatchlistStocks(readChartWatchlist());
-      }
-    }
-
     const timer = window.setTimeout(() => {
       chartSectionRef.current?.scrollIntoView({
         behavior: "smooth",
@@ -301,7 +290,7 @@ const ChartPage = () => {
       });
     }, 100);
     return () => window.clearTimeout(timer);
-  }, [queryFromUrl, mergedChartStocks, fullStockUniverse]);
+  }, [queryFromUrl]);
 
   useEffect(() => {
     localStorage.setItem("stock-scout-selected-indices", JSON.stringify(selectedIndexIds));
