@@ -13,7 +13,7 @@ import {
   topixConstituentStocks,
   toshoReitConstituentStocks,
 } from "@/data/japaneseIndexConstituents";
-import { marketIndices, featuredStock, nikkei225Stocks, type StockData } from "@/data/stockData";
+import { marketIndices, featuredStock, nikkei225Stocks, stockUniverse, type StockData } from "@/data/stockData";
 import { useLiveStockQuotes } from "@/hooks/useLiveStockQuote";
 import { CHART_WATCHLIST_UPDATED_EVENT, readChartWatchlist } from "@/lib/chartWatchlist";
 import { BarChart3, ChevronDown, Search } from "lucide-react";
@@ -177,6 +177,12 @@ const ChartPage = () => {
     () => uniqueStocks(selectedIndexOptions.flatMap((option) => option.stocks)),
     [selectedIndexOptions]
   );
+  // 全サイト銘柄ユニバース（選択状態によらず全指数＋stockUniverse）
+  const fullStockUniverse = useMemo(() => {
+    const allIndexStocks = staticIndexOptions.flatMap((opt) => opt.stocks);
+    return uniqueStocks([...stockUniverse, ...allIndexStocks, ...edinetStocks]);
+  }, [edinetStocks]);
+
   const mergedChartStocks = useMemo(
     () => selectedIndexStocks,
     [selectedIndexStocks]
@@ -222,8 +228,10 @@ const ChartPage = () => {
     [mergedChartStocks, quoteByCode]
   );
   const selected =
+    liveChartStocksWithQueryFallback.find((stock) => stock.code === selectedCode) ??
     liveChartStocks.find((stock) => stock.code === selectedCode) ??
     mergedChartStocks.find((stock) => stock.code === selectedCode) ??
+    fullStockUniverse.find((stock) => stock.code === selectedCode) ??
     liveChartStocks[0] ??
     mergedChartStocks[0] ??
     featuredStock;
@@ -300,9 +308,38 @@ const ChartPage = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const filteredStocks = liveChartStocks.filter((stock) =>
-    matchesStockQuery(stock, searchQuery)
-  );
+  // 検索クエリがある場合は全銘柄ユニバースから検索し、選択中リストにない銘柄も追加表示する
+  const filteredStocks = useMemo(() => {
+    if (!searchQuery.trim()) return liveChartStocks;
+    const normalized = searchQuery.trim().toLowerCase();
+    // 選択中リストからの結果
+    const fromSelected = liveChartStocks.filter((stock) =>
+      stock.name.toLowerCase().includes(normalized) ||
+      stock.code.toLowerCase().includes(normalized) ||
+      stock.market.toLowerCase().includes(normalized)
+    );
+    // 全銘柄ユニバースからの追加結果（選択中リストに含まれないもの）
+    const selectedCodes = new Set(liveChartStocks.map((s) => s.code));
+    const fromUniverse = fullStockUniverse.filter((stock) => {
+      if (selectedCodes.has(stock.code)) return false;
+      return (
+        stock.name.toLowerCase().includes(normalized) ||
+        stock.code.toLowerCase().includes(normalized) ||
+        stock.market.toLowerCase().includes(normalized)
+      );
+    });
+    return [...fromSelected, ...fromUniverse];
+  }, [liveChartStocks, searchQuery, fullStockUniverse]);
+
+  // URL指定の銘柄がどのリストにも含まれない場合も選択・表示できるよう、mergedChartStocksに追加する
+  const liveChartStocksWithQueryFallback = useMemo(() => {
+    if (!queryFromUrl) return liveChartStocks;
+    const alreadyIncluded = liveChartStocks.some((s) => s.code === queryFromUrl);
+    if (alreadyIncluded) return liveChartStocks;
+    const fallback = fullStockUniverse.find((s) => s.code === queryFromUrl);
+    if (!fallback) return liveChartStocks;
+    return [fallback, ...liveChartStocks];
+  }, [liveChartStocks, queryFromUrl, fullStockUniverse]);
 
   useEffect(() => {
     if (!mergedChartStocks.length) return;
