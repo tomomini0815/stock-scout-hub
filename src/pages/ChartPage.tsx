@@ -228,7 +228,6 @@ const ChartPage = () => {
     [mergedChartStocks, quoteByCode]
   );
   const selected =
-    liveChartStocksWithQueryFallback.find((stock) => stock.code === selectedCode) ??
     liveChartStocks.find((stock) => stock.code === selectedCode) ??
     mergedChartStocks.find((stock) => stock.code === selectedCode) ??
     fullStockUniverse.find((stock) => stock.code === selectedCode) ??
