@@ -35,23 +35,9 @@ const SiteHeader = ({ activeTab = "トップ" }: SiteHeaderProps) => {
     if (!query) return;
     const { findSearchableStock } = await import("@/lib/stockSearch");
     const matchedStock = findSearchableStock(query);
-
-    // ウォッチリスト登録済みまたはchartページ銘柄 → チャートページへ
-    if (matchedStock?.sourceId === "chart" || matchedStock?.sourceId === "watchlist") {
-      navigate(`/chart?q=${encodeURIComponent(matchedStock.code)}`);
-      return;
-    }
-
-    // ウォッチリスト外でも追加済みの銘柄 → チャートページへ
-    const isAdded = readChartWatchlist().some((s) => s.code === (matchedStock?.code ?? query));
-    if (isAdded) {
-      navigate(`/chart?q=${encodeURIComponent(matchedStock?.code ?? query)}`);
-      return;
-    }
-
-    // 指数内銘柄または不明銘柄 → スクリーニング(市場ページ)にハイライト遷移
-    const code = matchedStock?.code ?? query;
-    navigate(`/market?highlight=${encodeURIComponent(code)}`);
+    // 見つかった場合はコードを使用、見つからない場合はそのまま銘柄コードとして扱う
+    const code = matchedStock?.code ?? query.toUpperCase();
+    navigate(`/chart?q=${encodeURIComponent(code)}`);
   };
   const handleManualRefresh = () => {
     window.location.reload();

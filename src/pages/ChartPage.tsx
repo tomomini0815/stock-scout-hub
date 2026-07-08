@@ -227,10 +227,20 @@ const ChartPage = () => {
     () => mergedChartStocks.map((stock) => quoteByCode.get(stock.code) ?? stock),
     [mergedChartStocks, quoteByCode]
   );
+  // selectedCodeに対応する銘柄エントリ（見つからない場合は最低限のプレースホルダー生成）
+  const selectedFromUniverse = fullStockUniverse.find((stock) => stock.code === selectedCode);
+  const selectedPlaceholder: StockData = {
+    code: selectedCode,
+    name: selectedCode,
+    market: "",
+    price: 0, change: 0, changePercent: 0,
+    volume: 0, open: 0, high: 0, low: 0, previousClose: 0,
+  };
   const selected =
     liveChartStocks.find((stock) => stock.code === selectedCode) ??
     mergedChartStocks.find((stock) => stock.code === selectedCode) ??
-    fullStockUniverse.find((stock) => stock.code === selectedCode) ??
+    selectedFromUniverse ??
+    (selectedCode ? selectedPlaceholder : undefined) ??
     liveChartStocks[0] ??
     mergedChartStocks[0] ??
     featuredStock;
