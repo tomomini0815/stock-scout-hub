@@ -293,6 +293,26 @@ const ChartPage = () => {
     setSelectedCode(queryFromUrl);
     setSearchQuery("");
 
+    // 静的データから銘柄を探して追加リストに自動追加する（追加リストをONにする）
+    const allStaticStocks = [
+      ...stockUniverse,
+      ...nikkei225Stocks,
+      ...topixConstituentStocks,
+      ...jpxPrime150ConstituentStocks,
+      ...jpxNikkei400ConstituentStocks,
+      ...growth250ConstituentStocks,
+      ...toshoReitConstituentStocks,
+    ];
+    const found = allStaticStocks.find((s) => s.code === queryFromUrl);
+    if (found) {
+      addChartWatchlistStock({ ...found, sourceLabel: found.market });
+      setWatchlistStocks(readChartWatchlist());
+      // 追加リストが選択されていなければ追加する
+      setSelectedIndexIds((prev) =>
+        prev.includes("watchlist") ? prev : ["watchlist", ...prev]
+      );
+    }
+
     const timer = window.setTimeout(() => {
       chartSectionRef.current?.scrollIntoView({
         behavior: "smooth",
@@ -353,8 +373,10 @@ const ChartPage = () => {
   useEffect(() => {
     if (!mergedChartStocks.length) return;
     if (mergedChartStocks.some((stock) => stock.code === selectedCode)) return;
+    // URL指定の銘柄はリセットしない
+    if (selectedCode === queryFromUrl) return;
     setSelectedCode(mergedChartStocks[0].code);
-  }, [mergedChartStocks, selectedCode]);
+  }, [mergedChartStocks, selectedCode, queryFromUrl]);
 
   useEffect(() => {
     if (!searchQuery || !filteredStocks.length) return;
