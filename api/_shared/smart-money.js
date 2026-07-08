@@ -567,6 +567,13 @@ const fetchEdinetSignals = async () => {
     }
   }
 
+  // 提出日時 (submitDateTime) の降順にソート（最新が上）
+  targetDocs.sort((a, b) => {
+    const timeA = a.submitDateTime ? new Date(a.submitDateTime).getTime() : 0;
+    const timeB = b.submitDateTime ? new Date(b.submitDateTime).getTime() : 0;
+    return timeB - timeA;
+  });
+
   if (!targetDocs.length) {
     if (!successfulListRequests && failedListRequests && EDINET_SNAPSHOT_SIGNALS.length) {
       return { signals: EDINET_SNAPSHOT_SIGNALS, status: "snapshot" };

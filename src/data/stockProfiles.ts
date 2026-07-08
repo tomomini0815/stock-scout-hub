@@ -1,3 +1,12 @@
+import {
+  growth250ConstituentStocks,
+  jpxNikkei400ConstituentStocks,
+  jpxPrime150ConstituentStocks,
+  topixConstituentStocks,
+  toshoReitConstituentStocks,
+} from "./japaneseIndexConstituents";
+import { nikkei225Stocks } from "./stockData";
+
 export interface StockProfile {
   description: string;
   segments: string[];
@@ -1362,13 +1371,29 @@ const withEdinetContext = (profile: StockProfile): StockProfile => ({
   features: ["EDINET検知", ...profile.features.slice(0, 3)],
 });
 
+const findOriginalMarket = (code: string): string | undefined => {
+  const allStocks = [
+    ...nikkei225Stocks,
+    ...topixConstituentStocks,
+    ...jpxPrime150ConstituentStocks,
+    ...jpxNikkei400ConstituentStocks,
+    ...growth250ConstituentStocks,
+    ...toshoReitConstituentStocks,
+  ];
+  const matched = allStocks.find((stock) => stock.code === code);
+  return matched?.market;
+};
+
 export const getStockProfile = (code: string, name: string, market?: string): StockProfile => {
+  const actualMarket = market === "EDINET検知" ? (findOriginalMarket(code) ?? market) : market;
+
   const profile = stockProfiles[code];
   if (profile) {
     return market === "EDINET検知" ? withEdinetContext(profile) : profile;
   }
 
-  return buildGeneratedProfile(code, name, market);
+  const generated = buildGeneratedProfile(code, name, actualMarket);
+  return market === "EDINET検知" ? withEdinetContext(generated) : generated;
 };
 
 export const hasManualProfile = (code: string): boolean => {

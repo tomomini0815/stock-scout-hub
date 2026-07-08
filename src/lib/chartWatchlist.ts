@@ -68,7 +68,7 @@ export const addChartWatchlistStock = (stock: ChartWatchlistStock) => {
   const current = readChartWatchlist();
   if (current.some((item) => item.code === stock.code)) return current;
 
-  const nextStocks = [...current, normalizeStock(stock)];
+  const nextStocks = [normalizeStock(stock), ...current];
   writeChartWatchlist(nextStocks);
   return nextStocks;
 };

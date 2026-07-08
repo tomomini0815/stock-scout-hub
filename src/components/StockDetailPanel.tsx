@@ -567,15 +567,16 @@ const StockDetailPanel = ({ stock }: StockDetailPanelProps) => {
 
   // 大量保有情報とAPI情報の合成プロフィールデータ
   const displayDescription = useMemo(() => {
-    if (isGenericProfile) {
-      if (metrics.businessSummaryJa) return metrics.businessSummaryJa;
-      if (edinetSignal) {
-        const weightStr = edinetSignal.portfolioWeight > 0 ? `保有比率 ${edinetSignal.portfolioWeight.toFixed(2)}%` : "大量保有報告";
-        return `【EDINET大量保有報告検知】${edinetSignal.filingDate}に大株主「${edinetSignal.filerName}」による${weightStr}（変動内容: ${edinetSignal.signalType}）が報告されました。提出書類の保有目的や、直近の出来高と株価推移を確認する必要があります。`;
-      }
-      if (metrics.sector || metrics.industry) {
-        return `${displayStock.name}は、主に ${metrics.sector ?? ""}・${metrics.industry ?? ""} の事業領域に属する上場企業です。最新の開示データや業績指標とあわせて確認します。`;
-      }
+    if (metrics.businessSummaryJa) return metrics.businessSummaryJa;
+
+    if (edinetSignal) {
+      const weightStr = edinetSignal.portfolioWeight > 0 ? `保有比率 ${edinetSignal.portfolioWeight.toFixed(2)}%` : "大量保有報告";
+      const edinetHeader = `【EDINET大量保有】大株主「${edinetSignal.filerName}」による${weightStr}（${edinetSignal.filingDate}報告）を検知。`;
+      return `${edinetHeader} ${profile.description}`;
+    }
+
+    if (isGenericProfile && (metrics.sector || metrics.industry)) {
+      return `${displayStock.name}は、主に ${metrics.sector ?? ""}・${metrics.industry ?? ""} の事業領域に属する上場企業です。${profile.description}`;
     }
     return profile.description;
   }, [isGenericProfile, metrics.businessSummaryJa, metrics.sector, metrics.industry, edinetSignal, profile.description, displayStock.name]);
@@ -583,32 +584,28 @@ const StockDetailPanel = ({ stock }: StockDetailPanelProps) => {
   const displaySegments = useMemo(() => {
     if (isGenericProfile && (metrics.sector || metrics.industry)) {
       return [
-        metrics.sector ? `セクター: ${metrics.sector}` : "",
+        ...profile.segments.slice(0, 2),
         metrics.industry ? `業種: ${metrics.industry}` : "",
-        ...profile.segments.slice(0, 2)
       ].filter(Boolean);
     }
     return profile.segments;
   }, [isGenericProfile, metrics.sector, metrics.industry, profile.segments]);
 
   const displayWatchPoints = useMemo(() => {
-    if (isGenericProfile && edinetSignal) {
-      return [
-        `提出者「${edinetSignal.filerName}」の具体的な保有目的・意図`,
-        "共同保有者の有無とそれぞれの保有比率",
-        "報告後の市場出来高の急増と買い増しの継続性",
-        "開示日（提出日）以降の株価チャートの織り込み状況"
-      ];
-    }
-    return profile.watchPoints;
-  }, [isGenericProfile, edinetSignal, profile.watchPoints]);
+    const edinetPoints = edinetSignal ? [
+      `提出者「${edinetSignal.filerName}」の保有目的・意図`,
+      "保有割合の変化と買い増し継続性"
+    ] : [];
+    return [...profile.watchPoints.slice(0, 2), ...edinetPoints].slice(0, 4);
+  }, [edinetSignal, profile.watchPoints]);
 
   const displayFeatures = useMemo(() => {
-    if (isGenericProfile && edinetSignal) {
-      return ["EDINET大量保有", edinetSignal.filerName.slice(0, 12), edinetSignal.signalType, "提出: " + edinetSignal.filingDate];
-    }
-    return profile.features;
-  }, [isGenericProfile, edinetSignal, profile.features]);
+    const edinetFeatures = edinetSignal ? [
+      "大量保有",
+      edinetSignal.filerName.slice(0, 10)
+    ] : [];
+    return [...profile.features.slice(0, 2), ...edinetFeatures].slice(0, 4);
+  }, [edinetSignal, profile.features]);
 
   const updatedLabel = updatedAt
     ? new Intl.DateTimeFormat("ja-JP", {

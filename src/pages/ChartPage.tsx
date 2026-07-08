@@ -89,14 +89,70 @@ const getInferredSourceLabel = (code: string, selectedOptions: ChartIndexOption[
   return staticOption?.shortLabel;
 };
 
+const getStockLabels = (
+  stock: StockData,
+  watchlistStocks: StockData[],
+  edinetStocks: StockData[],
+  selectedIndexOptions: ChartIndexOption[]
+): string[] => {
+  const labels: string[] = [];
+
+  const isEdinet =
+    stock.market === "EDINET検知" ||
+    edinetStocks.some((item) => item.code === stock.code) ||
+    /EDINET/.test((stock as any).sourceLabel ?? "");
+  if (isEdinet) {
+    labels.push("EDINET");
+  }
+
+  const watchstock = watchlistStocks.find((item) => item.code === stock.code);
+  const watchLabel = watchstock?.sourceLabel;
+  if (watchLabel && watchLabel !== "追加" && !/EDINET/.test(watchLabel)) {
+    labels.push(watchLabel);
+  }
+
+  selectedIndexOptions
+    .filter((option) => option.id !== "watchlist" && option.id !== "edinet")
+    .forEach((option) => {
+      if (option.stocks.some((item) => item.code === stock.code)) {
+        if (!labels.includes(option.shortLabel)) {
+          labels.push(option.shortLabel);
+        }
+      }
+    });
+
+  if (labels.length === 0 || (labels.length === 1 && labels[0] === "EDINET")) {
+    const staticOption = staticIndexOptions.find((option) =>
+      option.stocks.some((item) => item.code === stock.code)
+    );
+    if (staticOption && !labels.includes(staticOption.shortLabel)) {
+      labels.push(staticOption.shortLabel);
+    }
+  }
+
+  return labels;
+};
+
 const ChartPage = () => {
   const [searchParams] = useSearchParams();
   const queryFromUrl = searchParams.get("q") ?? "";
-  const [selectedCode, setSelectedCode] = useState(featuredStock.code);
-  const [searchQuery, setSearchQuery] = useState(queryFromUrl);
+  const [selectedCode, setSelectedCode] = useState(queryFromUrl || featuredStock.code);
+  const [searchQuery, setSearchQuery] = useState("");
   const [watchlistStocks, setWatchlistStocks] = useState(() => readChartWatchlist());
   const [edinetStocks, setEdinetStocks] = useState<StockData[]>([]);
-  const [selectedIndexIds, setSelectedIndexIds] = useState<string[]>(["watchlist"]);
+  const [selectedIndexIds, setSelectedIndexIds] = useState<string[]>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("stock-scout-selected-indices");
+      if (saved) {
+        try {
+          return JSON.parse(saved) as string[];
+        } catch {
+          // ignore
+        }
+      }
+    }
+    return ["watchlist"];
+  });
   const [isIndexMenuOpen, setIsIndexMenuOpen] = useState(false);
   const detailSectionRef = useRef<HTMLDivElement | null>(null);
   const chartSectionRef = useRef<HTMLDivElement | null>(null);
@@ -215,8 +271,23 @@ const ChartPage = () => {
   }, []);
 
   useEffect(() => {
-    setSearchQuery(queryFromUrl);
+    if (queryFromUrl) {
+      setSelectedCode(queryFromUrl);
+      setSearchQuery("");
+
+      const timer = window.setTimeout(() => {
+        chartSectionRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      }, 100);
+      return () => window.clearTimeout(timer);
+    }
   }, [queryFromUrl]);
+
+  useEffect(() => {
+    localStorage.setItem("stock-scout-selected-indices", JSON.stringify(selectedIndexIds));
+  }, [selectedIndexIds]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -345,10 +416,6 @@ const ChartPage = () => {
               <div className="min-h-0 flex-1 overflow-y-auto">
                 {filteredStocks.length ? filteredStocks.map((stock) => {
                   const isUp = stock.change > 0;
-                  const sourceLabel =
-                    sourceLabelByCode.get(stock.code) ??
-                    indexLabelByCode.get(stock.code) ??
-                    getInferredSourceLabel(stock.code, selectedIndexOptions);
                   return (
                     <button
                       key={stock.code}
@@ -361,11 +428,14 @@ const ChartPage = () => {
                         <div>
                           <div className="flex flex-wrap items-center gap-1">
                             <span className="font-mono text-xxs font-semibold text-primary">{stock.code}</span>
-                            {sourceLabel && (
-                              <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold leading-none text-primary">
-                                {sourceLabel}
+                            {getStockLabels(stock, watchlistStocks, edinetStocks, selectedIndexOptions).map((label) => (
+                              <span
+                                key={label}
+                                className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold leading-none text-primary"
+                              >
+                                {label}
                               </span>
-                            )}
+                            ))}
                           </div>
                           <div className="text-xs font-medium text-foreground">{stock.name}</div>
                         </div>
