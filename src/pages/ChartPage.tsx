@@ -278,19 +278,30 @@ const ChartPage = () => {
   }, []);
 
   useEffect(() => {
-    if (queryFromUrl) {
-      setSelectedCode(queryFromUrl);
-      setSearchQuery("");
+    if (!queryFromUrl) return;
 
-      const timer = window.setTimeout(() => {
-        chartSectionRef.current?.scrollIntoView({
-          behavior: "smooth",
-          block: "start",
-        });
-      }, 100);
-      return () => window.clearTimeout(timer);
+    setSelectedCode(queryFromUrl);
+    setSearchQuery("");
+
+    // 選択中リストに含まれない場合、fullStockUniverseから探してウォッチリストに追加する
+    const alreadyInList = mergedChartStocks.some((s) => s.code === queryFromUrl);
+    if (!alreadyInList) {
+      const found = fullStockUniverse.find((s) => s.code === queryFromUrl);
+      if (found) {
+        const { addChartWatchlistStock } = require("@/lib/chartWatchlist");
+        addChartWatchlistStock({ ...found, sourceLabel: found.market });
+        setWatchlistStocks(readChartWatchlist());
+      }
     }
-  }, [queryFromUrl]);
+
+    const timer = window.setTimeout(() => {
+      chartSectionRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, 100);
+    return () => window.clearTimeout(timer);
+  }, [queryFromUrl, mergedChartStocks, fullStockUniverse]);
 
   useEffect(() => {
     localStorage.setItem("stock-scout-selected-indices", JSON.stringify(selectedIndexIds));

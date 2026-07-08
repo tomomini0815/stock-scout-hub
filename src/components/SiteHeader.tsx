@@ -35,25 +35,8 @@ const SiteHeader = ({ activeTab = "トップ" }: SiteHeaderProps) => {
     if (!query) return;
     const { findSearchableStock } = await import("@/lib/stockSearch");
     const matchedStock = findSearchableStock(query);
-    const target = matchedStock ?? { code: query };
-    const isAdded = readChartWatchlist().some((stock) => stock.code === target.code);
-
-    if (isAdded) {
-      navigate(`/chart?q=${encodeURIComponent(target.code)}`);
-      return;
-    }
-
-    if (matchedStock?.sourceId === "chart" || matchedStock?.sourceId === "watchlist") {
-      navigate(`/chart?q=${encodeURIComponent(matchedStock.code)}`);
-      return;
-    }
-
-    if (matchedStock) {
-      navigate(`/market?highlight=${encodeURIComponent(matchedStock.code)}`);
-      return;
-    }
-
-    navigate(`/chart?q=${encodeURIComponent(query)}`);
+    const code = matchedStock?.code ?? query;
+    navigate(`/chart?q=${encodeURIComponent(code)}`);
   };
   const handleManualRefresh = () => {
     window.location.reload();
