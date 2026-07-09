@@ -1,5 +1,25 @@
 export const EDINET_SNAPSHOT_SIGNALS = [
   {
+    "id": "edinet-S100YP7V",
+    "fundId": "japan-activist",
+    "ticker": "6266",
+    "company": "タツモ株式会社",
+    "filerName": "三井住友トラスト・アセットマネジメント株式会社",
+    "filingType": "EDINET",
+    "signalType": "大量保有",
+    "reportDate": "2026-07-09",
+    "filingDate": "2026-07-09",
+    "portfolioWeight": 10.15,
+    "positionChange": 100,
+    "priceMoveSinceReport": 116.55753040224508,
+    "multiFundCount": 1,
+    "activistIntent": true,
+    "concentrationRank": 4,
+    "note": "変更報告書をEDINET APIから自動検知。XBRLから対象銘柄を解析済み。保有目的、共同保有者、変更理由の本文確認が必要です。 報告日以降の価格反応をYahoo Finance日足で再評価済み。 本番環境ではEDINET APIの直接取得が制限される場合があるため、直近取得済みの公式提出PDFを表示します。",
+    "source": "edinet",
+    "sourceUrl": "/edinet-cache/S100YP7V.pdf"
+  },
+  {
     "id": "edinet-S100YIXC",
     "fundId": "japan-activist",
     "ticker": "9433",
@@ -818,25 +838,5 @@ export const EDINET_SNAPSHOT_SIGNALS = [
     "note": "変更報告書をEDINET APIから自動検知。XBRLから対象銘柄を解析済み。保有目的、共同保有者、変更理由の本文確認が必要です。 報告日以降の価格反応をYahoo Finance日足で再評価済み。 本番環境ではEDINET APIの直接取得が制限される場合があるため、直近取得済みの公式提出PDFを表示します。",
     "source": "edinet",
     "sourceUrl": "/edinet-cache/S100YPJ4.pdf"
-  },
-  {
-    "id": "edinet-S100YPEV",
-    "fundId": "japan-activist",
-    "ticker": "8358",
-    "company": "スルガ銀行株式会社",
-    "filerName": "インダス・キャピタル・パートナーズ・エル・エル・シー(Indus Capital Partners, LLC)",
-    "filingType": "EDINET",
-    "signalType": "大量保有",
-    "reportDate": "2026-07-08",
-    "filingDate": "2026-07-08",
-    "portfolioWeight": 0,
-    "positionChange": 100,
-    "priceMoveSinceReport": 0,
-    "multiFundCount": 1,
-    "activistIntent": true,
-    "concentrationRank": 4,
-    "note": "変更報告書をEDINET APIから自動検知。XBRLから対象銘柄を解析済み。保有目的、共同保有者、変更理由の本文確認が必要です。 報告日以降の価格反応をYahoo Finance日足で再評価済み。 本番環境ではEDINET APIの直接取得が制限される場合があるため、直近取得済みの公式提出PDFを表示します。",
-    "source": "edinet",
-    "sourceUrl": "/edinet-cache/S100YPEV.pdf"
   }
 ];
