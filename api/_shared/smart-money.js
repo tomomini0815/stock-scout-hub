@@ -533,7 +533,8 @@ const fetchEdinetSignals = async () => {
   }
 
   const maxSignals = 20;
-  const maxDays = 2;
+  // 週末・祝日をまたいでも大量保有報告書を取りこぼさない範囲で確認する。
+  const maxDays = 7;
   let successfulListRequests = 0;
   let failedListRequests = 0;
 
@@ -578,7 +579,7 @@ const fetchEdinetSignals = async () => {
     if (!successfulListRequests && failedListRequests && EDINET_SNAPSHOT_SIGNALS.length) {
       return { signals: EDINET_SNAPSHOT_SIGNALS, status: "snapshot" };
     }
-    return { signals: [], status: successfulListRequests ? "empty" : failedListRequests ? "error" : "empty" };
+    return { signals: [], status: successfulListRequests ? "live" : failedListRequests ? "error" : "error" };
   }
 
   // 上位件数を並列でXBRL取得
@@ -618,7 +619,7 @@ const fetchEdinetSignals = async () => {
     .map((r) => r.value);
 
   if (signals.length) return { signals, status: "live" };
-  return { signals: EDINET_SNAPSHOT_SIGNALS.length ? EDINET_SNAPSHOT_SIGNALS : [], status: EDINET_SNAPSHOT_SIGNALS.length ? "snapshot" : "empty" };
+  return { signals: EDINET_SNAPSHOT_SIGNALS.length ? EDINET_SNAPSHOT_SIGNALS : [], status: EDINET_SNAPSHOT_SIGNALS.length ? "snapshot" : "error" };
 };
 
 const mergeMultiFundCounts = (signals) => {

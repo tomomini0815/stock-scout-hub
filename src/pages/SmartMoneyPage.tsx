@@ -1134,10 +1134,10 @@ const SmartMoneyPage = () => {
 
           <div className="w-full overflow-x-auto overscroll-x-contain rounded-md border border-border">
             <div className="max-h-[72vh] overflow-y-auto overscroll-y-contain">
-              <table className="w-full min-w-[1500px] table-fixed text-xs">
+              <table className="w-full min-w-[1390px] table-fixed text-xs">
               <thead className="sticky top-0 z-10 whitespace-nowrap bg-muted text-xs text-slate-600 shadow-sm">
                 <tr>
-                  <th className="w-[92px] px-3 py-2 text-left">判定</th>
+                  <th className="w-[130px] px-3 py-2 text-left">判定/調査関連</th>
                   <th className="w-[190px] px-3 py-2 text-left">ファンド</th>
                   <th className="w-[250px] px-3 py-2 text-left">対象銘柄 / 提出者</th>
                   <th className="w-[92px] px-3 py-2 text-right">追随価値</th>
@@ -1148,7 +1148,6 @@ const SmartMoneyPage = () => {
                   <th className="w-[84px] px-3 py-2 text-right">開示後</th>
                   <th className="w-[250px] px-3 py-2 text-left">反証</th>
                   <th className="w-[250px] px-3 py-2 text-left">次アクション</th>
-                  <th className="w-[110px] px-3 py-2 text-right">調査</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -1159,9 +1158,42 @@ const SmartMoneyPage = () => {
                   return (
                     <tr key={signal.id} className="hover:bg-muted/30">
                       <td className="px-3 py-2">
-                        <span className={`inline-flex whitespace-nowrap rounded border px-2 py-1 text-xs font-black ${verdictClass(signal.verdict)}`}>
-                          {signal.verdict}
-                        </span>
+                        <div className="flex flex-col items-start gap-1">
+                          <span className={`inline-flex whitespace-nowrap rounded border px-2 py-1 text-xs font-black ${verdictClass(signal.verdict)}`}>
+                            {signal.verdict}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedSignalId(signal.id)}
+                            className="inline-flex h-7 items-center gap-1 whitespace-nowrap rounded border border-primary/30 bg-primary/5 px-2 text-xs font-bold text-primary transition-colors hover:bg-primary hover:text-primary-foreground"
+                          >
+                            <BookOpenText className="h-3 w-3" />
+                            詳細
+                          </button>
+                          {sourceUrl && signal.source === "edinet" && (
+                            <button
+                              type="button"
+                              onClick={() => setViewerSignalId(signal.id)}
+                              className="inline-flex h-7 items-center gap-1 whitespace-nowrap rounded border border-emerald-200 bg-emerald-50 px-2 text-xs font-bold text-emerald-700 transition-colors hover:bg-emerald-100"
+                              title="画面内でEDINET提出PDFを表示します"
+                            >
+                              <ExternalLink className="h-3 w-3" />
+                              提出PDF
+                            </button>
+                          )}
+                          {sourceUrl && signal.source !== "edinet" && (
+                            <a
+                              href={sourceUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex h-7 items-center gap-1 whitespace-nowrap rounded border border-emerald-200 bg-emerald-50 px-2 text-xs font-bold text-emerald-700 transition-colors hover:bg-emerald-100"
+                              title="実際の提出書類を開きます"
+                            >
+                              <ExternalLink className="h-3 w-3" />
+                              提出リンク
+                            </a>
+                          )}
+                        </div>
                       </td>
                       <td className="px-3 py-2">
                         <div className="font-bold leading-snug text-foreground">{signal.fund.name}</div>
@@ -1236,41 +1268,6 @@ const SmartMoneyPage = () => {
                       </td>
                       <td className="px-3 py-2 text-xs font-semibold leading-[1.65] text-slate-600">
                         {getNextAction(signal)}
-                      </td>
-                      <td className="px-3 py-2 text-right">
-                        <div className="flex flex-col items-end gap-1">
-                          <button
-                            type="button"
-                            onClick={() => setSelectedSignalId(signal.id)}
-                            className="inline-flex h-7 items-center gap-1 whitespace-nowrap rounded border border-primary/30 bg-primary/5 px-2 text-xs font-bold text-primary transition-colors hover:bg-primary hover:text-primary-foreground"
-                          >
-                            <BookOpenText className="h-3 w-3" />
-                            詳細
-                          </button>
-                          {sourceUrl && signal.source === "edinet" && (
-                            <button
-                              type="button"
-                              onClick={() => setViewerSignalId(signal.id)}
-                              className="inline-flex h-7 items-center gap-1 whitespace-nowrap rounded border border-primary/30 bg-primary/5 px-2 text-xs font-bold text-primary transition-colors hover:bg-primary hover:text-primary-foreground"
-                              title="画面内でEDINET提出PDFを表示します"
-                            >
-                              <ExternalLink className="h-3 w-3" />
-                              提出PDF
-                            </button>
-                          )}
-                          {sourceUrl && signal.source !== "edinet" && (
-                            <a
-                              href={sourceUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="inline-flex h-7 items-center gap-1 whitespace-nowrap rounded border border-primary/30 bg-primary/5 px-2 text-xs font-bold text-primary transition-colors hover:bg-primary hover:text-primary-foreground"
-                              title="実際の提出書類を開きます"
-                            >
-                              <ExternalLink className="h-3 w-3" />
-                              提出リンク
-                            </a>
-                          )}
-                        </div>
                       </td>
                     </tr>
                   );
