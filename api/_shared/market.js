@@ -40,6 +40,52 @@ export const fetchWithTimeout = async (url, timeoutMs = 4500, init = {}) => {
   }
 };
 
+// --- Circuit breaker: 403を検知し、half-open対応でリクエストを制御 ---
+// 状態: closed(通常) → open(ブロック) → half-open(プローブ) → closed or open
+const circuitBreakers = new Map();
+const INITIAL_COOLDOWN_MS = 30 * 1000;  // 最初は30秒のみ
+const MAX_COOLDOWN_MS = 5 * 60 * 1000;  // 最大5分
+
+const getDomain = (url) => {
+  try { return new URL(url).hostname; } catch { return url; }
+};
+
+export const isCircuitOpen = (url) => {
+  const domain = getDomain(url);
+  const entry = circuitBreakers.get(domain);
+  if (!entry) return false;
+  const elapsed = Date.now() - entry.openedAt;
+  const cooldown = Math.min(INITIAL_COOLDOWN_MS * 2 ** (entry.failCount - 1), MAX_COOLDOWN_MS);
+  if (elapsed > cooldown) {
+    entry.halfOpen = true;
+    return false; // half-open: リクエストを1つ通す
+  }
+  return true;
+};
+
+export const tripCircuit = (url) => {
+  const domain = getDomain(url);
+  const existing = circuitBreakers.get(domain);
+  if (existing?.halfOpen) {
+    // half-openでまた失敗 → cooldownを倍にして再ブロック
+    existing.failCount += 1;
+    existing.openedAt = Date.now();
+    existing.halfOpen = false;
+  } else if (!existing || Date.now() - existing.openedAt > MAX_COOLDOWN_MS) {
+    circuitBreakers.set(domain, { openedAt: Date.now(), failCount: 1, halfOpen: false });
+  }
+};
+
+export const resolveCircuit = (url) => {
+  const domain = getDomain(url);
+  circuitBreakers.delete(domain); // 成功 → 完全に解除
+};
+
+export const getCircuitState = (url) => {
+  const domain = getDomain(url);
+  return circuitBreakers.get(domain) ?? null;
+};
+
 export const sendJson = (res, payload, statusCode = 200) => {
   res.statusCode = statusCode;
   res.setHeader("Content-Type", "application/json; charset=utf-8");
@@ -91,11 +137,14 @@ export const parseUsdJpy = (html) => {
 };
 
 export const parseYahooQuote = async (symbol) => {
-  const response = await fetchWithTimeout(
-    `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=5d&interval=1d`,
-    7000
-  );
-  if (!response.ok) return null;
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=5d&interval=1d`;
+  if (isCircuitOpen(url)) return null;
+  const response = await fetchWithTimeout(url, 7000);
+  if (!response.ok) {
+    if (response.status === 403) tripCircuit(url);
+    return null;
+  }
+  resolveCircuit(url);
 
   const payload = await response.json();
   const result = payload?.chart?.result?.[0];
@@ -180,11 +229,14 @@ export const parseYahooQuoteBatch = async (symbols) => {
     region: "JP",
     lang: "ja-JP",
   });
-  const response = await fetchWithTimeout(
-    `https://query1.finance.yahoo.com/v7/finance/quote?${params.toString()}`,
-    7000
-  );
-  if (!response.ok) return [];
+  const yahooUrl = `https://query1.finance.yahoo.com/v7/finance/quote?${params.toString()}`;
+  if (isCircuitOpen(yahooUrl)) return [];
+  const response = await fetchWithTimeout(yahooUrl, 7000);
+  if (!response.ok) {
+    if (response.status === 403) tripCircuit(yahooUrl);
+    return [];
+  }
+  resolveCircuit(yahooUrl);
 
   const payload = await response.json();
   return (payload?.quoteResponse?.result ?? [])
@@ -205,8 +257,10 @@ export const parseYahooMarketAsset = async (name, symbol) => {
 };
 
 export const fetchTradingViewMarketIndices = async () => {
+  const tvUrl = "https://scanner.tradingview.com/global/scan";
+  if (isCircuitOpen(tvUrl)) return [];
   const response = await fetchWithTimeout(
-    "https://scanner.tradingview.com/global/scan",
+    tvUrl,
     7000,
     {
       method: "POST",
@@ -222,7 +276,11 @@ export const fetchTradingViewMarketIndices = async () => {
       }),
     }
   );
-  if (!response.ok) return [];
+  if (!response.ok) {
+    if (response.status === 403) tripCircuit(tvUrl);
+    return [];
+  }
+  resolveCircuit(tvUrl);
 
   const payload = await response.json();
   const rows = Array.isArray(payload?.data) ? payload.data : [];
@@ -246,11 +304,14 @@ export const fetchTradingViewMarketIndices = async () => {
 };
 
 export const parseYahooChart = async (symbol, range = "2y", interval = "1d") => {
-  const response = await fetchWithTimeout(
-    `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${encodeURIComponent(range)}&interval=${encodeURIComponent(interval)}`,
-    8000
-  );
-  if (!response.ok) return null;
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${encodeURIComponent(range)}&interval=${encodeURIComponent(interval)}`;
+  if (isCircuitOpen(url)) return null;
+  const response = await fetchWithTimeout(url, 8000);
+  if (!response.ok) {
+    if (response.status === 403) tripCircuit(url);
+    return null;
+  }
+  resolveCircuit(url);
 
   const payload = await response.json();
   const result = payload?.chart?.result?.[0];

@@ -6,7 +6,7 @@
  *         /api/news-feeds?source=gdelt&mode=artlist&...
  *         /api/news-feeds?source=tdnet&date=20260707
  */
-import { fetchWithTimeout } from "./_shared/market.js";
+import { fetchWithTimeout, isCircuitOpen, tripCircuit, resolveCircuit } from "./_shared/market.js";
 
 const getJstDateKey = () =>
   new Intl.DateTimeFormat("sv-SE", {
@@ -27,13 +27,21 @@ const handleGoogleNews = async (requestUrl, res) => {
   if (!targetUrl.searchParams.has("gl")) targetUrl.searchParams.set("gl", "JP");
   if (!targetUrl.searchParams.has("ceid")) targetUrl.searchParams.set("ceid", "JP:ja");
 
+  if (isCircuitOpen(targetUrl.toString())) {
+    res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=600");
+    res.status(502).json({ error: "google news temporarily blocked (circuit open)" });
+    return;
+  }
+
   const response = await fetchWithTimeout(targetUrl.toString(), 5500, {
     headers: { "User-Agent": "stock-scout-hub/1.0" },
   });
   if (!response.ok) {
+    if (response.status === 403) tripCircuit(targetUrl.toString());
     res.status(502).json({ error: `google news unavailable: ${response.status}` });
     return;
   }
+  resolveCircuit(targetUrl.toString());
   const text = await response.text();
   res.setHeader("Content-Type", "application/rss+xml; charset=utf-8");
   res.setHeader("Cache-Control", "s-maxage=180, stale-while-revalidate=600");
@@ -41,13 +49,21 @@ const handleGoogleNews = async (requestUrl, res) => {
 };
 
 const handleYahooRss = async (_requestUrl, res) => {
-  const response = await fetchWithTimeout("https://news.yahoo.co.jp/rss/topics/business.xml", 5500, {
+  const yahooUrl = "https://news.yahoo.co.jp/rss/topics/business.xml";
+  if (isCircuitOpen(yahooUrl)) {
+    res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=600");
+    res.status(502).json({ error: "yahoo rss temporarily blocked (circuit open)" });
+    return;
+  }
+  const response = await fetchWithTimeout(yahooUrl, 5500, {
     headers: { "User-Agent": "stock-scout-hub/1.0" },
   });
   if (!response.ok) {
+    if (response.status === 403) tripCircuit(yahooUrl);
     res.status(502).json({ error: "yahoo rss unavailable" });
     return;
   }
+  resolveCircuit(yahooUrl);
   const text = await response.text();
   res.setHeader("Content-Type", "application/rss+xml; charset=utf-8");
   res.setHeader("Cache-Control", "s-maxage=180, stale-while-revalidate=600");
@@ -63,9 +79,20 @@ const handleGdelt = async (requestUrl, res) => {
   if (!targetUrl.searchParams.has("format")) targetUrl.searchParams.set("format", "json");
   if (!targetUrl.searchParams.has("sort")) targetUrl.searchParams.set("sort", "hybrid");
 
+  if (isCircuitOpen(targetUrl.toString())) {
+    res.setHeader("Content-Type", "application/json; charset=utf-8");
+    res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=600");
+    res.status(502).json({ articles: [], error: "gdelt temporarily blocked (circuit open)" });
+    return;
+  }
+
   const response = await fetchWithTimeout(targetUrl.toString(), 5500, {
     headers: { "User-Agent": "stock-scout-hub/1.0" },
   });
+  if (!response.ok && (response.status === 403 || response.status === 401)) {
+    tripCircuit(targetUrl.toString());
+  }
+  if (response.ok) resolveCircuit(targetUrl.toString());
   const payload = await response.text();
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   res.setHeader("Cache-Control", "s-maxage=180, stale-while-revalidate=600");
@@ -81,10 +108,18 @@ const handleGdelt = async (requestUrl, res) => {
 const handleTdnet = async (requestUrl, res) => {
   const requestedDate = requestUrl.searchParams.get("date") ?? getJstDateKey();
   const date = /^\d{8}$/.test(requestedDate) ? requestedDate : getJstDateKey();
-  const response = await fetch(`https://www.release.tdnet.info/inbs/I_list_001_${date}.html`, {
+  const tdnetUrl = `https://www.release.tdnet.info/inbs/I_list_001_${date}.html`;
+  if (isCircuitOpen(tdnetUrl)) {
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=600");
+    res.status(502).json({ items: [], error: "tdnet temporarily blocked (circuit open)" });
+    return;
+  }
+  const response = await fetch(tdnetUrl, {
     headers: { "User-Agent": "stock-scout-hub/1.0" },
   });
   if (!response.ok) {
+    if (response.status === 403) tripCircuit(tdnetUrl);
     res.status(502).json({ items: [], error: `tdnet unavailable: ${response.status}` });
     return;
   }

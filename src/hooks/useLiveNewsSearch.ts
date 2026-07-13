@@ -1,5 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { type NewsItem } from "@/data/stockData";
+
+const NEWS_BASE_REFRESH_MS = 5 * 60 * 1000;
+const NEWS_MAX_REFRESH_MS = 60 * 60 * 1000;
 
 interface UseLiveNewsSearchOptions {
   query: string;
@@ -190,6 +193,7 @@ export const useLiveNewsSearch = ({
   );
   const [updatedAt, setUpdatedAt] = useState("");
   const [refreshTick, setRefreshTick] = useState(0);
+  const consecutiveErrors = useRef(0);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -291,6 +295,7 @@ export const useLiveNewsSearch = ({
 
         if (!mapped.length) throw new Error("empty news");
         if (!isActive) return;
+        consecutiveErrors.current = 0;
         setNews(mapped);
         setStatus(nextStatus);
         saveCachedNewsSearch(cacheKey, mapped);
@@ -305,6 +310,7 @@ export const useLiveNewsSearch = ({
         );
       } catch {
         if (isActive) {
+          consecutiveErrors.current += 1;
           setStatus((current) => (current === "cached" ? "cached" : "fallback"));
         }
       } finally {
@@ -321,11 +327,24 @@ export const useLiveNewsSearch = ({
   }, [cacheKey, cacheMs, gdeltQuery, includeTdnet, limit, query, refreshTick, timespan, titlePattern]);
 
   useEffect(() => {
-    const interval = window.setInterval(() => {
-      setRefreshTick((current) => current + 1);
-    }, 5 * 60 * 1000);
+    const getRefreshInterval = () => {
+      const errors = consecutiveErrors.current;
+      if (errors === 0) return NEWS_BASE_REFRESH_MS;
+      return Math.min(NEWS_BASE_REFRESH_MS * 2 ** errors, NEWS_MAX_REFRESH_MS);
+    };
 
-    return () => window.clearInterval(interval);
+    // eslint-disable-next-line prefer-const
+    let timeoutId: ReturnType<typeof setTimeout>;
+    const scheduleRefresh = () => {
+      timeoutId = setTimeout(() => {
+        setRefreshTick((current) => current + 1);
+        consecutiveErrors.current = Math.max(0, consecutiveErrors.current - 1);
+        scheduleRefresh();
+      }, getRefreshInterval());
+    };
+    scheduleRefresh();
+
+    return () => window.clearTimeout(timeoutId);
   }, []);
 
   return {

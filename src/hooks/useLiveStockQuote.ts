@@ -1,12 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { type StockData } from "@/data/stockData";
 
 export type LiveStockStatus = "loading" | "live" | "fallback";
 
 const STOCK_QUOTES_CACHE_KEY = "stock-scout-live-stock-quotes-v1";
 const STOCK_QUOTES_CACHE_LIMIT = 2500;
-const STOCK_QUOTES_REFETCH_INTERVAL_MS = 3 * 60 * 1000;
+const STOCK_QUOTES_BASE_REFETCH_MS = 3 * 60 * 1000;
+const STOCK_QUOTES_MAX_REFETCH_MS = 15 * 60 * 1000;
 const STOCK_QUOTES_STALE_TIME_MS = 60 * 1000;
 
 interface LiveStockQuote {
@@ -96,19 +97,41 @@ export const useLiveStockQuote = (stock: StockData) => {
         updatedAt: cached?.updatedAt ?? "",
       }
     : undefined;
+  const consecutiveErrors = useRef(0);
   const query = useQuery({
     queryKey: ["live-stock-quote", symbol],
-    queryFn: () => fetchStockQuote(symbol),
+    queryFn: async () => {
+      try {
+        const data = await fetchStockQuote(symbol);
+        consecutiveErrors.current = 0;
+        return data;
+      } catch (error) {
+        consecutiveErrors.current += 1;
+        throw error;
+      }
+    },
     initialData,
     initialDataUpdatedAt: initialData?.updatedAt ? Date.parse(initialData.updatedAt) || 0 : undefined,
     refetchOnMount: "always",
-    refetchInterval: STOCK_QUOTES_REFETCH_INTERVAL_MS,
+    refetchInterval: () => {
+      const errors = consecutiveErrors.current;
+      if (errors === 0) return STOCK_QUOTES_BASE_REFETCH_MS;
+      return Math.min(STOCK_QUOTES_BASE_REFETCH_MS * 2 ** errors, STOCK_QUOTES_MAX_REFETCH_MS);
+    },
     staleTime: STOCK_QUOTES_STALE_TIME_MS,
-    retry: 1,
+    retry: (failureCount, error) => {
+      const msg = error instanceof Error ? error.message : "";
+      if (msg.includes("403")) return false;
+      return failureCount < 2;
+    },
   });
 
+  // ライブデータ受信時にバックオフを即座にリセット
   const liveQuote = query.data?.quote;
   const hasLiveData = Boolean(liveQuote);
+  useEffect(() => {
+    if (hasLiveData) consecutiveErrors.current = 0;
+  }, [hasLiveData]);
 
   useEffect(() => {
     if (query.data?.quote) {
@@ -200,17 +223,40 @@ export const useLiveStockQuotes = (stocks: StockData[]) => {
         updatedAt: cached?.updatedAt ?? "",
       }
     : undefined;
+  const consecutiveErrors = useRef(0);
   const query = useQuery({
     queryKey: ["live-stock-quotes", symbols],
-    queryFn: () => fetchStockQuotes(symbols),
+    queryFn: async () => {
+      try {
+        const data = await fetchStockQuotes(symbols);
+        consecutiveErrors.current = 0;
+        return data;
+      } catch (error) {
+        consecutiveErrors.current += 1;
+        throw error;
+      }
+    },
     enabled: symbols.length > 0,
     initialData,
     initialDataUpdatedAt: initialData?.updatedAt ? Date.parse(initialData.updatedAt) || 0 : undefined,
     refetchOnMount: "always",
-    refetchInterval: STOCK_QUOTES_REFETCH_INTERVAL_MS,
+    refetchInterval: () => {
+      const errors = consecutiveErrors.current;
+      if (errors === 0) return STOCK_QUOTES_BASE_REFETCH_MS;
+      return Math.min(STOCK_QUOTES_BASE_REFETCH_MS * 2 ** errors, STOCK_QUOTES_MAX_REFETCH_MS);
+    },
     staleTime: STOCK_QUOTES_STALE_TIME_MS,
-    retry: 1,
+    retry: (failureCount, error) => {
+      const msg = error instanceof Error ? error.message : "";
+      if (msg.includes("403")) return false;
+      return failureCount < 2;
+    },
   });
+
+  // ライブデータ受信時にバックオフを即座にリセット
+  useEffect(() => {
+    if (query.data?.quotes?.length) consecutiveErrors.current = 0;
+  }, [query.data?.quotes?.length]);
 
   useEffect(() => {
     if (query.data?.quotes?.length) {

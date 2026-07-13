@@ -3,6 +3,52 @@ import { join } from "node:path";
 import { inflateRawSync } from "node:zlib";
 import { EDINET_SNAPSHOT_SIGNALS } from "./edinet-snapshot.js";
 
+// --- Circuit breaker: 403/429が続く外部APIへのリクエストを一定時間停止 ---
+// half-open対応: 短い初期クールダウン → 失敗するたびに倍増
+const circuitBreakers = new Map();
+const INITIAL_COOLDOWN_MS = 30 * 1000;
+const MAX_COOLDOWN_MS = 10 * 60 * 1000;
+
+const getCircuitKey = (domain) => domain;
+const isCircuitOpen = (domain) => {
+  const entry = circuitBreakers.get(getCircuitKey(domain));
+  if (!entry) return false;
+  const elapsed = Date.now() - entry.openedAt;
+  const cooldown = Math.min(INITIAL_COOLDOWN_MS * 2 ** (entry.failCount - 1), MAX_COOLDOWN_MS);
+  if (elapsed > cooldown) {
+    entry.halfOpen = true;
+    return false;
+  }
+  return true;
+};
+const tripCircuit = (domain) => {
+  const key = getCircuitKey(domain);
+  const existing = circuitBreakers.get(key);
+  if (existing?.halfOpen) {
+    existing.failCount += 1;
+    existing.openedAt = Date.now();
+    existing.halfOpen = false;
+  } else if (!existing || Date.now() - existing.openedAt > MAX_COOLDOWN_MS) {
+    circuitBreakers.set(key, { openedAt: Date.now(), failCount: 1, halfOpen: false });
+  }
+};
+const resolveCircuit = (domain) => {
+  circuitBreakers.delete(getCircuitKey(domain));
+};
+const withCircuitBreaker = async (domain, fn) => {
+  if (isCircuitOpen(domain)) return null;
+  try {
+    const result = await fn();
+    resolveCircuit(domain);
+    return result;
+  } catch (error) {
+    if (error?.statusCode === 403 || error?.statusCode === 429) {
+      tripCircuit(domain);
+    }
+    throw error;
+  }
+};
+
 const readLocalEnv = () => {
   const filePath = join(process.cwd(), ".env.local");
   if (!existsSync(filePath)) return {};
@@ -193,33 +239,47 @@ const accessionPath = (cik, accessionNumber) => `${Number(cik)}/${String(accessi
 const asArray = (value) => Array.isArray(value) ? value : [];
 
 const getRecentFilings = async (fund) => {
-  const response = await fetchWithTimeout(
-    `https://data.sec.gov/submissions/CIK${normalizeCik(fund.cik)}.json`,
-    8000,
-    { headers: secHeaders() }
-  );
-  if (!response.ok) throw new Error(`SEC submissions ${response.status}`);
-  const payload = await response.json();
-  const recent = payload?.filings?.recent ?? {};
-  return asArray(recent.accessionNumber).map((accessionNumber, index) => ({
-    accessionNumber,
-    filingDate: recent.filingDate?.[index] ?? "",
-    reportDate: recent.reportDate?.[index] ?? recent.filingDate?.[index] ?? "",
-    form: recent.form?.[index] ?? "",
-    primaryDocument: recent.primaryDocument?.[index] ?? "",
-    primaryDocDescription: recent.primaryDocDescription?.[index] ?? "",
-  }));
+  const domain = "data.sec.gov";
+  const result = await withCircuitBreaker(domain, async () => {
+    const response = await fetchWithTimeout(
+      `https://data.sec.gov/submissions/CIK${normalizeCik(fund.cik)}.json`,
+      8000,
+      { headers: secHeaders() }
+    );
+    if (!response.ok) {
+      if (response.status === 403) tripCircuit(domain);
+      throw new Error(`SEC submissions ${response.status}`);
+    }
+    const payload = await response.json();
+    const recent = payload?.filings?.recent ?? {};
+    return asArray(recent.accessionNumber).map((accessionNumber, index) => ({
+      accessionNumber,
+      filingDate: recent.filingDate?.[index] ?? "",
+      reportDate: recent.reportDate?.[index] ?? recent.filingDate?.[index] ?? "",
+      form: recent.form?.[index] ?? "",
+      primaryDocument: recent.primaryDocument?.[index] ?? "",
+      primaryDocDescription: recent.primaryDocDescription?.[index] ?? "",
+    }));
+  });
+  return result ?? [];
 };
 
 const fetchFilingIndex = async (fund, filing) => {
-  const response = await fetchWithTimeout(
-    `https://www.sec.gov/Archives/edgar/data/${accessionPath(fund.cik, filing.accessionNumber)}/index.json`,
-    8000,
-    { headers: secHeaders() }
-  );
-  if (!response.ok) return [];
-  const payload = await response.json();
-  return asArray(payload?.directory?.item);
+  const domain = "www.sec.gov";
+  const result = await withCircuitBreaker(domain, async () => {
+    const response = await fetchWithTimeout(
+      `https://www.sec.gov/Archives/edgar/data/${accessionPath(fund.cik, filing.accessionNumber)}/index.json`,
+      8000,
+      { headers: secHeaders() }
+    );
+    if (!response.ok) {
+      if (response.status === 403) tripCircuit(domain);
+      return [];
+    }
+    const payload = await response.json();
+    return asArray(payload?.directory?.item);
+  });
+  return result ?? [];
 };
 
 const findInfoTableFile = (items) =>
@@ -339,25 +399,32 @@ const fetchEdinetDocumentDetail = async (docId, apiKey, fallback = {}) => {
   if (!docId || (!apiKey && !getEdinetProxyBaseUrl())) return {};
   if (edinetDocumentCache.has(docId)) return edinetDocumentCache.get(docId);
 
-  try {
-    const url = edinetApiUrl(`/api/v2/documents/${encodeURIComponent(docId)}`);
-    url.searchParams.set("type", "1");
-    setEdinetSubscriptionKey(url, apiKey);
-    const response = await fetchWithTimeout(url.toString(), 9000, {
-      headers: edinetHeaders(apiKey, "application/octet-stream, application/zip, */*"),
-    });
-    if (!response.ok) return {};
-    const entries = unzipTextEntries(await response.arrayBuffer());
-    const xbrlEntry =
-      entries.find((entry) => /XBRL\/PublicDoc\/.*\.xbrl$/i.test(entry.name))
-      ?? entries.find((entry) => /\.xbrl$/i.test(entry.name))
-      ?? entries.find((entry) => /honbun.*\.htm/i.test(entry.name));
-    const detail = xbrlEntry ? parseEdinetLargeHoldingXbrl(xbrlEntry.text, fallback) : {};
-    edinetDocumentCache.set(docId, detail);
-    return detail;
-  } catch {
-    return {};
-  }
+  const domain = "api.edinet-fsa.go.jp";
+  const result = await withCircuitBreaker(domain, async () => {
+    try {
+      const url = edinetApiUrl(`/api/v2/documents/${encodeURIComponent(docId)}`);
+      url.searchParams.set("type", "1");
+      setEdinetSubscriptionKey(url, apiKey);
+      const response = await fetchWithTimeout(url.toString(), 9000, {
+        headers: edinetHeaders(apiKey, "application/octet-stream, application/zip, */*"),
+      });
+      if (!response.ok) {
+        if (response.status === 403) tripCircuit(domain);
+        return {};
+      }
+      const entries = unzipTextEntries(await response.arrayBuffer());
+      const xbrlEntry =
+        entries.find((entry) => /XBRL\/PublicDoc\/.*\.xbrl$/i.test(entry.name))
+        ?? entries.find((entry) => /\.xbrl$/i.test(entry.name))
+        ?? entries.find((entry) => /honbun.*\.htm/i.test(entry.name));
+      const detail = xbrlEntry ? parseEdinetLargeHoldingXbrl(xbrlEntry.text, fallback) : {};
+      edinetDocumentCache.set(docId, detail);
+      return detail;
+    } catch {
+      return {};
+    }
+  });
+  return result ?? {};
 };
 
 export const fetchEdinetDocumentArchive = async (docId, type = "1") => {
@@ -375,6 +442,15 @@ export const fetchEdinetDocumentArchive = async (docId, type = "1") => {
 
   const normalizedType = ["1", "2", "3", "4", "5"].includes(String(type)) ? String(type) : "1";
   const cachedPdf = normalizedType === "2" ? readCachedEdinetPdf(docId) : null;
+
+  const domain = "api.edinet-fsa.go.jp";
+  if (isCircuitOpen(domain)) {
+    if (cachedPdf) return cachedPdf;
+    const error = new Error("EDINET API temporarily blocked (circuit open)");
+    error.statusCode = 503;
+    throw error;
+  }
+
   const url = edinetApiUrl(`/api/v2/documents/${encodeURIComponent(docId)}`);
   url.searchParams.set("type", normalizedType);
   setEdinetSubscriptionKey(url, apiKey);
@@ -386,6 +462,7 @@ export const fetchEdinetDocumentArchive = async (docId, type = "1") => {
     ),
   });
   if (!response.ok) {
+    if (response.status === 403) tripCircuit(domain);
     if (cachedPdf) return cachedPdf;
     const error = new Error(`EDINET document download failed: ${response.status}`);
     error.statusCode = response.status;
@@ -403,13 +480,20 @@ const fetchInfoTable = async (fund, filing) => {
   const items = await fetchFilingIndex(fund, filing);
   const infoFile = findInfoTableFile(items);
   if (!infoFile) return [];
-  const response = await fetchWithTimeout(
-    `https://www.sec.gov/Archives/edgar/data/${accessionPath(fund.cik, filing.accessionNumber)}/${infoFile.name}`,
-    9000,
-    { headers: secHeaders() }
-  );
-  if (!response.ok) return [];
-  return parseInfoTable(await response.text());
+  const domain = "www.sec.gov";
+  const result = await withCircuitBreaker(domain, async () => {
+    const response = await fetchWithTimeout(
+      `https://www.sec.gov/Archives/edgar/data/${accessionPath(fund.cik, filing.accessionNumber)}/${infoFile.name}`,
+      9000,
+      { headers: secHeaders() }
+    );
+    if (!response.ok) {
+      if (response.status === 403) tripCircuit(domain);
+      return [];
+    }
+    return parseInfoTable(await response.text());
+  });
+  return result ?? [];
 };
 
 const extractTextField = (text, patterns) => {
@@ -422,13 +506,20 @@ const extractTextField = (text, patterns) => {
 
 const fetchPrimaryText = async (fund, filing) => {
   if (!filing.primaryDocument) return "";
-  const response = await fetchWithTimeout(
-    `https://www.sec.gov/Archives/edgar/data/${accessionPath(fund.cik, filing.accessionNumber)}/${filing.primaryDocument}`,
-    8000,
-    { headers: { ...secHeaders(), Accept: "text/html, text/plain, */*" } }
-  );
-  if (!response.ok) return "";
-  return await response.text();
+  const domain = "www.sec.gov";
+  const result = await withCircuitBreaker(domain, async () => {
+    const response = await fetchWithTimeout(
+      `https://www.sec.gov/Archives/edgar/data/${accessionPath(fund.cik, filing.accessionNumber)}/${filing.primaryDocument}`,
+      8000,
+      { headers: { ...secHeaders(), Accept: "text/html, text/plain, */*" } }
+    );
+    if (!response.ok) {
+      if (response.status === 403) tripCircuit(domain);
+      return "";
+    }
+    return await response.text();
+  });
+  return result ?? "";
 };
 
 const makeFilingUrl = (fund, filing) =>
@@ -540,7 +631,9 @@ const fetchEdinetSignals = async () => {
 
   // 日付リストを作成して並列リクエスト
   const dates = Array.from({ length: maxDays }, (_, i) => daysAgo(i));
+  const edinetDomain = "api.edinet-fsa.go.jp";
   const listResults = await Promise.allSettled(dates.map(async (date) => {
+    if (isCircuitOpen(edinetDomain)) throw new Error("EDINET circuit open");
     const url = edinetApiUrl("/api/v2/documents.json");
     url.searchParams.set("date", date);
     url.searchParams.set("type", "2");
@@ -548,7 +641,10 @@ const fetchEdinetSignals = async () => {
     const response = await fetchWithTimeout(url.toString(), 6000, {
       headers: edinetHeaders(edinetApiKey),
     });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    if (!response.ok) {
+      if (response.status === 403) tripCircuit(edinetDomain);
+      throw new Error(`HTTP ${response.status}`);
+    }
     const payload = await response.json();
     return { date, results: asArray(payload?.results) };
   }));
@@ -643,26 +739,34 @@ const yahooSymbolForSignal = (signal) => {
 const fetchPriceMoveSinceReport = async (signal) => {
   const symbol = yahooSymbolForSignal(signal);
   if (!symbol || !signal.reportDate) return null;
-  const response = await fetchWithTimeout(
-    `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=1y&interval=1d`,
-    7000
-  );
-  if (!response.ok) return null;
-  const payload = await response.json();
-  const result = payload?.chart?.result?.[0];
-  const timestamps = asArray(result?.timestamp);
-  const closes = asArray(result?.indicators?.quote?.[0]?.close);
-  if (!timestamps.length || !closes.length) return null;
+  const yahooDomain = "query1.finance.yahoo.com";
+  if (isCircuitOpen(yahooDomain)) return null;
+  const result = await withCircuitBreaker(yahooDomain, async () => {
+    const response = await fetchWithTimeout(
+      `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=1y&interval=1d`,
+      7000
+    );
+    if (!response.ok) {
+      if (response.status === 403) tripCircuit(yahooDomain);
+      return null;
+    }
+    const payload = await response.json();
+    const result = payload?.chart?.result?.[0];
+    const timestamps = asArray(result?.timestamp);
+    const closes = asArray(result?.indicators?.quote?.[0]?.close);
+    if (!timestamps.length || !closes.length) return null;
 
-  const reportTime = new Date(signal.reportDate).getTime() / 1000;
-  const validRows = timestamps
-    .map((timestamp, index) => ({ timestamp, close: Number(closes[index]) }))
-    .filter((row) => Number.isFinite(row.timestamp) && Number.isFinite(row.close) && row.close > 0);
-  const reportRow = validRows.find((row) => row.timestamp >= reportTime) ?? validRows[0];
-  const latestRow = validRows.at(-1);
-  if (!reportRow || !latestRow) return null;
+    const reportTime = new Date(signal.reportDate).getTime() / 1000;
+    const validRows = timestamps
+      .map((timestamp, index) => ({ timestamp, close: Number(closes[index]) }))
+      .filter((row) => Number.isFinite(row.timestamp) && Number.isFinite(row.close) && row.close > 0);
+    const reportRow = validRows.find((row) => row.timestamp >= reportTime) ?? validRows[0];
+    const latestRow = validRows.at(-1);
+    if (!reportRow || !latestRow) return null;
 
-  return ((latestRow.close - reportRow.close) / reportRow.close) * 100;
+    return ((latestRow.close - reportRow.close) / reportRow.close) * 100;
+  });
+  return result ?? null;
 };
 
 // Vercel制限対応: 価格取得は上位12件のみ（高スコア優先）
@@ -714,7 +818,13 @@ export const fetchSmartMoneyData = async ({ force = false } = {}) => {
   // force=true であっても、前回の実データ取得（smartMoneyCache.updatedAt）から3分未満ならキャッシュを返してAPIキー/接続制限を守る
   const forceBlocked = force && smartMoneyCache.payload && (now - smartMoneyCache.updatedAt < minimumForceInterval);
 
-  if ((!force || forceBlocked) && smartMoneyCache.payload && now - smartMoneyCache.updatedAt < 10 * 60 * 1000) {
+  // サーキットブレーカーが開いている場合はキャッシュを返す（より長く）
+  const secCircuitOpen = isCircuitOpen("data.sec.gov") || isCircuitOpen("www.sec.gov");
+  const edinetCircuitOpen = isCircuitOpen("api.edinet-fsa.go.jp");
+  const anyCircuitOpen = secCircuitOpen || edinetCircuitOpen;
+
+  const cacheTtl = anyCircuitOpen ? 30 * 60 * 1000 : 10 * 60 * 1000;
+  if ((!force || forceBlocked) && smartMoneyCache.payload && now - smartMoneyCache.updatedAt < cacheTtl) {
     return smartMoneyCache.payload;
   }
 
