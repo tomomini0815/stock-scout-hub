@@ -342,7 +342,6 @@ const formatSignedPercent = (value: number) => `${value >= 0 ? "+" : ""}${value.
 const scoreSignal = (signal: FilingSignalSeed, fundList: FundSeed[] = funds) => {
   const fund = getFund(signal.fundId, fundList);
   const filingLagDays = Math.max(0, dayDiff(signal.reportDate, signal.filingDate));
-  const lagPenalty = signal.filingType === "13F" ? Math.min(24, filingLagDays * 0.45) : Math.min(10, filingLagDays * 0.9);
   const pricePenalty = Math.max(0, signal.priceMoveSinceReport - 6) * 1.6;
   const stylePenalty = fund.style === "クオンツ" ? 22 : fund.style === "イベント" ? 8 : 0;
   const conviction =
@@ -361,7 +360,6 @@ const scoreSignal = (signal: FilingSignalSeed, fundList: FundSeed[] = funds) => 
     + publicFilingBoost
     + consensusBoost
     + activistBoost
-    - lagPenalty
     - pricePenalty
     - stylePenalty
     - sellPenalty;
@@ -380,15 +378,13 @@ const scoreSignal = (signal: FilingSignalSeed, fundList: FundSeed[] = funds) => 
   const risk =
     pricePenalty >= 14
       ? "開示後急騰"
-      : lagPenalty >= 18
-        ? "遅延大"
-        : fund.readable < 60
+      : fund.readable < 60
           ? "戦略不透明"
           : signal.signalType === "縮小" || signal.signalType === "全売却"
             ? "売却系"
             : "許容";
 
-  return { fund, score, verdict, risk, filingLagDays, lagPenalty, pricePenalty };
+  return { fund, score, verdict, risk, filingLagDays, pricePenalty };
 };
 
 type ScoredSignal = FilingSignalSeed & ReturnType<typeof scoreSignal>;
@@ -577,9 +573,7 @@ const getPricingBadge = (signal: ScoredSignal) => {
 };
 
 const buildFollowScoreBreakdown = (signal: ScoredSignal) => {
-  const freshness = signal.filingType === "13F"
-    ? Math.max(0, 18 - signal.filingLagDays * 0.32)
-    : Math.max(7, 18 - signal.filingLagDays * 0.6);
+  const freshness = 18;
   const fundQuality = signal.fund.reliability * 0.16 + signal.fund.readable * 0.1;
   const conviction = Math.min(22, signal.portfolioWeight * 1.6 + Math.max(0, signal.positionChange) * 0.08);
   const notPricedIn = Math.max(0, 20 - Math.max(0, signal.priceMoveSinceReport - 1) * 1.45);
@@ -588,9 +582,7 @@ const buildFollowScoreBreakdown = (signal: ScoredSignal) => {
     (signal.signalType === "縮小" ? 16 : signal.signalType === "全売却" ? 28 : 0)
     + (signal.fund.style === "イベント" ? 4 : 0)
     + (signal.risk === "戦略不透明" ? 6 : 0);
-  const freshnessReason = signal.filingType === "13F"
-    ? `13Fは四半期末の保有情報なので、提出まで${signal.filingLagDays}日ある分だけ鮮度を下げています。次回提出で継続保有なら評価を上げます。`
-    : `大量保有系は保有目的を読みやすい一方、報告日から提出日まで${signal.filingLagDays}日あるため、遅いほど既に売買済みの可能性を差し引きます。`;
+  const freshnessReason = "開示遅延による自動減点は行いません。開示日と保有基準日の差は、一次資料を読む際の確認情報として表示しています。";
   const priceReason = signal.priceMoveSinceReport >= 12
     ? `報告日以降に${formatSignedPercent(signal.priceMoveSinceReport)}上昇しており、材料がかなり織り込まれた前提で点数を抑えています。`
     : signal.priceMoveSinceReport >= 6
@@ -1008,7 +1000,6 @@ const SmartMoneyPage = () => {
               <span className="mr-0.5 text-[9px] font-bold uppercase tracking-wide text-muted-foreground sm:mr-1 sm:text-[10px]">監視対象</span>
               <span className="whitespace-nowrap rounded bg-muted px-1.5 py-0.5 sm:px-2 sm:py-1">SEC 13F / 13D / 13G</span>
               <span className="whitespace-nowrap rounded bg-muted px-1.5 py-0.5 sm:px-2 sm:py-1">EDINET 大量保有</span>
-              <span className="whitespace-nowrap rounded bg-amber-50 px-1.5 py-0.5 text-amber-700 sm:px-2 sm:py-1">開示遅延補正</span>
             </div>
 
             <div className="flex flex-wrap items-center gap-1 text-[10px] font-bold sm:gap-1.5 sm:text-xs lg:justify-end">
@@ -1086,11 +1077,11 @@ const SmartMoneyPage = () => {
                     </div>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-1.5">
-                    <span className={`rounded border px-2 py-1 text-xs font-black ${freshness.className}`}>{freshness.label}</span>
-                    <span className={`rounded border px-2 py-1 text-xs font-black ${pricing.className}`}>{pricing.label}</span>
-                    <span className={`rounded border px-2 py-1 text-xs font-black ${verdictClass(signal.verdict)}`}>{signal.verdict}</span>
+                    <span className={`rounded border px-2 py-1 text-xs font-bold ${freshness.className}`}>{freshness.label}</span>
+                    <span className={`rounded border px-2 py-1 text-xs font-bold ${pricing.className}`}>{pricing.label}</span>
+                    <span className={`rounded border px-2 py-1 text-xs font-bold ${verdictClass(signal.verdict)}`}>{signal.verdict}</span>
                     {signal.relatedCount > 1 && (
-                      <span className="rounded border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-black text-slate-600">
+                      <span className="rounded border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-bold text-slate-600">
                         関連{signal.relatedCount}件
                       </span>
                     )}
@@ -1159,7 +1150,7 @@ const SmartMoneyPage = () => {
                     <tr key={signal.id} className="hover:bg-muted/30">
                       <td className="px-3 py-2">
                         <div className="flex flex-col items-start gap-1">
-                          <span className={`inline-flex whitespace-nowrap rounded border px-2 py-1 text-xs font-black ${verdictClass(signal.verdict)}`}>
+                          <span className={`inline-flex whitespace-nowrap rounded border px-2 py-1 text-xs font-bold ${verdictClass(signal.verdict)}`}>
                             {signal.verdict}
                           </span>
                           <button
@@ -1174,7 +1165,7 @@ const SmartMoneyPage = () => {
                             <button
                               type="button"
                               onClick={() => setViewerSignalId(signal.id)}
-                              className="inline-flex h-7 items-center gap-1 whitespace-nowrap rounded border border-emerald-200 bg-emerald-50 px-2 text-xs font-bold text-emerald-700 transition-colors hover:bg-emerald-100"
+                              className="inline-flex h-7 items-center gap-1 whitespace-nowrap rounded border border-primary/30 bg-primary/5 px-2 text-xs font-bold text-primary transition-colors hover:bg-primary hover:text-primary-foreground"
                               title="画面内でEDINET提出PDFを表示します"
                             >
                               <ExternalLink className="h-3 w-3" />
@@ -1224,7 +1215,7 @@ const SmartMoneyPage = () => {
                           </span>
                           {signal.relatedCount > 1 && (
                             <span
-                              className="rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-black text-emerald-700"
+                              className="rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700"
                               title="同じ提出者・対象銘柄・提出日の大量保有報告書、変更報告書、訂正報告書などを1行にまとめています。"
                             >
                               関連書類 {signal.relatedCount}件を集約
@@ -1239,7 +1230,7 @@ const SmartMoneyPage = () => {
                         </div>
                       </td>
                       <td className="px-3 py-2">
-                        <span className={`inline-flex whitespace-nowrap rounded border px-2 py-1 text-xs font-black ${pricing.className}`}>
+                        <span className={`inline-flex whitespace-nowrap rounded border px-2 py-1 text-xs font-bold ${pricing.className}`}>
                           {pricing.label}
                         </span>
                       </td>
@@ -1493,7 +1484,7 @@ const SmartMoneyPage = () => {
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <h3 className="text-lg font-black leading-tight text-slate-950">{selectedSignal.ticker} 調査報告書</h3>
-                  <span className={`whitespace-nowrap rounded border px-2 py-1 text-xs font-black ${verdictClass(selectedSignal.verdict)}`}>
+                  <span className={`whitespace-nowrap rounded border px-2 py-1 text-xs font-bold ${verdictClass(selectedSignal.verdict)}`}>
                     {selectedSignal.verdict}
                   </span>
                   <span className="inline-flex items-center gap-1 whitespace-nowrap rounded bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-700">
@@ -1548,7 +1539,7 @@ const SmartMoneyPage = () => {
                           大口投資家の開示をそのまま真似せず、鮮度・本気度・株価の織り込み・反証材料に分けて再評価しています。
                         </div>
                       </div>
-                      <span className={`rounded border px-2 py-1 text-xs font-black ${getPricingBadge(selectedSignal).className}`}>
+                      <span className={`rounded border px-2 py-1 text-xs font-bold ${getPricingBadge(selectedSignal).className}`}>
                         {getPricingBadge(selectedSignal).label}
                       </span>
                     </div>
@@ -1640,7 +1631,7 @@ const SmartMoneyPage = () => {
                   <section className="overflow-hidden rounded-md border border-slate-300 bg-white shadow-sm">
                     <div className="flex items-center justify-between gap-2 border-b border-slate-300 bg-slate-100 px-4 py-2">
                       <div className="text-sm font-black text-slate-950">反証理由</div>
-                      <span className={`shrink-0 rounded border px-2 py-1 text-xs font-black ${getFreshnessBadge(selectedSignal).className}`}>
+                      <span className={`shrink-0 rounded border px-2 py-1 text-xs font-bold ${getFreshnessBadge(selectedSignal).className}`}>
                         {getFreshnessBadge(selectedSignal).label}
                       </span>
                     </div>
