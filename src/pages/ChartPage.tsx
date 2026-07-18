@@ -16,13 +16,14 @@ import {
 import { marketIndices, featuredStock, nikkei225Stocks, stockUniverse, type StockData } from "@/data/stockData";
 import { useLiveStockQuotes } from "@/hooks/useLiveStockQuote";
 import { addChartWatchlistStock, CHART_WATCHLIST_UPDATED_EVENT, readChartWatchlist } from "@/lib/chartWatchlist";
-import { BarChart3, ChevronDown, Search } from "lucide-react";
+import { BarChart3, ChevronDown, Clock, Search, Star } from "lucide-react";
 
 type ChartIndexOption = { id: string; label: string; shortLabel: string; stocks: StockData[] };
 type SmartMoneySignal = {
   ticker?: string;
   company?: string;
   source?: string;
+  filingDate?: string;
 };
 
 const staticIndexOptions: ChartIndexOption[] = [
@@ -36,13 +37,20 @@ const staticIndexOptions: ChartIndexOption[] = [
 
 const QUOTE_TARGET_LIMIT = 180;
 
-const isEdinetLinkedStock = (stock: StockData & { sourceLabel?: string }) =>
-  stock.market === "EDINET検知" || /EDINET/.test(stock.sourceLabel ?? "");
+const isEdinetLinkedStock = (stock: StockData & { sourceLabel?: string }) => {
+  if (!stock) return false;
+  return (
+    (stock.market === "EDINET検知" || /EDINET/.test(stock.sourceLabel ?? "")) &&
+    stock.sourceLabel !== "追加"
+  );
+};
 
 const uniqueStocks = (stocks: StockData[]) => {
   const stocksByCode = new Map<string, StockData>();
+  if (!Array.isArray(stocks)) return [];
 
   stocks.forEach((stock) => {
+    if (!stock || !stock.code) return;
     const current = stocksByCode.get(stock.code);
     if (!current || (isEdinetLinkedStock(stock) && !isEdinetLinkedStock(current))) {
       stocksByCode.set(stock.code, stock);
@@ -54,10 +62,11 @@ const uniqueStocks = (stocks: StockData[]) => {
 
 const isDisplayableTicker = (ticker?: string) => Boolean(ticker && /^[0-9A-Z]{4}$/i.test(ticker));
 
-const convertEdinetSignalsToStocks = (signals: SmartMoneySignal[]) =>
-  uniqueStocks(
+const convertEdinetSignalsToStocks = (signals: SmartMoneySignal[]) => {
+  if (!Array.isArray(signals)) return [];
+  return uniqueStocks(
     signals
-      .filter((signal) => signal.source === "edinet" && isDisplayableTicker(signal.ticker) && signal.company && signal.company !== "対象銘柄不明")
+      .filter((signal) => signal && signal.source === "edinet" && isDisplayableTicker(signal.ticker) && signal.company && signal.company !== "対象銘柄不明")
       .map((signal) => ({
         code: String(signal.ticker).toUpperCase(),
         name: signal.company ?? "",
@@ -70,13 +79,20 @@ const convertEdinetSignalsToStocks = (signals: SmartMoneySignal[]) =>
         high: 0,
         low: 0,
         previousClose: 0,
+        addedDate: signal.filingDate,
       }))
   );
+};
 
 const matchesStockQuery = (stock: StockData, query: string) => {
+  if (!stock) return false;
   const normalized = query.trim();
   if (!normalized) return true;
-  return stock.name.includes(normalized) || stock.code.includes(normalized) || stock.market.includes(normalized);
+  return (
+    (stock.name || "").includes(normalized) ||
+    (stock.code || "").includes(normalized) ||
+    (stock.market || "").includes(normalized)
+  );
 };
 
 const getInferredSourceLabel = (code: string, selectedOptions: ChartIndexOption[]) => {
@@ -95,6 +111,7 @@ const getStockLabels = (
   edinetStocks: StockData[],
   selectedIndexOptions: ChartIndexOption[]
 ): string[] => {
+  if (!stock) return [];
   const labels: string[] = [];
 
   const isEdinet =
@@ -140,7 +157,7 @@ const getStockLabels = (
 
 const ChartPage = () => {
   const [searchParams] = useSearchParams();
-  const queryFromUrl = searchParams.get("q") ?? "";
+  const queryFromUrl = (searchParams.get("q") ?? "").toUpperCase();
   const [selectedCode, setSelectedCode] = useState(queryFromUrl || featuredStock.code);
   const [searchQuery, setSearchQuery] = useState("");
   const [watchlistStocks, setWatchlistStocks] = useState(() => readChartWatchlist());
@@ -150,7 +167,8 @@ const ChartPage = () => {
       const saved = localStorage.getItem("stock-scout-selected-indices");
       if (saved) {
         try {
-          return JSON.parse(saved) as string[];
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) return parsed;
         } catch {
           // ignore
         }
@@ -159,6 +177,7 @@ const ChartPage = () => {
     return ["watchlist"];
   });
   const [isIndexMenuOpen, setIsIndexMenuOpen] = useState(false);
+  const [expandedDates, setExpandedDates] = useState<Record<string, boolean>>({});
   const detailSectionRef = useRef<HTMLDivElement | null>(null);
   const chartSectionRef = useRef<HTMLDivElement | null>(null);
   const indexMenuRef = useRef<HTMLDivElement | null>(null);
@@ -166,13 +185,21 @@ const ChartPage = () => {
     () => watchlistStocks.filter((stock) => !isEdinetLinkedStock(stock)),
     [watchlistStocks]
   );
+  const historicalEdinetStocks = useMemo(
+    () => watchlistStocks.filter((stock) => stock && stock.market === "EDINET検知"),
+    [watchlistStocks]
+  );
+  const allEdinetStocks = useMemo(
+    () => uniqueStocks([...edinetStocks, ...historicalEdinetStocks]),
+    [edinetStocks, historicalEdinetStocks]
+  );
   const indexOptions = useMemo<ChartIndexOption[]>(
     () => [
-      { id: "watchlist", label: "追加リスト", shortLabel: "追加", stocks: watchlistDisplayStocks },
-      { id: "edinet", label: "EDINET検知", shortLabel: "EDINET", stocks: edinetStocks },
+      { id: "watchlist", label: "マイリスト", shortLabel: "マイリスト", stocks: watchlistDisplayStocks },
+      { id: "edinet", label: "EDINET検知リスト", shortLabel: "EDINET検知リスト", stocks: allEdinetStocks },
       ...staticIndexOptions,
     ],
-    [edinetStocks, watchlistDisplayStocks]
+    [allEdinetStocks, watchlistDisplayStocks]
   );
   const selectedIndexOptions = useMemo(
     () => indexOptions.filter((option) => selectedIndexIds.includes(option.id)),
@@ -185,8 +212,8 @@ const ChartPage = () => {
   // 全サイト銘柄ユニバース（選択状態によらず全指数＋stockUniverse）
   const fullStockUniverse = useMemo(() => {
     const allIndexStocks = staticIndexOptions.flatMap((opt) => opt.stocks);
-    return uniqueStocks([...stockUniverse, ...allIndexStocks, ...edinetStocks]);
-  }, [edinetStocks]);
+    return uniqueStocks([...stockUniverse, ...allIndexStocks, ...allEdinetStocks]);
+  }, [allEdinetStocks]);
 
   const mergedChartStocks = useMemo(
     () => selectedIndexStocks,
@@ -232,6 +259,7 @@ const ChartPage = () => {
     () => mergedChartStocks.map((stock) => quoteByCode.get(stock.code) ?? stock),
     [mergedChartStocks, quoteByCode]
   );
+
   // selectedCodeに対応する銘柄エントリ（見つからない場合は最低限のプレースホルダー生成）
   const selectedFromUniverse = fullStockUniverse.find((stock) => stock.code === selectedCode);
   const selectedPlaceholder: StockData = {
@@ -265,7 +293,31 @@ const ChartPage = () => {
         if (!response.ok) throw new Error("smart money unavailable");
         const payload = await response.json() as { signals?: SmartMoneySignal[] };
         if (!isActive) return;
-        setEdinetStocks(convertEdinetSignalsToStocks(payload.signals ?? []));
+        const loadedStocks = convertEdinetSignalsToStocks(payload.signals ?? []);
+        setEdinetStocks(loadedStocks);
+
+        // もしロードされたedinetStocksの中に、URLのqパラメータで指定された銘柄コードがあれば、
+        // 自動的に"edinet"インデックスを選択状態にし、さらに追加リスト（ウォッチリスト）にも追加する
+        if (queryFromUrl) {
+          const foundEdinetStock = loadedStocks.find((s) => s.code === queryFromUrl);
+          if (foundEdinetStock) {
+            // "edinet" カテゴリを選択状態にする
+            setSelectedIndexIds((prev) => {
+              const current = Array.isArray(prev) ? prev : [];
+              return current.includes("edinet") ? current : ["edinet", ...current];
+            });
+
+            // 追加リスト（ウォッチリスト）に追加する
+            addChartWatchlistStock({ ...foundEdinetStock, sourceLabel: "追加", addedDate: foundEdinetStock.addedDate });
+            setWatchlistStocks(readChartWatchlist());
+
+            // "watchlist"（追加リスト）も選択状態にする
+            setSelectedIndexIds((prev) => {
+              const current = Array.isArray(prev) ? prev : [];
+              return current.includes("watchlist") ? current : ["watchlist", ...current];
+            });
+          }
+        }
       } catch {
         if (isActive) setEdinetStocks([]);
       }
@@ -278,7 +330,7 @@ const ChartPage = () => {
       isActive = false;
       window.clearInterval(timer);
     };
-  }, []);
+  }, [queryFromUrl]);
 
   useEffect(() => {
     const updateWatchlist = () => setWatchlistStocks(readChartWatchlist());
@@ -315,9 +367,10 @@ const ChartPage = () => {
       addChartWatchlistStock({ ...found, sourceLabel: foundIndexOption?.shortLabel ?? found.market });
       setWatchlistStocks(readChartWatchlist());
       // 追加リストが選択されていなければ追加する
-      setSelectedIndexIds((prev) =>
-        prev.includes("watchlist") ? prev : ["watchlist", ...prev]
-      );
+      setSelectedIndexIds((prev) => {
+        const current = Array.isArray(prev) ? prev : [];
+        return current.includes("watchlist") ? current : ["watchlist", ...current];
+      });
     }
 
     const timer = window.setTimeout(() => {
@@ -367,6 +420,74 @@ const ChartPage = () => {
     return [...fromSelected, ...fromUniverse];
   }, [liveChartStocks, searchQuery, fullStockUniverse]);
 
+  // filteredStocksを日付でグループ化するかどうかの判定
+  // 「EDINET検知」が選択されており、検索クエリが空の場合のみグループ化する
+  const shouldGroupByDate = useMemo(() => {
+    return selectedIndexIds.includes("edinet") && !searchQuery.trim();
+  }, [selectedIndexIds, searchQuery]);
+
+  // グループ化されたデータ構造
+  const groupedEdinetStocks = useMemo(() => {
+    if (!shouldGroupByDate) return [];
+
+    const groups: Record<string, StockData[]> = {};
+    for (const stock of filteredStocks) {
+      if (!stock) continue;
+
+      if (stock.market === "EDINET検知") {
+        const date = (stock as any).addedDate || "日付不明";
+        if (!groups[date]) {
+          groups[date] = [];
+        }
+        groups[date].push(stock);
+      } else {
+        const favGroup = "マイリスト(一般)";
+        if (!groups[favGroup]) {
+          groups[favGroup] = [];
+        }
+        groups[favGroup].push(stock);
+      }
+    }
+
+    // グループをソートする（"マイリスト(一般)" は最上部、他は日付の新しい順）
+    return Object.entries(groups)
+      .map(([date, stocks]) => ({ date, stocks }))
+      .sort((a, b) => {
+        if (a.date === b.date) return 0;
+        if (a.date === "マイリスト(一般)") return -1;
+        if (b.date === "マイリスト(一般)") return 1;
+        if (a.date === "日付不明") return 1;
+        if (b.date === "日付不明") return -1;
+        return b.date.localeCompare(a.date);
+      });
+  }, [filteredStocks, shouldGroupByDate]);
+
+  // 最新の日付グループおよび「お気に入り(一般)」グループをデフォルトで開くための処理
+  useEffect(() => {
+    if (groupedEdinetStocks.length > 0) {
+      setExpandedDates((prev) => {
+        const current = prev || {};
+        let updated = { ...current };
+        let hasChanges = false;
+
+        // "マイリスト(一般)" は常にデフォルトで開く
+        if (updated["マイリスト(一般)"] === undefined) {
+          updated["マイリスト(一般)"] = true;
+          hasChanges = true;
+        }
+
+        // EDINETの最新日付グループもデフォルトで開く
+        const latestEdinetGroup = groupedEdinetStocks.find(g => g.date !== "マイリスト(一般)");
+        if (latestEdinetGroup && updated[latestEdinetGroup.date] === undefined) {
+          updated[latestEdinetGroup.date] = true;
+          hasChanges = true;
+        }
+
+        return hasChanges ? updated : current;
+      });
+    }
+  }, [groupedEdinetStocks]);
+
   // URL指定の銘柄がどのリストにも含まれない場合も選択・表示できるよう、mergedChartStocksに追加する
   const liveChartStocksWithQueryFallback = useMemo(() => {
     if (!queryFromUrl) return liveChartStocks;
@@ -400,7 +521,16 @@ const ChartPage = () => {
   };
 
   const handleSelectStock = (code: string) => {
-    setSelectedCode(code);
+    const upperCode = code.toUpperCase();
+    setSelectedCode(upperCode);
+
+    // URLクエリパラメータも同期更新
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("q") !== upperCode) {
+      params.set("q", upperCode);
+      const newUrl = window.location.pathname + '?' + params.toString();
+      window.history.replaceState(null, '', newUrl);
+    }
 
     window.setTimeout(() => {
       chartSectionRef.current?.scrollIntoView({
@@ -489,44 +619,121 @@ const ChartPage = () => {
                 </div>
               </div>
               <div className="min-h-0 flex-1 overflow-y-auto">
-                {filteredStocks.length ? filteredStocks.map((stock) => {
-                  const isUp = stock.change > 0;
-                  return (
-                    <button
-                      key={stock.code}
-                      onClick={() => handleSelectStock(stock.code)}
-                      className={`w-full border-b border-border px-3 py-2 text-left transition-colors hover:bg-muted/50 ${
-                        stock.code === selected.code ? "bg-primary/5 border-l-2 border-l-primary" : ""
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <div className="flex flex-wrap items-center gap-1">
-                            <span className="font-mono text-xxs font-semibold text-primary">{stock.code}</span>
-                            {getStockLabels(stock, watchlistStocks, edinetStocks, selectedIndexOptions).map((label) => (
-                              <span
-                                key={label}
-                                className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold leading-none text-primary"
-                              >
-                                {label}
-                              </span>
-                            ))}
-                          </div>
-                          <div className="text-xs font-medium text-foreground">{stock.name}</div>
+                {shouldGroupByDate ? (
+                  groupedEdinetStocks.length ? (
+                    groupedEdinetStocks.map((group) => {
+                      const isExpanded = !!expandedDates[group.date];
+                      return (
+                        <div key={group.date} className="border-b border-border">
+                          <button
+                            type="button"
+                            onClick={() => setExpandedDates((prev) => ({ ...prev, [group.date]: !prev[group.date] }))}
+                            className="flex w-full items-center justify-between bg-muted/40 px-3 py-1.5 text-[11px] font-bold text-slate-500 hover:bg-muted/70"
+                          >
+                            <span className="flex items-center gap-1.5">
+                              {group.date === "マイリスト(一般)" ? (
+                                <>
+                                  <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                                  {group.date} ({group.stocks.length}銘柄)
+                                </>
+                              ) : (
+                                <>
+                                  <Clock className="h-3 w-3 text-primary" />
+                                  EDINET検知リスト ({group.date}) ({group.stocks.length}銘柄)
+                                </>
+                              )}
+                            </span>
+                            <ChevronDown className={`h-3 w-3 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
+                          </button>
+                          {isExpanded && (
+                            <div className="divide-y divide-border bg-card">
+                              {group.stocks.map((stock) => {
+                                const isUp = stock.change > 0;
+                                return (
+                                  <button
+                                    key={stock.code}
+                                    onClick={() => handleSelectStock(stock.code)}
+                                    className={`w-full px-3 py-2 text-left transition-colors hover:bg-muted/50 ${
+                                      stock.code === selected?.code ? "bg-primary/5 border-l-2" : ""
+                                    }`}
+                                    style={stock.code === selected?.code ? { borderLeftColor: "hsl(var(--primary))" } : undefined}
+                                  >
+                                    <div className="flex items-center justify-between">
+                                      <div>
+                                        <div className="flex flex-wrap items-center gap-1">
+                                          <span className="font-mono text-xxs font-semibold text-primary">{stock.code}</span>
+                                          {getStockLabels(stock, watchlistStocks, edinetStocks, selectedIndexOptions).map((label) => (
+                                            <span
+                                              key={label}
+                                              className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold leading-none text-primary"
+                                            >
+                                              {label}
+                                            </span>
+                                          ))}
+                                        </div>
+                                        <div className="text-xs font-medium text-foreground">{stock.name}</div>
+                                      </div>
+                                      <div className="text-right">
+                                        <div className="text-xs font-bold tabular-nums">{stock.price.toLocaleString()}</div>
+                                        <div className={`text-xxs tabular-nums font-semibold ${isUp ? "text-stock-up" : "text-stock-down"}`}>
+                                          {isUp ? "+" : ""}{stock.changePercent.toFixed(2)}%
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
                         </div>
-                        <div className="text-right">
-                          <div className="text-xs font-bold tabular-nums">{stock.price.toLocaleString()}</div>
-                          <div className={`text-xxs tabular-nums font-semibold ${isUp ? "text-stock-up" : "text-stock-down"}`}>
-                            {isUp ? "+" : ""}{stock.changePercent.toFixed(2)}%
+                      );
+                    })
+                  ) : (
+                    <div className="px-3 py-8 text-center text-xs font-semibold leading-relaxed text-muted-foreground">
+                      EDINET検知データがありません。
+                    </div>
+                  )
+                ) : (
+                  filteredStocks.length ? filteredStocks.map((stock) => {
+                    const isUp = stock.change > 0;
+                    return (
+                      <button
+                        key={stock.code}
+                        onClick={() => handleSelectStock(stock.code)}
+                        className={`w-full border-b border-border px-3 py-2 text-left transition-colors hover:bg-muted/50 ${
+                          stock.code === selected?.code ? "bg-primary/5 border-l-2" : ""
+                        }`}
+                        style={stock.code === selected?.code ? { borderLeftColor: "hsl(var(--primary))" } : undefined}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="flex flex-wrap items-center gap-1">
+                              <span className="font-mono text-xxs font-semibold text-primary">{stock.code}</span>
+                              {getStockLabels(stock, watchlistStocks, edinetStocks, selectedIndexOptions).map((label) => (
+                                <span
+                                  key={label}
+                                  className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold leading-none text-primary"
+                                >
+                                  {label}
+                                </span>
+                              ))}
+                            </div>
+                            <div className="text-xs font-medium text-foreground">{stock.name}</div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-xs font-bold tabular-nums">{stock.price.toLocaleString()}</div>
+                            <div className={`text-xxs tabular-nums font-semibold ${isUp ? "text-stock-up" : "text-stock-down"}`}>
+                              {isUp ? "+" : ""}{stock.changePercent.toFixed(2)}%
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </button>
-                  );
-                }) : (
-                  <div className="px-3 py-8 text-center text-xs font-semibold leading-relaxed text-muted-foreground">
-                    追加リスト、EDINET検知、または指数を選択するか、検索条件を変更してください。
-                  </div>
+                      </button>
+                    );
+                  }) : (
+                    <div className="px-3 py-8 text-center text-xs font-semibold leading-relaxed text-muted-foreground">
+                      マイリスト、EDINET検知リスト、または指数を選択するか、検索条件を変更してください。
+                    </div>
+                  )
                 )}
               </div>
             </div>
@@ -535,21 +742,21 @@ const ChartPage = () => {
           {/* Chart area */}
           <div ref={chartSectionRef} className="scroll-mt-24 lg:col-span-3">
             <RealStockChart
-              code={selected.code}
-              name={selected.name}
-              chartSymbol={`TSE:${selected.code}`}
-              chartApiSymbol={`${selected.code}.T`}
-              currentPrice={selected.price}
+              code={selected?.code || ""}
+              name={selected?.name || ""}
+              chartSymbol={`TSE:${selected?.code || ""}`}
+              chartApiSymbol={`${selected?.code || ""}.T`}
+              currentPrice={selected?.price || 0}
               currentPriceUpdatedAt={liveChartUpdatedAt}
             />
 
             <div className="mt-3 grid grid-cols-3 gap-2 md:grid-cols-5 md:gap-3">
               {[
-                { label: "始値", value: selected.open.toLocaleString() },
-                { label: "高値", value: selected.high.toLocaleString() },
-                { label: "安値", value: selected.low.toLocaleString() },
-                { label: "前日終値", value: selected.previousClose.toLocaleString() },
-                { label: "出来高", value: selected.volume.toLocaleString() + "株" },
+                { label: "始値", value: selected?.open?.toLocaleString() || "0" },
+                { label: "高値", value: selected?.high?.toLocaleString() || "0" },
+                { label: "安値", value: selected?.low?.toLocaleString() || "0" },
+                { label: "前日終値", value: selected?.previousClose?.toLocaleString() || "0" },
+                { label: "出来高", value: (selected?.volume?.toLocaleString() || "0") + "株" },
               ].map((item) => (
                 <div key={item.label} className="min-w-0 rounded border border-border bg-card p-2 text-center">
                   <div className="text-xxs text-muted-foreground">{item.label}</div>
@@ -559,11 +766,11 @@ const ChartPage = () => {
             </div>
 
             <div ref={detailSectionRef} className="mt-3 scroll-mt-24">
-              <StockDetailPanel stock={selected} />
+              <StockDetailPanel stock={selected || featuredStock} />
             </div>
 
             <div className="mt-3">
-              <TradingViewPanel stock={selected} />
+              <TradingViewPanel stock={selected || featuredStock} />
             </div>
           </div>
         </div>

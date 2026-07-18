@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   Activity,
   AlertTriangle,
@@ -452,6 +453,7 @@ const addEdinetSignalsToChartSearch = (signals: FilingSignalSeed[]) => {
       low: 0,
       previousClose: 0,
       sourceLabel: "EDINET検知",
+      addedDate: signal.filingDate,
     });
   }
 };
@@ -1128,17 +1130,17 @@ const SmartMoneyPage = () => {
               <table className="w-full min-w-[1390px] table-fixed text-xs">
               <thead className="sticky top-0 z-10 whitespace-nowrap bg-muted text-xs text-slate-600 shadow-sm">
                 <tr>
-                  <th className="w-[130px] px-3 py-2 text-left">判定/調査関連</th>
-                  <th className="w-[190px] px-3 py-2 text-left">ファンド</th>
-                  <th className="w-[250px] px-3 py-2 text-left">対象銘柄 / 提出者</th>
-                  <th className="w-[92px] px-3 py-2 text-right">追随価値</th>
-                  <th className="w-[120px] px-3 py-2 text-left">織り込み</th>
-                  <th className="w-[80px] px-3 py-2 text-right">比率</th>
-                  <th className="w-[80px] px-3 py-2 text-right">変化</th>
-                  <th className="w-[70px] px-3 py-2 text-right">遅延</th>
-                  <th className="w-[84px] px-3 py-2 text-right">開示後</th>
-                  <th className="w-[250px] px-3 py-2 text-left">反証</th>
-                  <th className="w-[250px] px-3 py-2 text-left">次アクション</th>
+                  <th className="w-[130px] px-3 py-2 text-left">判定 / アクション</th>
+                  <th className="w-[190px] px-3 py-2 text-left">大口ファンド</th>
+                  <th className="w-[250px] px-3 py-2 text-left">投資先銘柄 / 提出者</th>
+                  <th className="w-[92px] px-3 py-2 text-right">注目スコア</th>
+                  <th className="w-[120px] px-3 py-2 text-left">織り込み状況</th>
+                  <th className="w-[80px] px-3 py-2 text-right">保有比率</th>
+                  <th className="w-[80px] px-3 py-2 text-right">保有増減</th>
+                  <th className="w-[70px] px-3 py-2 text-right">報告遅延（日数）</th>
+                  <th className="w-[84px] px-3 py-2 text-right">開示後値動き</th>
+                  <th className="w-[250px] px-3 py-2 text-left">警戒シグナル（反証）</th>
+                  <th className="w-[250px] px-3 py-2 text-left">次の調査アクション</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -1161,6 +1163,16 @@ const SmartMoneyPage = () => {
                             <BookOpenText className="h-3 w-3" />
                             詳細
                           </button>
+                          {signal.source === "edinet" && hasDisplayTicker(signal) && (
+                            <Link
+                              to={`/chart?q=${signal.ticker}`}
+                              className="inline-flex h-7 items-center gap-1 whitespace-nowrap rounded border border-primary/30 bg-primary/5 px-2 text-xs font-bold text-primary transition-colors hover:bg-primary hover:text-primary-foreground"
+                              title="この銘柄の株価チャートを表示します"
+                            >
+                              <TrendingUp className="h-3 w-3" />
+                              チャート
+                            </Link>
+                          )}
                           {sourceUrl && signal.source === "edinet" && (
                             <button
                               type="button"
@@ -1177,7 +1189,7 @@ const SmartMoneyPage = () => {
                               href={sourceUrl}
                               target="_blank"
                               rel="noreferrer"
-                              className="inline-flex h-7 items-center gap-1 whitespace-nowrap rounded border border-emerald-200 bg-emerald-50 px-2 text-xs font-bold text-emerald-700 transition-colors hover:bg-emerald-100"
+                              className="inline-flex h-7 items-center gap-1 whitespace-nowrap rounded border border-primary/30 bg-primary/5 px-2 text-xs font-bold text-primary transition-colors hover:bg-primary hover:text-primary-foreground"
                               title="実際の提出書類を開きます"
                             >
                               <ExternalLink className="h-3 w-3" />
@@ -1652,6 +1664,23 @@ const SmartMoneyPage = () => {
                   <section className="overflow-hidden rounded-md border border-slate-300 bg-white shadow-sm">
                     <div className="border-b border-slate-300 bg-slate-100 px-4 py-2 text-sm font-black text-slate-950">公式提出書類</div>
                     <div className="divide-y divide-slate-200">
+                      {selectedSignal.source === "edinet" && hasDisplayTicker(selectedSignal) && (
+                        <Link
+                          to={`/chart?q=${selectedSignal.ticker}`}
+                          className="block w-full bg-primary/5 px-4 py-3 text-left transition-colors hover:bg-primary/10"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-sm font-black text-primary flex items-center gap-1">
+                              <TrendingUp className="h-4 w-4" />
+                              株価チャートを見る
+                            </span>
+                            <span className="whitespace-nowrap rounded bg-white border border-primary/20 px-1.5 py-0.5 text-xs font-bold text-primary">連携</span>
+                          </div>
+                          <p className="mt-1 text-xs font-semibold leading-relaxed text-slate-600">
+                            この銘柄（{selectedSignal.ticker}）の対話型株価チャートを開きます。
+                          </p>
+                        </Link>
+                      )}
                       {getSignalSourceUrl(selectedSignal) && selectedSignal.source === "edinet" && (
                         <button
                           type="button"

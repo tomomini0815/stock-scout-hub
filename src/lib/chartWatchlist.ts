@@ -5,6 +5,7 @@ export const CHART_WATCHLIST_UPDATED_EVENT = "stock-scout-chart-watchlist-update
 
 export type ChartWatchlistStock = StockData & {
   sourceLabel?: string;
+  addedDate?: string;
 };
 
 const toNumber = (value: unknown) => {
@@ -25,6 +26,7 @@ const normalizeStock = (stock: ChartWatchlistStock): ChartWatchlistStock => ({
   low: toNumber(stock.low),
   previousClose: toNumber(stock.previousClose),
   ...(stock.sourceLabel ? { sourceLabel: stock.sourceLabel } : {}),
+  ...(stock.addedDate ? { addedDate: stock.addedDate } : {}),
 });
 
 const isStockData = (value: unknown): value is ChartWatchlistStock => {
@@ -66,9 +68,14 @@ export const writeChartWatchlist = (stocks: ChartWatchlistStock[]) => {
 
 export const addChartWatchlistStock = (stock: ChartWatchlistStock) => {
   const current = readChartWatchlist();
-  if (current.some((item) => item.code === stock.code)) return current;
+  const normalized = normalizeStock(stock);
 
-  const nextStocks = [normalizeStock(stock), ...current];
+  // すでに存在する場合（自動保存のEDINET検知など）でも、
+  // 手動追加のアクションによって上書き・最上部へ移動させるために、
+  // 一旦古いレコードを除去して、先頭に最新情報（新しい sourceLabel や addedDate）を挿入する
+  const filtered = current.filter((item) => item.code !== normalized.code);
+  const nextStocks = [normalized, ...filtered];
+
   writeChartWatchlist(nextStocks);
   return nextStocks;
 };
