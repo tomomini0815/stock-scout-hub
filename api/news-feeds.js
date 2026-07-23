@@ -8,6 +8,8 @@
  */
 import { fetchWithTimeout, isCircuitOpen, tripCircuit, resolveCircuit } from "./_shared/market.js";
 
+const BROWSER_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
+
 const getJstDateKey = () =>
   new Intl.DateTimeFormat("sv-SE", {
     timeZone: "Asia/Tokyo",
@@ -34,7 +36,7 @@ const handleGoogleNews = async (requestUrl, res) => {
   }
 
   const response = await fetchWithTimeout(targetUrl.toString(), 5500, {
-    headers: { "User-Agent": "stock-scout-hub/1.0" },
+    headers: { "User-Agent": BROWSER_USER_AGENT },
   });
   if (!response.ok) {
     if (response.status === 403) tripCircuit(targetUrl.toString());
@@ -56,7 +58,7 @@ const handleYahooRss = async (_requestUrl, res) => {
     return;
   }
   const response = await fetchWithTimeout(yahooUrl, 5500, {
-    headers: { "User-Agent": "stock-scout-hub/1.0" },
+    headers: { "User-Agent": BROWSER_USER_AGENT },
   });
   if (!response.ok) {
     if (response.status === 403) tripCircuit(yahooUrl);
@@ -87,7 +89,7 @@ const handleGdelt = async (requestUrl, res) => {
   }
 
   const response = await fetchWithTimeout(targetUrl.toString(), 5500, {
-    headers: { "User-Agent": "stock-scout-hub/1.0" },
+    headers: { "User-Agent": BROWSER_USER_AGENT },
   });
   if (!response.ok && (response.status === 403 || response.status === 401)) {
     tripCircuit(targetUrl.toString());
@@ -116,7 +118,7 @@ const handleTdnet = async (requestUrl, res) => {
     return;
   }
   const response = await fetch(tdnetUrl, {
-    headers: { "User-Agent": "stock-scout-hub/1.0" },
+    headers: { "User-Agent": BROWSER_USER_AGENT },
   });
   if (!response.ok) {
     if (response.status === 403) tripCircuit(tdnetUrl);

@@ -30,11 +30,17 @@ export const marketFallbackIndices = [
 
 const marketDisplayOrder = marketFallbackIndices.map((item) => item.name);
 
+const BROWSER_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
+
 export const fetchWithTimeout = async (url, timeoutMs = 4500, init = {}) => {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  const headers = {
+    "User-Agent": BROWSER_USER_AGENT,
+    ...(init.headers || {}),
+  };
   try {
-    return await fetch(url, { ...init, signal: controller.signal });
+    return await fetch(url, { ...init, headers, signal: controller.signal });
   } finally {
     clearTimeout(timeout);
   }
