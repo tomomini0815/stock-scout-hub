@@ -145,8 +145,8 @@ export const officialStockMetricsMaster: Record<string, Partial<StockDetailedMet
   "6920": { per: 28.5, pbr: 14.2, dividendYield: 1.20, roe: 52.0, equityRatio: 51.5, creditRatio: 2.8, marketCap: 2_400_000_000_000 },  // レーザーテック
   "6146": { per: 35.2, pbr: 8.50, dividendYield: 1.15, roe: 26.5, equityRatio: 75.2, creditRatio: 1.4, marketCap: 5_800_000_000_000 },  // ディスコ
   "6501": { per: 21.5, pbr: 2.40, dividendYield: 1.25, roe: 12.8, equityRatio: 38.5, creditRatio: 1.5, marketCap: 15_500_000_000_000 }, // 日立製作所
-  "6503": { per: 17.5, pbr: 1.65, dividendYield: 2.10, roe: 10.2, equityRatio: 48.0, creditRatio: 1.7, marketCap: 4_800_000_000_000 },  // 三菱電機
   "6723": { per: 15.2, pbr: 1.95, dividendYield: 0.00, roe: 14.0, equityRatio: 55.0, creditRatio: 2.5, marketCap: 5_900_000_000_000 },  // ルネサス
+  "285A": { per: null, pbr: 8.98, dividendYield: 0.00, roe: 39.5, equityRatio: 37.9, creditRatio: 1.5, marketCap: 2_500_000_000_000 },  // キオクシアHD (予想PERは会社非開示、無配方針、実績値のみ)
   // 金融・商社
   "8306": { per: 11.2, pbr: 0.88, dividendYield: 3.35, roe: 8.4, equityRatio: 4.8, creditRatio: 2.6, marketCap: 20_500_000_000_000 },  // 三菱UFJ
   "8316": { per: 11.5, pbr: 0.82, dividendYield: 3.40, roe: 7.9, equityRatio: 4.6, creditRatio: 2.4, marketCap: 14_000_000_000_000 },  // 三井住友

@@ -403,69 +403,71 @@ export const StockHealthCheck = ({
                     </span>
                   </div>
 
-                  {/* 予想PER（データがある場合のみ掲載） */}
-                  {report.metrics.per !== "―" && (
-                    <div className="rounded-md border border-border/60 bg-muted/20 p-1.5 sm:p-2">
-                      <span className="text-muted-foreground text-xxs block font-sans">予想PER</span>
-                      <span className="text-sm font-bold text-foreground">{report.metrics.per}</span>
-                      <span className="text-xxs text-muted-foreground block truncate">
-                        {parseFloat(report.metrics.per) <= 12 ? "割安水準" : parseFloat(report.metrics.per) >= 28 ? "高成長期待" : "適正水準"}
-                      </span>
-                    </div>
-                  )}
+                  {/* 予想PER */}
+                  <div className="rounded-md border border-border/60 bg-muted/20 p-1.5 sm:p-2">
+                    <span className="text-muted-foreground text-xxs block font-sans">予想PER</span>
+                    <span className="text-sm font-bold text-foreground">{report.metrics.per}</span>
+                    <span className="text-xxs text-muted-foreground block truncate">
+                      {report.metrics.per !== "―"
+                        ? (parseFloat(report.metrics.per) <= 12 ? "割安水準" : parseFloat(report.metrics.per) >= 28 ? "高成長期待" : "適正水準")
+                        : "会社予想非開示"}
+                    </span>
+                  </div>
 
-                  {/* 実績PBR（データがある場合のみ掲載） */}
-                  {report.metrics.pbr !== "―" && (
-                    <div className="rounded-md border border-border/60 bg-muted/20 p-1.5 sm:p-2">
-                      <span className="text-muted-foreground text-xxs block font-sans">実績PBR</span>
-                      <span className="text-sm font-bold text-foreground">{report.metrics.pbr}</span>
-                      <span className="text-xxs text-muted-foreground block truncate">
-                        {parseFloat(report.metrics.pbr) <= 1.0 ? "1倍割れ改善" : "適正水準"}
-                      </span>
-                    </div>
-                  )}
+                  {/* 実績PBR */}
+                  <div className="rounded-md border border-border/60 bg-muted/20 p-1.5 sm:p-2">
+                    <span className="text-muted-foreground text-xxs block font-sans">実績PBR</span>
+                    <span className="text-sm font-bold text-foreground">{report.metrics.pbr}</span>
+                    <span className="text-xxs text-muted-foreground block truncate">
+                      {report.metrics.pbr !== "―"
+                        ? (parseFloat(report.metrics.pbr) <= 1.0 ? "1倍割れ改善" : "適正水準")
+                        : "算出不可"}
+                    </span>
+                  </div>
 
-                  {/* 予想配当利回り（データがある場合のみ掲載） */}
-                  {report.metrics.dividendYield !== "―" && (
-                    <div className="rounded-md border border-border/60 bg-muted/20 p-1.5 sm:p-2">
-                      <span className="text-muted-foreground text-xxs block font-sans">予想配当利回り</span>
-                      <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">{report.metrics.dividendYield}</span>
-                      <span className="text-xxs text-muted-foreground block truncate">
-                        {parseFloat(report.metrics.dividendYield) >= 3.5 ? "高配当枠" : "配当還元"}
-                      </span>
-                    </div>
-                  )}
+                  {/* 予想配当利回り */}
+                  <div className="rounded-md border border-border/60 bg-muted/20 p-1.5 sm:p-2">
+                    <span className="text-muted-foreground text-xxs block font-sans">予想配当利回り</span>
+                    <span className={`text-sm font-bold ${report.metrics.dividendYield !== "―" && parseFloat(report.metrics.dividendYield) > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-foreground"}`}>
+                      {report.metrics.dividendYield}
+                    </span>
+                    <span className="text-xxs text-muted-foreground block truncate">
+                      {report.metrics.dividendYield !== "―"
+                        ? (parseFloat(report.metrics.dividendYield) >= 3.5 ? "高配当枠" : parseFloat(report.metrics.dividendYield) > 0 ? "配当還元" : "無配方針")
+                        : "未定・非開示"}
+                    </span>
+                  </div>
 
-                  {/* ROE（データがある場合のみ掲載） */}
-                  {report.metrics.roe !== "―" && (
-                    <div className="rounded-md border border-border/60 bg-muted/20 p-1.5 sm:p-2">
-                      <span className="text-muted-foreground text-xxs block font-sans">ROE (自己資本利益率)</span>
-                      <span className="text-sm font-bold text-foreground">{report.metrics.roe}</span>
-                      <span className="text-xxs text-muted-foreground block truncate">
-                        {parseFloat(report.metrics.roe) >= 10 ? "資本効率◎" : "改善余地"}
-                      </span>
-                    </div>
-                  )}
+                  {/* ROE */}
+                  <div className="rounded-md border border-border/60 bg-muted/20 p-1.5 sm:p-2">
+                    <span className="text-muted-foreground text-xxs block font-sans">ROE (自己資本利益率)</span>
+                    <span className="text-sm font-bold text-foreground">{report.metrics.roe}</span>
+                    <span className="text-xxs text-muted-foreground block truncate">
+                      {report.metrics.roe !== "―"
+                        ? (parseFloat(report.metrics.roe) >= 10 ? "資本効率◎" : "改善余地")
+                        : "未算出"}
+                    </span>
+                  </div>
 
-                  {/* 自己資本比率（データがある場合のみ掲載） */}
-                  {report.metrics.equityRatio !== "―" && (
-                    <div className="rounded-md border border-border/60 bg-muted/20 p-1.5 sm:p-2">
-                      <span className="text-muted-foreground text-xxs block font-sans">自己資本比率</span>
-                      <span className="text-sm font-bold text-foreground">{report.metrics.equityRatio}</span>
-                      <span className="text-xxs text-muted-foreground block truncate">財務健全性</span>
-                    </div>
-                  )}
+                  {/* 自己資本比率 */}
+                  <div className="rounded-md border border-border/60 bg-muted/20 p-1.5 sm:p-2">
+                    <span className="text-muted-foreground text-xxs block font-sans">自己資本比率</span>
+                    <span className="text-sm font-bold text-foreground">{report.metrics.equityRatio}</span>
+                    <span className="text-xxs text-muted-foreground block truncate">
+                      {report.metrics.equityRatio !== "―" ? "財務健全性" : "未算出"}
+                    </span>
+                  </div>
 
-                  {/* 信用倍率（データがある場合のみ掲載） */}
-                  {report.metrics.creditRatio !== "―" && (
-                    <div className="rounded-md border border-border/60 bg-muted/20 p-1.5 sm:p-2">
-                      <span className="text-muted-foreground text-xxs block font-sans">信用倍率</span>
-                      <span className="text-sm font-bold text-foreground">{report.metrics.creditRatio}</span>
-                      <span className="text-xxs text-muted-foreground block truncate">
-                        {parseFloat(report.metrics.creditRatio) <= 2.5 ? "上値軽い" : "要警戒"}
-                      </span>
-                    </div>
-                  )}
+                  {/* 信用倍率 */}
+                  <div className="rounded-md border border-border/60 bg-muted/20 p-1.5 sm:p-2">
+                    <span className="text-muted-foreground text-xxs block font-sans">信用倍率</span>
+                    <span className="text-sm font-bold text-foreground">{report.metrics.creditRatio}</span>
+                    <span className="text-xxs text-muted-foreground block truncate">
+                      {report.metrics.creditRatio !== "―"
+                        ? (parseFloat(report.metrics.creditRatio) <= 2.5 ? "上値軽い" : "要警戒")
+                        : "未算出"}
+                    </span>
+                  </div>
                 </div>
               )}
             </div>
