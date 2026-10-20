@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import { Activity } from "lucide-react";
 import { type StockData } from "@/data/stockData";
 import { getStockProfile, hasManualProfile } from "@/data/stockProfiles";
 import { useLiveStockQuote } from "@/hooks/useLiveStockQuote";
@@ -507,7 +509,17 @@ const StockDetailPanel = ({ stock }: StockDetailPanelProps) => {
           setSmartMoneySignals(payload.signals);
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        try {
+          const cached = localStorage.getItem("stock-scout-smart-money-cache");
+          if (cached) {
+            const payload = JSON.parse(cached);
+            if (payload && Array.isArray(payload.signals)) {
+              setSmartMoneySignals(payload.signals);
+            }
+          }
+        } catch {}
+      });
   }, []);
 
   // 現在表示されている銘柄に一致する大量保有報告(EDINET)を検出
@@ -620,7 +632,8 @@ const StockDetailPanel = ({ stock }: StockDetailPanelProps) => {
     const controller = new AbortController();
     setMetricsState({ status: "loading" });
 
-    fetch(`/api/stock-metrics?symbol=${encodeURIComponent(`${displayStock.code}.T`)}`, {
+    const symbol = `${displayStock.code}.T`;
+    fetch(`/api/stock-metrics?symbol=${encodeURIComponent(symbol)}`, {
       signal: controller.signal,
     })
       .then((response) => {
@@ -631,9 +644,20 @@ const StockDetailPanel = ({ stock }: StockDetailPanelProps) => {
         const nextMetrics = payload.metrics as StockMetrics | undefined;
         if (!nextMetrics) throw new Error("metrics unavailable");
         setMetricsState({ status: "ready", metrics: nextMetrics });
+        try {
+          localStorage.setItem(`stock-scout-metrics-cache-${symbol}`, JSON.stringify(nextMetrics));
+        } catch {}
       })
       .catch((error) => {
         if (error?.name === "AbortError") return;
+        try {
+          const cached = localStorage.getItem(`stock-scout-metrics-cache-${symbol}`);
+          if (cached) {
+            const cachedMetrics = JSON.parse(cached) as StockMetrics;
+            setMetricsState({ status: "ready", metrics: cachedMetrics });
+            return;
+          }
+        } catch {}
         setMetricsState({ status: "error" });
       });
 
@@ -653,10 +677,20 @@ const StockDetailPanel = ({ stock }: StockDetailPanelProps) => {
             </div>
             <span className="text-xxs text-muted-foreground">{displayStock.market}</span>
           </div>
-          <div className="flex flex-col items-end gap-1 text-xxs font-semibold text-muted-foreground">
-            <span className="rounded bg-muted px-1.5 py-0.5 text-muted-foreground">
-              {updatedLabel ? `更新 ${updatedLabel}` : status === "loading" ? "取得中" : "更新確認中"}
-            </span>
+          <div className="flex items-center gap-2">
+            <Link
+              to={`/advisor?tab=health&code=${encodeURIComponent(displayStock.code)}`}
+              className="inline-flex items-center gap-1 rounded border border-border bg-card px-2 py-1 text-xxs font-bold text-foreground transition-colors hover:border-primary hover:bg-muted"
+              title={`${displayStock.code} ${displayStock.name} の銘柄カルテを開く`}
+            >
+              <Activity className="h-3 w-3 text-blue-500" />
+              <span>銘柄カルテを開く</span>
+            </Link>
+            <div className="flex flex-col items-end gap-1 text-xxs font-semibold text-muted-foreground">
+              <span className="rounded bg-muted px-1.5 py-0.5 text-muted-foreground">
+                {updatedLabel ? `更新 ${updatedLabel}` : status === "loading" ? "取得中" : "更新確認中"}
+              </span>
+            </div>
           </div>
         </div>
       </div>

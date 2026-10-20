@@ -15,6 +15,8 @@ interface MarketDataPayload {
   source?: "live" | "cache" | "fallback";
 }
 
+const isGitHubPages = typeof window !== "undefined" && window.location.hostname.includes("github.io");
+
 const isValidIndex = (item: MarketIndex) =>
   item.name &&
   Number.isFinite(item.value) &&
@@ -22,6 +24,7 @@ const isValidIndex = (item: MarketIndex) =>
   Number.isFinite(item.changePercent);
 
 const fetchLiveMarketData = async (): Promise<Required<MarketDataPayload>> => {
+  if (isGitHubPages) throw new Error("GitHub Pages environment: skip API fetch");
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), 7000);
   const response = await fetch("/api/market-data", {

@@ -15,6 +15,8 @@ interface UseLiveNewsSearchOptions {
   cacheMs?: number;
 }
 
+const isGitHubPages = typeof window !== "undefined" && window.location.hostname.includes("github.io");
+
 interface GdeltArticle {
   url?: string;
   title?: string;
@@ -201,6 +203,10 @@ export const useLiveNewsSearch = ({
     const timeout = window.setTimeout(() => controller.abort(), 10000);
 
     const loadNews = async () => {
+      if (isGitHubPages) {
+        setStatus((current) => (current === "cached" ? "cached" : "fallback"));
+        return;
+      }
       try {
         setStatus("loading");
         const fetchText = async (url: string) => {

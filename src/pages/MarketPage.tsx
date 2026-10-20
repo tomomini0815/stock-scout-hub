@@ -846,17 +846,17 @@ const MarketPage = () => {
       <SiteHeader activeTab="市況・スクリーニング" />
       <MarketTicker indices={marketIndices} />
 
-      <main className="container mx-auto flex flex-col px-4 py-3">
-        <h2 className="order-1 mb-3 flex items-center gap-2 text-sm font-bold text-foreground">
+      <main className="container mx-auto px-4 py-3">
+        <h2 className="mb-3 flex items-center gap-2 text-sm font-bold text-foreground">
           <Globe className="h-4 w-4 text-primary" />
           市況概況
         </h2>
 
-        <div className="order-2 mb-3">
+        <div className="mb-3">
           <MarketOverview indices={marketIndices} detailed />
         </div>
 
-        <div className="order-4 mb-3">
+        <div className="mb-3">
           <RealStockChart
             code="N225"
             name="日経平均株価"
@@ -868,7 +868,7 @@ const MarketPage = () => {
           />
         </div>
 
-        <div className="order-5 mb-3">
+        <div className="mb-3">
           <div className="rounded border border-border bg-card">
             <div className="flex items-center justify-between gap-2 border-b border-border bg-table-header-bg px-3 py-1.5">
               <h3 className="flex items-center gap-1 text-xs font-bold text-foreground">
@@ -911,7 +911,7 @@ const MarketPage = () => {
           </div>
         </div>
 
-        <div className="order-3 mb-3">
+        <div className="mb-3">
           <div className="rounded border border-border bg-card">
             <div className="border-b border-border bg-table-header-bg px-3 py-2">
               <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
@@ -1187,7 +1187,7 @@ const MarketPage = () => {
           </div>
         </div>
         {japaneseIndexSections.map((config) => (
-          <div key={config.id} className="order-3 mb-3">
+          <div key={config.id} className="mb-3">
             <IndexConstituentSection
               config={config}
               chartWatchlistCodes={chartWatchlistCodes}

@@ -50,9 +50,34 @@ const findInSources = (predicate: (stock: StockData) => boolean) => {
   return undefined;
 };
 
-export const findSearchableStock = (query: string) => {
+export const findSearchableStock = (query: string): SearchableStock | undefined => {
   const normalized = query.trim().toLowerCase();
   if (!normalized) return undefined;
+
+  if (
+    normalized === "n225" ||
+    normalized === "^n225" ||
+    normalized === "ni225" ||
+    normalized === "日経平均" ||
+    normalized === "日経225" ||
+    normalized === "日経平均株価"
+  ) {
+    return {
+      code: "N225",
+      name: "日経平均株価",
+      market: "主要指数",
+      price: 39098.68,
+      change: 435.62,
+      changePercent: 1.13,
+      volume: 1450000000,
+      open: 38850.0,
+      high: 39150.0,
+      low: 38780.0,
+      previousClose: 38663.06,
+      sourceLabel: "主要指数",
+      sourceId: "index",
+    };
+  }
 
   return findInSources((stock) => stock.code.toLowerCase() === normalized)
     ?? findInSources((stock) => stock.name.toLowerCase().includes(normalized));

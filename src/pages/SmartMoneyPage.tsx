@@ -836,6 +836,7 @@ const SmartMoneyPage = () => {
     updatedAt: new Date().toISOString(),
   });
   const [smartMoneyStatus, setSmartMoneyStatus] = useState<"loading" | "live" | "fallback" | "error">("loading");
+  const [isUsingCache, setIsUsingCache] = useState(false);
 
   useEffect(() => {
     let isActive = true;
@@ -856,10 +857,43 @@ const SmartMoneyPage = () => {
         });
         setAutoRefreshedAt(new Date(payload.updatedAt ?? Date.now()));
         setSmartMoneyStatus(payload.source === "live" ? "live" : "fallback");
+        setIsUsingCache(false);
+
+        // 成功データをローカルキャッシュに保存
+        try {
+          localStorage.setItem("stock-scout-smart-money-cache", JSON.stringify(payload));
+        } catch (e) {
+          console.error("Failed to save smart money cache", e);
+        }
       } catch {
         if (!isActive) return;
-        setSmartMoneyStatus("error");
-        setAutoRefreshedAt(new Date());
+        // キャッシュデータの読み込み試行
+        let fallbackData: SmartMoneyPayload | null = null;
+        try {
+          const cached = localStorage.getItem("stock-scout-smart-money-cache");
+          if (cached) {
+            fallbackData = JSON.parse(cached) as SmartMoneyPayload;
+          }
+        } catch (e) {
+          console.error("Failed to parse cached smart money", e);
+        }
+
+        if (fallbackData) {
+          setSmartMoneyData({
+            funds: fallbackData.funds?.length ? fallbackData.funds : funds,
+            signals: fallbackData.signals?.length ? fallbackData.signals : signalSeeds,
+            source: "fallback",
+            sourceStatus: { sec: "エラー（キャッシュ表示）", edinet: "エラー（キャッシュ表示）", price: "partial" },
+            updatedAt: fallbackData.updatedAt ?? new Date().toISOString(),
+          });
+          setAutoRefreshedAt(new Date(fallbackData.updatedAt ?? Date.now()));
+          setSmartMoneyStatus("fallback");
+          setIsUsingCache(true);
+        } else {
+          setSmartMoneyStatus("error");
+          setAutoRefreshedAt(new Date());
+          setIsUsingCache(false);
+        }
       }
     };
 
@@ -916,9 +950,42 @@ const SmartMoneyPage = () => {
       });
       setAutoRefreshedAt(new Date(payload.updatedAt ?? Date.now()));
       setSmartMoneyStatus(payload.source === "live" ? "live" : "fallback");
+      setIsUsingCache(false);
+
+      // 成功データをローカルキャッシュに保存
+      try {
+        localStorage.setItem("stock-scout-smart-money-cache", JSON.stringify(payload));
+      } catch (e) {
+        console.error("Failed to save smart money cache", e);
+      }
     } catch {
-      setSmartMoneyStatus("error");
-      setAutoRefreshedAt(new Date());
+      // キャッシュデータの読み込み試行
+      let fallbackData: SmartMoneyPayload | null = null;
+      try {
+        const cached = localStorage.getItem("stock-scout-smart-money-cache");
+        if (cached) {
+          fallbackData = JSON.parse(cached) as SmartMoneyPayload;
+        }
+      } catch (e) {
+        console.error("Failed to parse cached smart money", e);
+      }
+
+      if (fallbackData) {
+        setSmartMoneyData({
+          funds: fallbackData.funds?.length ? fallbackData.funds : funds,
+          signals: fallbackData.signals?.length ? fallbackData.signals : signalSeeds,
+          source: "fallback",
+          sourceStatus: { sec: "エラー（キャッシュ表示）", edinet: "エラー（キャッシュ表示）", price: "partial" },
+          updatedAt: fallbackData.updatedAt ?? new Date().toISOString(),
+        });
+        setAutoRefreshedAt(new Date(fallbackData.updatedAt ?? Date.now()));
+        setSmartMoneyStatus("fallback");
+        setIsUsingCache(true);
+      } else {
+        setSmartMoneyStatus("error");
+        setAutoRefreshedAt(new Date());
+        setIsUsingCache(false);
+      }
     }
   };
 
@@ -969,6 +1036,12 @@ const SmartMoneyPage = () => {
       <MarketTicker indices={marketIndices} />
 
       <main className="container mx-auto px-4 py-3">
+        {isUsingCache && (
+          <div className="mb-3 flex items-center gap-2 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800">
+            <AlertTriangle className="h-4 w-4 flex-shrink-0 text-amber-600 animate-pulse" />
+            <span>ネットワーク制限または一時的エラーのため、前回のキャッシュデータを表示しています（自動復旧を再試行しています）。</span>
+          </div>
+        )}
         <div className="mb-3 overflow-hidden rounded border border-border bg-card">
           {/* タイトル + ボタン行（常に最上部） */}
           <div className="flex flex-wrap items-center justify-between gap-1.5 border-b border-border px-3 py-1.5 sm:gap-2 sm:py-2">
@@ -1006,8 +1079,8 @@ const SmartMoneyPage = () => {
 
             <div className="flex flex-wrap items-center gap-1 text-[10px] font-bold sm:gap-1.5 sm:text-xs lg:justify-end">
               <span className="mr-0.5 text-[9px] font-bold uppercase tracking-wide text-muted-foreground sm:mr-1 sm:text-[10px]">接続状態</span>
-              <span className={`rounded px-1.5 py-0.5 sm:px-2 sm:py-1 ${sourceStatusClass(smartMoneyData.source === "live" ? "live" : smartMoneyStatus === "error" ? "error" : "empty")}`}>
-                データ {smartMoneyData.source === "live" ? "実取得" : smartMoneyStatus === "error" ? "取得失敗" : "フォールバック"}
+              <span className={`rounded px-1.5 py-0.5 sm:px-2 sm:py-1 ${isUsingCache ? "bg-amber-50 text-amber-700 border border-amber-200" : sourceStatusClass(smartMoneyData.source === "live" ? "live" : smartMoneyStatus === "error" ? "error" : "empty")}`}>
+                データ {isUsingCache ? "一時キャッシュ" : smartMoneyData.source === "live" ? "実取得" : smartMoneyStatus === "error" ? "取得失敗" : "フォールバック"}
               </span>
               <span className={`rounded px-1.5 py-0.5 sm:px-2 sm:py-1 ${sourceStatusClass(smartMoneyData.sourceStatus?.sec)}`}>
                 SEC {sourceStatusLabel(smartMoneyData.sourceStatus?.sec)}

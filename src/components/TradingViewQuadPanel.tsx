@@ -125,6 +125,7 @@ const clearTradingViewContainers = (containerIds: Iterable<string>) => {
 const TradingViewQuadPanel = ({ symbols, drawingEnabled, onLayoutChange }: TradingViewQuadPanelProps) => {
   const instanceId = useMemo(() => `stock-navi-tv-${Math.random().toString(36).slice(2)}`, []);
   const [activeTab, setActiveTab] = useState("all");
+  const [allInterval, setAllInterval] = useState("240");
   const [showIndicatorLegend, setShowIndicatorLegend] = useState(false);
   const [stackMode, setStackMode] = useState(false);
   const [isNearViewport, setIsNearViewport] = useState(false);
@@ -136,11 +137,16 @@ const TradingViewQuadPanel = ({ symbols, drawingEnabled, onLayoutChange }: Tradi
 
   const visibleSymbols = useMemo(() => symbols.slice(0, 8), [symbols]);
   const activeSymbol = visibleSymbols.find((item) => item.id === activeTab);
+  const allIntervalLabel = useMemo(
+    () => intervals.find((item) => item.value === allInterval)?.label ?? "4時間",
+    [allInterval]
+  );
 
   const initTabCharts = useCallback((tabName: string) => {
     if (!isNearViewport || !scriptReady) return;
     const signature = [
       tabName,
+      tabName === "all" ? allInterval : "single",
       showIndicatorLegend ? "legend" : "no-legend",
       drawingEnabled ? "drawing" : "no-drawing",
       visibleSymbols.map((item) => `${item.id}:${item.symbol}`).join("|"),
@@ -154,7 +160,7 @@ const TradingViewQuadPanel = ({ symbols, drawingEnabled, onLayoutChange }: Tradi
       visibleSymbols.forEach((item) => {
         const containerId = `${instanceId}-all-${item.id}`;
         renderedContainerIdsRef.current.add(containerId);
-        createTradingViewWidget(containerId, item.symbol, "240", showIndicatorLegend, drawingEnabled);
+        createTradingViewWidget(containerId, item.symbol, allInterval, showIndicatorLegend, drawingEnabled);
       });
     } else {
       const symbolConfig = visibleSymbols.find((item) => item.id === tabName);
@@ -170,7 +176,7 @@ const TradingViewQuadPanel = ({ symbols, drawingEnabled, onLayoutChange }: Tradi
     renderedSignatureRef.current = signature;
     if (resizeTimeoutRef.current) window.clearTimeout(resizeTimeoutRef.current);
     resizeTimeoutRef.current = window.setTimeout(() => window.dispatchEvent(new Event("resize")), 50);
-  }, [drawingEnabled, instanceId, isNearViewport, scriptReady, showIndicatorLegend, visibleSymbols]);
+  }, [allInterval, drawingEnabled, instanceId, isNearViewport, scriptReady, showIndicatorLegend, visibleSymbols]);
 
   useEffect(() => {
     const panel = panelRef.current;
@@ -215,7 +221,7 @@ const TradingViewQuadPanel = ({ symbols, drawingEnabled, onLayoutChange }: Tradi
 
   useEffect(() => {
     initTabCharts(activeTab);
-  }, [activeTab, initTabCharts]);
+  }, [activeTab, allInterval, initTabCharts]);
 
   useEffect(() => {
     onLayoutChange?.(activeTab === "all" ? "8" : "4");
@@ -258,10 +264,36 @@ const TradingViewQuadPanel = ({ symbols, drawingEnabled, onLayoutChange }: Tradi
             {item.name}
           </button>
         ))}
+
+        {activeTab === "all" && (
+          <div className="ml-auto flex shrink-0 items-center gap-1 pl-1">
+            <span className="hidden text-[10px] font-bold text-muted-foreground sm:inline">一括時間軸:</span>
+            <div className="inline-flex rounded border border-border bg-background p-0.5">
+              {intervals.map((iv) => (
+                <button
+                  key={iv.value}
+                  type="button"
+                  onClick={() => setAllInterval(iv.value)}
+                  className={`h-6 rounded px-2 text-[11px] font-bold transition-colors ${
+                    allInterval === iv.value
+                      ? "bg-primary text-primary-foreground shadow-xs"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  }`}
+                  title={`8銘柄すべてを「${iv.label}」に一括切り替え`}
+                >
+                  {iv.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         <button
           type="button"
           onClick={() => setShowIndicatorLegend((value) => !value)}
-          className={`ml-auto inline-flex h-7 shrink-0 items-center rounded border px-2 text-xxs font-bold transition-colors ${
+          className={`${
+            activeTab === "all" ? "" : "ml-auto"
+          } inline-flex h-7 shrink-0 items-center rounded border px-2 text-xxs font-bold transition-colors ${
             showIndicatorLegend
               ? "border-primary bg-primary text-primary-foreground"
               : "border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -291,7 +323,9 @@ const TradingViewQuadPanel = ({ symbols, drawingEnabled, onLayoutChange }: Tradi
             {visibleSymbols.map((item) => (
               <div key={item.id} className="flex min-h-0 flex-col overflow-hidden rounded border border-border bg-background">
                 <div className="flex h-7 shrink-0 items-center justify-between border-b border-border bg-muted/60 px-2">
-                  <span className="truncate text-[10px] font-bold text-foreground">{item.name} (4時間足)</span>
+                  <span className="truncate text-[10px] font-bold text-foreground">
+                    {item.name} ({allIntervalLabel.endsWith("足") ? allIntervalLabel : `${allIntervalLabel}足`})
+                  </span>
                   <span className="shrink-0 pl-2 text-right font-mono text-[9px] font-bold text-foreground">
                     {item.currentPrice ?? item.symbol}
                   </span>

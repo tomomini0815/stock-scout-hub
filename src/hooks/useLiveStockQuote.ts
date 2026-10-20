@@ -33,6 +33,8 @@ interface StockQuoteCache {
   updatedAt: string;
 }
 
+const isGitHubPages = typeof window !== "undefined" && window.location.hostname.includes("github.io");
+
 const isValidQuote = (quote: LiveStockQuote) =>
   quote.code &&
   Number.isFinite(quote.price) &&
@@ -41,6 +43,7 @@ const isValidQuote = (quote: LiveStockQuote) =>
   Number.isFinite(quote.previousClose);
 
 const fetchStockQuote = async (symbol: string) => {
+  if (isGitHubPages) throw new Error("GitHub Pages environment: skip API fetch");
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), 7000);
   const response = await fetch(`/api/stock-quotes?symbols=${encodeURIComponent(symbol)}`, {
@@ -88,9 +91,12 @@ const writeCachedQuotes = (quotes: LiveStockQuote[], updatedAt: string) => {
 };
 
 export const useLiveStockQuote = (stock: StockData) => {
-  const symbol = `${stock.code}.T`;
+  const isNikkei = stock.code === "N225" || stock.code === "^N225";
+  const symbol = isNikkei ? "^N225" : stock.code.startsWith("^") ? stock.code : `${stock.code}.T`;
   const cached = loadCachedQuotes();
-  const cachedQuote = cached?.quotes.find((quote) => quote.code === stock.code);
+  const cachedQuote = cached?.quotes.find(
+    (quote) => quote.code === stock.code || (isNikkei && (quote.code === "^N225" || quote.symbol === "^N225"))
+  );
   const initialData = cachedQuote
     ? {
         quote: cachedQuote,
@@ -172,6 +178,7 @@ const chunkSymbols = (symbols: string[]) =>
   );
 
 const fetchStockQuoteBatch = async (symbols: string[]) => {
+  if (isGitHubPages) throw new Error("GitHub Pages environment: skip API fetch");
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), 7000);
   const response = await fetch(
