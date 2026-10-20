@@ -72,8 +72,9 @@ export const StockHealthCheck = ({
   const [isLoadingNews, setIsLoadingNews] = useState(false);
   const [liveMetrics, setLiveMetrics] = useState<Partial<StockDetailedMetrics> | null>(null);
 
+  const isNikkei = selectedCode === "N225" || selectedCode === "^N225";
+
   const baseStock: StockData = useMemo(() => {
-    const isNikkei = selectedCode === "N225" || selectedCode === "^N225";
     if (isNikkei) {
       return resolveEffectiveStock({
         code: "N225",
@@ -312,35 +313,43 @@ export const StockHealthCheck = ({
               </div>
 
               <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                {/* 総合スコアとランク */}
-                <div className="flex items-center gap-2 sm:gap-3 rounded-lg border border-border/80 bg-background/50 px-2.5 py-1.5 sm:px-3.5 sm:py-2">
-                  <div className={`flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-md border text-base sm:text-lg font-black ${getGradeColor(report.overallGrade)}`}>
-                    {report.overallGrade}
+                {isNikkei ? (
+                  <div className="flex items-center gap-2 rounded-lg border border-border/80 bg-background/50 px-3 py-2 text-xs font-bold text-muted-foreground">
+                    <span>主要市場代表指数（東証プライム225）</span>
                   </div>
-                  <div>
-                    <div className="text-[10px] sm:text-xxs font-medium text-muted-foreground">総合AIスコア</div>
-                    <div className="flex items-baseline gap-1 font-mono">
-                      <span className="text-lg sm:text-xl font-black text-foreground">{report.overallScore}</span>
-                      <span className="text-xxs text-muted-foreground">/ 100</span>
+                ) : (
+                  <>
+                    {/* 総合スコアとランク */}
+                    <div className="flex items-center gap-2 sm:gap-3 rounded-lg border border-border/80 bg-background/50 px-2.5 py-1.5 sm:px-3.5 sm:py-2">
+                      <div className={`flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-md border text-base sm:text-lg font-black ${getGradeColor(report.overallGrade)}`}>
+                        {report.overallGrade}
+                      </div>
+                      <div>
+                        <div className="text-[10px] sm:text-xxs font-medium text-muted-foreground">総合AIスコア</div>
+                        <div className="flex items-baseline gap-1 font-mono">
+                          <span className="text-lg sm:text-xl font-black text-foreground">{report.overallScore}</span>
+                          <span className="text-xxs text-muted-foreground">/ 100</span>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
 
-                {/* 総合判定 */}
-                <div className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 sm:px-3 sm:py-2 font-bold text-xs ${getVerdictBadge(report.verdict).bg}`}>
-                  {getVerdictBadge(report.verdict).icon}
-                  <span>{report.verdict}</span>
-                </div>
+                    {/* 総合判定 */}
+                    <div className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 sm:px-3 sm:py-2 font-bold text-xs ${getVerdictBadge(report.verdict).bg}`}>
+                      {getVerdictBadge(report.verdict).icon}
+                      <span>{report.verdict}</span>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 
-            {/* 主要ファンダメンタルズ & 需給指標実数グリッド（重要実用データ） */}
+            {/* 主要ファンダメンタルズ & 需給指標実数グリッド（正確な実データのみを掲載） */}
             <div className="mt-3 sm:mt-4 space-y-1.5 sm:space-y-2">
               <div className="flex flex-wrap items-center justify-between gap-1.5 sm:gap-2">
                 <span className="text-xxs font-bold text-muted-foreground uppercase tracking-wider">
-                  主要財務・バリュエーション指標
+                  {isNikkei ? "現在値・市場動向" : "主要財務・バリュエーション指標"}
                 </span>
-                {onOpenMetricsGuide && (
+                {!isNikkei && onOpenMetricsGuide && (
                   <button
                     type="button"
                     onClick={() => onOpenMetricsGuide("overview")}
@@ -352,69 +361,113 @@ export const StockHealthCheck = ({
                 )}
               </div>
 
-              <div className="grid grid-cols-2 gap-1.5 sm:gap-2 sm:grid-cols-4 lg:grid-cols-7 text-xs font-mono">
-                <div className="rounded-md border border-border/60 bg-muted/20 p-1.5 sm:p-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground text-xxs block font-sans">現在値</span>
-                    {liveStatus === "live" && (
-                      <span className="inline-flex items-center gap-1 rounded bg-emerald-500/15 px-1 py-0.2 text-[9px] font-bold text-emerald-600 dark:text-emerald-400">
-                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                        LIVE
+              {isNikkei ? (
+                <div className="space-y-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <div className="rounded-md border border-border/60 bg-muted/20 p-2 text-xs font-mono">
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground text-xxs block font-sans">指数現在値</span>
+                        {liveStatus === "live" && (
+                          <span className="inline-flex items-center gap-1 rounded bg-emerald-500/15 px-1 py-0.2 text-[9px] font-bold text-emerald-600 dark:text-emerald-400">
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            LIVE
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-base font-bold text-foreground">¥{report.stock.price.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+                      <span className={`text-xxs block ${report.stock.change >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
+                        {report.stock.change >= 0 ? "+" : ""}{report.stock.change.toLocaleString(undefined, { maximumFractionDigits: 2 })}円 ({report.stock.changePercent >= 0 ? "+" : ""}{report.stock.changePercent.toFixed(2)}%)
                       </span>
-                    )}
+                    </div>
                   </div>
-                  <span className="text-sm font-bold text-foreground">¥{report.stock.price.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
-                  <span className={`text-xxs block ${report.stock.change >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
-                    {report.stock.change >= 0 ? "+" : ""}{report.stock.change.toLocaleString(undefined, { maximumFractionDigits: 2 })}円 ({report.stock.changePercent >= 0 ? "+" : ""}{report.stock.changePercent.toFixed(2)}%)
-                  </span>
+                  <div className="rounded-md border border-border/60 bg-muted/10 p-2.5 text-xs text-muted-foreground leading-relaxed">
+                    ※ 日経平均株価（日経225）は、東証プライム市場を代表する225銘柄の株価平均型指数です。単一企業ではないため、決算諸表に基づく財務指標（PER・PBR・ROE・自己資本比率等）は記載しておりません。
+                  </div>
                 </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-1.5 sm:gap-2 sm:grid-cols-4 lg:grid-cols-7 text-xs font-mono">
+                  {/* 現在値 */}
+                  <div className="rounded-md border border-border/60 bg-muted/20 p-1.5 sm:p-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground text-xxs block font-sans">現在値</span>
+                      {liveStatus === "live" && (
+                        <span className="inline-flex items-center gap-1 rounded bg-emerald-500/15 px-1 py-0.2 text-[9px] font-bold text-emerald-600 dark:text-emerald-400">
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                          LIVE
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-sm font-bold text-foreground">¥{report.stock.price.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+                    <span className={`text-xxs block ${report.stock.change >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
+                      {report.stock.change >= 0 ? "+" : ""}{report.stock.change.toLocaleString(undefined, { maximumFractionDigits: 2 })}円 ({report.stock.changePercent >= 0 ? "+" : ""}{report.stock.changePercent.toFixed(2)}%)
+                    </span>
+                  </div>
 
-                <div className="rounded-md border border-border/60 bg-muted/20 p-1.5 sm:p-2">
-                  <span className="text-muted-foreground text-xxs block font-sans">予想PER</span>
-                  <span className="text-sm font-bold text-foreground">{report.metrics.per.split(" ")[0]}</span>
-                  <span className="text-xxs text-muted-foreground block truncate">
-                    {report.metrics.per.includes("割安") ? "割安水準" : "標準的"}
-                  </span>
-                </div>
+                  {/* 予想PER（データがある場合のみ掲載） */}
+                  {report.metrics.per !== "―" && (
+                    <div className="rounded-md border border-border/60 bg-muted/20 p-1.5 sm:p-2">
+                      <span className="text-muted-foreground text-xxs block font-sans">予想PER</span>
+                      <span className="text-sm font-bold text-foreground">{report.metrics.per}</span>
+                      <span className="text-xxs text-muted-foreground block truncate">
+                        {parseFloat(report.metrics.per) <= 12 ? "割安水準" : parseFloat(report.metrics.per) >= 28 ? "高成長期待" : "適正水準"}
+                      </span>
+                    </div>
+                  )}
 
-                <div className="rounded-md border border-border/60 bg-muted/20 p-1.5 sm:p-2">
-                  <span className="text-muted-foreground text-xxs block font-sans">実績PBR</span>
-                  <span className="text-sm font-bold text-foreground">{report.metrics.pbr.split(" ")[0]}</span>
-                  <span className="text-xxs text-muted-foreground block truncate">
-                    {parseFloat(report.metrics.pbr) <= 1 ? "1倍割れ改善" : "適正水準"}
-                  </span>
-                </div>
+                  {/* 実績PBR（データがある場合のみ掲載） */}
+                  {report.metrics.pbr !== "―" && (
+                    <div className="rounded-md border border-border/60 bg-muted/20 p-1.5 sm:p-2">
+                      <span className="text-muted-foreground text-xxs block font-sans">実績PBR</span>
+                      <span className="text-sm font-bold text-foreground">{report.metrics.pbr}</span>
+                      <span className="text-xxs text-muted-foreground block truncate">
+                        {parseFloat(report.metrics.pbr) <= 1.0 ? "1倍割れ改善" : "適正水準"}
+                      </span>
+                    </div>
+                  )}
 
-                <div className="rounded-md border border-border/60 bg-muted/20 p-1.5 sm:p-2">
-                  <span className="text-muted-foreground text-xxs block font-sans">予想配当利回り</span>
-                  <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">{report.metrics.dividendYield.split(" ")[0]}</span>
-                  <span className="text-xxs text-muted-foreground block truncate">
-                    {parseFloat(report.metrics.dividendYield) >= 3.5 ? "高配当枠" : "成長投資型"}
-                  </span>
-                </div>
+                  {/* 予想配当利回り（データがある場合のみ掲載） */}
+                  {report.metrics.dividendYield !== "―" && (
+                    <div className="rounded-md border border-border/60 bg-muted/20 p-1.5 sm:p-2">
+                      <span className="text-muted-foreground text-xxs block font-sans">予想配当利回り</span>
+                      <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">{report.metrics.dividendYield}</span>
+                      <span className="text-xxs text-muted-foreground block truncate">
+                        {parseFloat(report.metrics.dividendYield) >= 3.5 ? "高配当枠" : "配当還元"}
+                      </span>
+                    </div>
+                  )}
 
-                <div className="rounded-md border border-border/60 bg-muted/20 p-1.5 sm:p-2">
-                  <span className="text-muted-foreground text-xxs block font-sans">ROE (自己資本利益率)</span>
-                  <span className="text-sm font-bold text-foreground">{report.metrics.roe.split(" ")[0]}</span>
-                  <span className="text-xxs text-muted-foreground block truncate">
-                    {parseFloat(report.metrics.roe) >= 10 ? "資本効率◎" : "改善余地"}
-                  </span>
-                </div>
+                  {/* ROE（データがある場合のみ掲載） */}
+                  {report.metrics.roe !== "―" && (
+                    <div className="rounded-md border border-border/60 bg-muted/20 p-1.5 sm:p-2">
+                      <span className="text-muted-foreground text-xxs block font-sans">ROE (自己資本利益率)</span>
+                      <span className="text-sm font-bold text-foreground">{report.metrics.roe}</span>
+                      <span className="text-xxs text-muted-foreground block truncate">
+                        {parseFloat(report.metrics.roe) >= 10 ? "資本効率◎" : "改善余地"}
+                      </span>
+                    </div>
+                  )}
 
-                <div className="rounded-md border border-border/60 bg-muted/20 p-1.5 sm:p-2">
-                  <span className="text-muted-foreground text-xxs block font-sans">自己資本比率</span>
-                  <span className="text-sm font-bold text-foreground">{report.metrics.equityRatio}</span>
-                  <span className="text-xxs text-muted-foreground block truncate">財務健全性</span>
-                </div>
+                  {/* 自己資本比率（データがある場合のみ掲載） */}
+                  {report.metrics.equityRatio !== "―" && (
+                    <div className="rounded-md border border-border/60 bg-muted/20 p-1.5 sm:p-2">
+                      <span className="text-muted-foreground text-xxs block font-sans">自己資本比率</span>
+                      <span className="text-sm font-bold text-foreground">{report.metrics.equityRatio}</span>
+                      <span className="text-xxs text-muted-foreground block truncate">財務健全性</span>
+                    </div>
+                  )}
 
-                <div className="rounded-md border border-border/60 bg-muted/20 p-1.5 sm:p-2">
-                  <span className="text-muted-foreground text-xxs block font-sans">信用倍率</span>
-                  <span className="text-sm font-bold text-foreground">{report.metrics.creditRatio.split(" ")[0]}</span>
-                  <span className="text-xxs text-muted-foreground block truncate">
-                    {parseFloat(report.metrics.creditRatio) <= 2.5 ? "上値軽い" : "要警戒"}
-                  </span>
+                  {/* 信用倍率（データがある場合のみ掲載） */}
+                  {report.metrics.creditRatio !== "―" && (
+                    <div className="rounded-md border border-border/60 bg-muted/20 p-1.5 sm:p-2">
+                      <span className="text-muted-foreground text-xxs block font-sans">信用倍率</span>
+                      <span className="text-sm font-bold text-foreground">{report.metrics.creditRatio}</span>
+                      <span className="text-xxs text-muted-foreground block truncate">
+                        {parseFloat(report.metrics.creditRatio) <= 2.5 ? "上値軽い" : "要警戒"}
+                      </span>
+                    </div>
+                  )}
                 </div>
-              </div>
+              )}
             </div>
           </div>
 

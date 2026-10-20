@@ -560,73 +560,88 @@ export const generateStockHealthReport = (
   const changePercent = stock.changePercent;
   const isPositiveTrend = changePercent >= 0;
 
-  // 1. 各指標の実数と判定テキスト
-  const perVal = detailed.per ?? 15.0;
-  const pbrVal = detailed.pbr ?? 1.2;
-  const yieldVal = detailed.dividendYield ?? 2.5;
-  const roeVal = detailed.roe ?? 9.0;
-  const equityVal = detailed.equityRatio ?? 50.0;
-  const creditVal = detailed.creditRatio ?? 1.8;
-  const capVal = detailed.marketCap ?? (price * 100_000_000);
+  const isNikkei = code === "N225" || code === "^N225";
 
-  const formatMarketCap = (cap: number) => {
+  // 1. 各指標の実数と判定テキスト（確実な公表確定値・実データのみを反映し、ないものは「―」とする）
+  const perVal = detailed.per;
+  const pbrVal = detailed.pbr;
+  const yieldVal = detailed.dividendYield;
+  const roeVal = detailed.roe;
+  const equityVal = detailed.equityRatio;
+  const creditVal = detailed.creditRatio;
+  const capVal = detailed.marketCap;
+
+  const formatMarketCap = (cap: number | null) => {
+    if (cap === null || cap <= 0) return "―";
     const oku = cap / 100_000_000;
     if (oku >= 10_000) return `約${(oku / 10_000).toFixed(1)}兆円`;
     return `約${oku.toFixed(0)}億円`;
   };
 
   const metrics: FundamentalMetrics = {
-    per: `${perVal.toFixed(1)}倍 (${perVal <= 12 ? "東証平均対比で割安" : perVal >= 28 ? "成長プレミアム織り込み" : "業界標準水準"})`,
-    pbr: `${pbrVal.toFixed(2)}倍 (${pbrVal <= 1.0 ? "解散価値割れ・東証改革対象" : "適正水準"})`,
-    dividendYield: `${yieldVal.toFixed(2)}% (${yieldVal >= 3.5 ? "インカム高配当枠" : "成長投資先行型"})`,
-    roe: `${roeVal.toFixed(1)}% (${roeVal >= 12 ? "資本効率◎" : "改善余地あり"})`,
-    equityRatio: `${equityVal.toFixed(1)}% (${equityVal >= 60 ? "極めて強固" : equityVal <= 20 ? "レバレッジ型" : "標準的健全性"})`,
-    creditRatio: `${creditVal.toFixed(1)}倍 (${creditVal <= 1.5 ? "上値軽く好需給" : creditVal >= 3.5 ? "買い残過多・要警戒" : "需給標準"})`,
+    per: perVal != null ? `${perVal.toFixed(1)}倍` : "―",
+    pbr: pbrVal != null ? `${pbrVal.toFixed(2)}倍` : "―",
+    dividendYield: yieldVal != null ? `${yieldVal.toFixed(2)}%` : "―",
+    roe: roeVal != null ? `${roeVal.toFixed(1)}%` : "―",
+    equityRatio: equityVal != null ? `${equityVal.toFixed(1)}%` : "―",
+    creditRatio: creditVal != null ? `${creditVal.toFixed(1)}倍` : "―",
     marketCap: formatMarketCap(capVal),
   };
 
   // 2. 5軸スコアの計算と根拠（各銘柄の真の指標に基づく動的採点）
   // (a) 割安性スコア (PER, PBR, 配当利回り)
   let valuationScore = 50;
-  if (pbrVal <= 0.8) valuationScore += 24;
-  else if (pbrVal <= 1.0) valuationScore += 18;
-  else if (pbrVal <= 1.5) valuationScore += 10;
-  else if (pbrVal >= 4.0) valuationScore -= 12;
-
-  if (perVal <= 10) valuationScore += 20;
-  else if (perVal <= 14) valuationScore += 14;
-  else if (perVal >= 35) valuationScore -= 12;
-
-  if (yieldVal >= 3.8) valuationScore += 12;
-  else if (yieldVal >= 2.8) valuationScore += 6;
+  if (pbrVal != null) {
+    if (pbrVal <= 0.8) valuationScore += 24;
+    else if (pbrVal <= 1.0) valuationScore += 18;
+    else if (pbrVal <= 1.5) valuationScore += 10;
+    else if (pbrVal >= 4.0) valuationScore -= 12;
+  }
+  if (perVal != null) {
+    if (perVal <= 10) valuationScore += 20;
+    else if (perVal <= 14) valuationScore += 14;
+    else if (perVal >= 35) valuationScore -= 12;
+  }
+  if (yieldVal != null) {
+    if (yieldVal >= 3.8) valuationScore += 12;
+    else if (yieldVal >= 2.8) valuationScore += 6;
+  }
   valuationScore = Math.min(96, Math.max(35, valuationScore));
 
-  const valReason = pbrVal <= 1.0
+  const valReason = isNikkei
+    ? "日経平均株価は構成225銘柄の集合指数です。"
+    : pbrVal != null && pbrVal <= 1.0
     ? `PBR ${pbrVal.toFixed(2)}倍と解散価値を下回り、東証の資本コスト改善要請への積極対応が期待される割安圏です。`
-    : perVal <= 14
+    : perVal != null && perVal <= 14
     ? `予想PER ${perVal.toFixed(1)}倍で推移しており、業績実績対比で過度な過熱感のない安心感あるバリュエーションです。`
-    : `予想PER ${perVal.toFixed(1)}倍・PBR ${pbrVal.toFixed(2)}倍と、高い将来期待が一定程度株価に織り込まれた水準です。`;
+    : perVal != null && pbrVal != null
+    ? `予想PER ${perVal.toFixed(1)}倍・PBR ${pbrVal.toFixed(2)}倍と、将来の業績成長期待が反映された水準です。`
+    : "詳細な企業公表指標に基づきバリュエーションを評価しています。";
 
   // (b) 成長性スコア (ROE, セクター特性)
   let growthScore = 55;
-  if (roeVal >= 20) growthScore += 30;
-  else if (roeVal >= 14) growthScore += 22;
-  else if (roeVal >= 9) growthScore += 12;
-  else growthScore -= 5;
+  if (roeVal != null) {
+    if (roeVal >= 20) growthScore += 30;
+    else if (roeVal >= 14) growthScore += 22;
+    else if (roeVal >= 9) growthScore += 12;
+    else growthScore -= 5;
+  }
   if (detailed.sector === "電気・半導体" || detailed.sector === "新興グロース") growthScore += 10;
   growthScore = Math.min(98, Math.max(40, growthScore));
 
-  const growthReason = roeVal >= 14
+  const growthReason = isNikkei
+    ? "主要構成銘柄の業績モメンタムとマクロ景気動向が指数の推進力となります。"
+    : roeVal != null && roeVal >= 14
     ? `ROE ${roeVal.toFixed(1)}%の極めて高い資本効率を誇り、中長期の自己資本拡大と利益成長ペースが際立ちます。`
-    : roeVal >= 8
+    : roeVal != null && roeVal >= 8
     ? `主力分野の安定収益に支えられ、着実な増収増益トレンドと経営計画の遂行が期待できます。`
-    : `収益性は現在テコ入れ局面。事業構造改革や価格転嫁の進展によるROE向上が焦点です。`;
+    : "主力事業の競争力と市場開拓を通じた成長モメンタムを注視します。";
 
   // (c) 財務健全性スコア
   let financialScore = 65;
   if (detailed.sector === "金融") {
-    financialScore = 80 + Math.round(codeVariance(code) * 12);
-  } else {
+    financialScore = 85;
+  } else if (equityVal != null) {
     if (equityVal >= 70) financialScore += 28;
     else if (equityVal >= 50) financialScore += 18;
     else if (equityVal >= 35) financialScore += 8;
@@ -634,38 +649,42 @@ export const generateStockHealthReport = (
   }
   financialScore = Math.min(98, Math.max(42, financialScore));
 
-  const finReason = detailed.sector === "金融"
-    ? `自己資本比率（BIS基準）は国内外の規制水準を十分に上回り、手元流動性も盤石です。`
-    : equityVal >= 60
-    ? `自己資本比率 ${equityVal.toFixed(1)}%と極めて強固。実質無借金経営でショック耐性と減配リスクの低さが強みです。`
-    : equityVal >= 40
-    ? `自己資本比率 ${equityVal.toFixed(1)}%と業界標準水準。営業キャッシュフローも黒字基調で安定しています。`
-    : `自己資本比率 ${equityVal.toFixed(1)}%と借入金を活用したレバレッジ経営。金利変動の影響を注視します。`;
+  const finReason = isNikkei
+    ? "プライム市場を代表する225社で構成され、全体として強固な財務基盤を有します。"
+    : detailed.sector === "金融"
+    ? "自己資本比率（BIS基準）は国内外の規制水準を十分に上回り、手元流動性も盤石です。"
+    : equityVal != null && equityVal >= 60
+    ? `自己資本比率 ${equityVal.toFixed(1)}%と極めて強固。ショック耐性と財務規律の高さが強みです。`
+    : equityVal != null && equityVal >= 40
+    ? `自己資本比率 ${equityVal.toFixed(1)}%と業界標準水準。営業キャッシュフローも安定しています。`
+    : "財務の安定性とキャッシュフローの推移を注視します。";
 
   // (d) テクニカルモメンタムスコア
   let technicalScore = 60 + Math.min(25, Math.max(-25, Math.round(changePercent * 4)));
   technicalScore = Math.min(95, Math.max(35, technicalScore));
   const techReason = changePercent >= 1.5
-    ? `直近の株価モメンタムは強気。買い優勢の展開で短期移動平均線を力強く上抜けています。`
+    ? "直近の株価モメンタムは強気。買い優勢の展開で短期移動平均線を力強く上抜けています。"
     : changePercent <= -1.5
-    ? `直近で押し目調整中。過熱感が冷え、移動平均支持線での下値固めから自律反発を待つ水準です。`
-    : `狭い値幅での保ち合い推移。方向感の定まり待ちで、出来高を伴うブレイクがエントリー合図になります。`;
+    ? "直近で押し目調整中。過熱感が冷え、移動平均支持線での下値固めから自律反発を待つ水準です。"
+    : "狭い値幅での保ち合い推移。方向感の定まり待ちで、出来高を伴うブレイクがエントリー合図になります。";
 
   // (e) 需給・大口関心スコア
   let smartMoneyScore = 65;
-  if (creditVal <= 1.5) smartMoneyScore += 18;
-  else if (creditVal <= 2.5) smartMoneyScore += 8;
-  else if (creditVal >= 4.0) smartMoneyScore -= 14;
+  if (creditVal != null) {
+    if (creditVal <= 1.5) smartMoneyScore += 18;
+    else if (creditVal <= 2.5) smartMoneyScore += 8;
+    else if (creditVal >= 4.0) smartMoneyScore -= 14;
+  }
   if (stock.market === "EDINET検知") smartMoneyScore += 18;
   smartMoneyScore = Math.min(96, Math.max(38, smartMoneyScore));
 
   const smartReason = stock.market === "EDINET検知"
-    ? `EDINET大量保有報告にて有力機関投資家・大株主の保有増加が確認されており、大口資金の買い支えが強力です。`
-    : creditVal <= 1.8
+    ? "EDINET大量保有報告にて有力機関投資家・大株主の保有増加が確認されており、大口資金の買い支えが強力です。"
+    : creditVal != null && creditVal <= 1.8
     ? `信用倍率 ${creditVal.toFixed(1)}倍と買い残の過多がなく、上値の戻り売り圧迫が軽微な良好需給です。`
-    : creditVal >= 3.5
+    : creditVal != null && creditVal >= 3.5
     ? `信用倍率 ${creditVal.toFixed(1)}倍と将来の売り圧力（買い残）がやや積み上がっており、消化進捗を確認したい局面です。`
-    : `信託口や国内外機関投資家の定常的なリバランスが入り、需給バランスは概ね均衡しています。`;
+    : "信託口や国内外機関投資家の定常的なリバランスが入り、需給バランスは概ね均衡しています。";
 
   // ピックの加点
   if (pick) {
@@ -726,15 +745,19 @@ export const generateStockHealthReport = (
   }
 
   // 6. 決算進捗トレンド & 大口EDINET動向
-  const quarterlyTrend = roeVal >= 12
+  const quarterlyTrend = isNikkei
+    ? "日経平均構成銘柄の決算シーズン動向や企業業績全体の推移が市場の関心事です。"
+    : roeVal != null && roeVal >= 12
     ? `直近四半期決算は営業利益の進捗率が計画を上回り、通期業績の上振れ着地および増配余地が期待できる良好なトレンドです。`
     : changePercent >= 0
     ? `直近の業績進捗は概ね期初想定線で推移。主力事業の受注回復と下期の採算改善が次の上昇カタリストです。`
     : `原価高や一時的費用により進捗は慎重。次期決算ガイダンスでの底打ち確認が反転のシグナルとなります。`;
 
-  const institutionalFlow = stock.market === "EDINET検知"
+  const institutionalFlow = isNikkei
+    ? "国内外の年金基金・ETF積立および海外機関投資家による先物手口が指数の需給を左右します。"
+    : stock.market === "EDINET検知"
     ? `【大口買い越し】EDINET大量保有報告において機関投資家・信託銀行の保有比率が直近で増加傾向にあります。`
-    : creditVal <= 1.8
+    : creditVal != null && creditVal <= 1.8
     ? `【好需給】信用倍率 ${creditVal.toFixed(1)}倍と買い残が整理されており、上値抵抗が少なく機関投資家の打診買いが入りやすい需給環境です。`
     : `【中立】国内信託口の定期的なリバランス買いが入る一方、過度な売り圧力は見られず需給は安定しています。`;
 
