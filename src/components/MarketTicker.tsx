@@ -73,6 +73,9 @@ const MarketTicker = ({ indices }: MarketTickerProps) => {
             <TrendingUp className="h-3 w-3" />
           </span>
           <span className="font-bold text-foreground">TradingView</span>
+          <span className="text-[9px] text-muted-foreground/80 font-normal">
+            (<span className="text-red-600 dark:text-red-400 font-bold">赤:上昇</span> / <span className="text-blue-600 dark:text-blue-400 font-bold">青:下降</span>)
+          </span>
         </div>
         {[...displayIndices, ...displayIndices].map((index, i) => {
           const isUp = index.change >= 0;

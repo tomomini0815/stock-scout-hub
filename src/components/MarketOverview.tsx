@@ -735,6 +735,12 @@ const MarketOverview = ({ indices, detailed = false }: MarketOverviewProps) => {
           </button>
         </div>
         <div className="flex items-center gap-2 text-xxs font-semibold text-muted-foreground">
+          {/* 日本株カラー表記案内（コンパクト） */}
+          <span className="inline-flex items-center gap-1 rounded border border-border/80 bg-background px-1.5 py-0.5 text-xxs font-bold shadow-2xs" title="当サイトのカラー設定：赤が上昇・買い、青が下降・売りです">
+            <span className="text-red-600 dark:text-red-400">赤▲ 上昇</span>
+            <span className="text-muted-foreground/30">/</span>
+            <span className="text-blue-600 dark:text-blue-400">青▼ 下降</span>
+          </span>
           <span className="hidden rounded bg-muted px-1.5 py-0.5 text-muted-foreground sm:inline">
             {driverStatus === "loading" ? "材料取得中" : driverStatus === "live" ? "材料反映" : "推定材料"}
           </span>
