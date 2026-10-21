@@ -1,8 +1,9 @@
-import React from "react";
+export type PatternColorMode = "jp" | "global";
 
 interface PatternDiagramProps {
   patternId: string;
   isBullish: boolean;
+  colorMode?: PatternColorMode;
 }
 
 // 共通ローソク足描画ヘルパー
@@ -13,9 +14,14 @@ const Candle: React.FC<{
   high: number;
   low: number;
   width?: number;
-}> = ({ x, open, close, high, low, width = 5 }) => {
+  colorMode?: PatternColorMode;
+}> = ({ x, open, close, high, low, width = 5, colorMode = "jp" }) => {
   const isUp = close < open; // SVG座標系ではY軸が下向きなので close < open が上昇（陽線）
-  const color = isUp ? "#16a34a" : "#dc2626";
+  // 日本標準: 上昇(陽線)=赤, 下落(陰線)=青
+  // グローバル: 上昇(陽線)=緑, 下落(陰線)=赤
+  const color = colorMode === "jp"
+    ? isUp ? "#dc2626" : "#2563eb"
+    : isUp ? "#16a34a" : "#dc2626";
   const bodyTop = Math.min(open, close);
   const bodyHeight = Math.max(Math.abs(close - open), 1.5);
 
@@ -36,9 +42,11 @@ const Candle: React.FC<{
   );
 };
 
-export const SchemaDiagram: React.FC<PatternDiagramProps> = ({ patternId, isBullish }) => {
+export const SchemaDiagram: React.FC<PatternDiagramProps> = ({ patternId, isBullish, colorMode = "jp" }) => {
   const strokeColor = "#1e293b";
-  const arrowColor = isBullish ? "#16a34a" : "#dc2626";
+  const bullishColor = colorMode === "jp" ? "#dc2626" : "#16a34a";
+  const bearishColor = colorMode === "jp" ? "#2563eb" : "#dc2626";
+  const arrowColor = isBullish ? bullishColor : bearishColor;
 
   const renderSchema = () => {
     switch (patternId) {
@@ -406,9 +414,18 @@ export const SchemaDiagram: React.FC<PatternDiagramProps> = ({ patternId, isBull
   );
 };
 
-export const CandleChartDiagram: React.FC<PatternDiagramProps> = ({ patternId, isBullish }) => {
+export const CandleChartDiagram: React.FC<PatternDiagramProps> = ({ patternId, isBullish, colorMode = "jp" }) => {
+  // カラー定数
+  const longColor = colorMode === "jp" ? "#dc2626" : "#16a34a"; // 買い/利確
+  const shortColor = colorMode === "jp" ? "#2563eb" : "#dc2626"; // 売り/損切り(買い時)/利確(売り時)
+  const tpColor = isBullish ? longColor : shortColor;
+  const slColor = isBullish ? shortColor : longColor;
+
+  const C: React.FC<{ x: number; open: number; close: number; high: number; low: number }> = (props) => (
+    <Candle {...props} colorMode={colorMode} />
+  );
+
   // ローソク足データ生成
-  // open, close (close < open => 陽線/緑, close > open => 陰線/赤), high, low
   const renderCandleSeries = () => {
     if (isBullish) {
       // 基本 Bullish 形状（波打って下値を試したのち、右上でEntry/TP）
@@ -418,43 +435,43 @@ export const CandleChartDiagram: React.FC<PatternDiagramProps> = ({ patternId, i
           return (
             <>
               {/* 下降波 */}
-              <Candle x={8} open={40} close={48} high={38} low={52} />
-              <Candle x={16} open={47} close={58} high={46} low={62} />
+              <C x={8} open={40} close={48} high={38} low={52} />
+              <C x={16} open={47} close={58} high={46} low={62} />
               {/* 左肩の底 */}
-              <Candle x={24} open={57} close={50} high={48} low={60} />
-              <Candle x={32} open={51} close={38} high={36} low={52} />
+              <C x={24} open={57} close={50} high={48} low={60} />
+              <C x={32} open={51} close={38} high={36} low={52} />
               {/* ネックライン戻り */}
-              <Candle x={40} open={39} close={48} high={37} low={52} />
-              <Candle x={48} open={47} close={68} high={46} low={72} />
+              <C x={40} open={39} close={48} high={37} low={52} />
+              <C x={48} open={47} close={68} high={46} low={72} />
               {/* 頭(H)の底 */}
-              <Candle x={56} open={67} close={76} high={66} low={80} />
-              <Candle x={64} open={75} close={62} high={60} low={78} />
-              <Candle x={72} open={63} close={48} high={46} low={65} />
-              <Candle x={80} open={49} close={38} high={36} low={51} />
+              <C x={56} open={67} close={76} high={66} low={80} />
+              <C x={64} open={75} close={62} high={60} low={78} />
+              <C x={72} open={63} close={48} high={46} low={65} />
+              <C x={80} open={49} close={38} high={36} low={51} />
               {/* 右肩の底 */}
-              <Candle x={88} open={39} close={49} high={37} low={54} />
-              <Candle x={96} open={48} close={56} high={46} low={60} />
-              <Candle x={104} open={55} close={46} high={44} low={58} />
-              <Candle x={112} open={47} close={37} high={35} low={49} />
+              <C x={88} open={39} close={49} high={37} low={54} />
+              <C x={96} open={48} close={56} high={46} low={60} />
+              <C x={104} open={55} close={46} high={44} low={58} />
+              <C x={112} open={47} close={37} high={35} low={49} />
               {/* ネックライン突破 */}
-              <Candle x={120} open={38} close={28} high={26} low={40} />
+              <C x={120} open={38} close={28} high={26} low={40} />
               {/* 急伸波 */}
-              <Candle x={128} open={29} close={22} high={20} low={31} />
-              <Candle x={136} open={23} close={14} high={12} low={25} />
-              <Candle x={144} open={15} close={8} high={6} low={17} />
+              <C x={128} open={29} close={22} high={20} low={31} />
+              <C x={136} open={23} close={14} high={12} low={25} />
+              <C x={144} open={15} close={8} high={6} low={17} />
 
               {/* ネックライン */}
               <line x1="36" y1="36" x2="135" y2="36" stroke="#94a3b8" strokeWidth="1" strokeDasharray="2 2" />
               {/* Entry Long */}
-              <line x1="125" y1="30" x2="155" y2="30" stroke="#16a34a" strokeWidth="1" />
-              <polygon points="125,30 131,27 131,33" fill="#16a34a" />
-              <text x="160" y="33" fontSize="8.5" fontWeight="bold" fill="#16a34a">Entry Long</text>
+              <line x1="125" y1="30" x2="155" y2="30" stroke={longColor} strokeWidth="1" />
+              <polygon points="125,30 131,27 131,33" fill={longColor} />
+              <text x="160" y="33" fontSize="8.5" fontWeight="bold" fill={longColor}>Entry Long</text>
               {/* SL (Stop Loss) */}
-              <line x1="94" y1="62" x2="185" y2="62" stroke="#dc2626" strokeWidth="1" strokeDasharray="3 2" />
-              <text x="190" y="65" fontSize="8.5" fontWeight="bold" fill="#dc2626">SL</text>
+              <line x1="94" y1="62" x2="185" y2="62" stroke={slColor} strokeWidth="1" strokeDasharray="3 2" />
+              <text x="190" y="65" fontSize="8.5" fontWeight="bold" fill={slColor}>SL</text>
               {/* TP (Take Profit) */}
-              <line x1="140" y1="10" x2="185" y2="10" stroke="#16a34a" strokeWidth="1" strokeDasharray="3 2" />
-              <text x="190" y="13" fontSize="8.5" fontWeight="bold" fill="#16a34a">TP</text>
+              <line x1="140" y1="10" x2="185" y2="10" stroke={tpColor} strokeWidth="1" strokeDasharray="3 2" />
+              <text x="190" y="13" fontSize="8.5" fontWeight="bold" fill={tpColor}>TP</text>
             </>
           );
 
@@ -462,37 +479,37 @@ export const CandleChartDiagram: React.FC<PatternDiagramProps> = ({ patternId, i
         case "triple-bottom":
           return (
             <>
-              <Candle x={10} open={34} close={46} high={32} low={50} />
-              <Candle x={18} open={45} close={62} high={43} low={66} />
+              <C x={10} open={34} close={46} high={32} low={50} />
+              <C x={18} open={45} close={62} high={43} low={66} />
               {/* 1番底 */}
-              <Candle x={26} open={61} close={74} high={59} low={78} />
-              <Candle x={34} open={73} close={60} high={58} low={76} />
-              <Candle x={42} open={61} close={44} high={42} low={63} />
+              <C x={26} open={61} close={74} high={59} low={78} />
+              <C x={34} open={73} close={60} high={58} low={76} />
+              <C x={42} open={61} close={44} high={42} low={63} />
               {/* 中央ネックライン高値 */}
-              <Candle x={50} open={45} close={36} high={34} low={47} />
-              <Candle x={58} open={37} close={50} high={35} low={53} />
-              <Candle x={66} open={49} close={65} high={47} low={68} />
+              <C x={50} open={45} close={36} high={34} low={47} />
+              <C x={58} open={37} close={50} high={35} low={53} />
+              <C x={66} open={49} close={65} high={47} low={68} />
               {/* 2番底 */}
-              <Candle x={74} open={64} close={73} high={62} low={77} />
-              <Candle x={82} open={72} close={58} high={56} low={75} />
-              <Candle x={90} open={59} close={45} high={43} low={61} />
+              <C x={74} open={64} close={73} high={62} low={77} />
+              <C x={82} open={72} close={58} high={56} low={75} />
+              <C x={90} open={59} close={45} high={43} low={61} />
               {/* ブレイク */}
-              <Candle x={98} open={46} close={34} high={32} low={48} />
-              <Candle x={106} open={35} close={24} high={22} low={37} />
-              <Candle x={114} open={25} close={14} high={12} low={27} />
-              <Candle x={122} open={15} close={7} high={5} low={17} />
+              <C x={98} open={46} close={34} high={32} low={48} />
+              <C x={106} open={35} close={24} high={22} low={37} />
+              <C x={114} open={25} close={14} high={12} low={27} />
+              <C x={122} open={15} close={7} high={5} low={17} />
 
               <line x1="46" y1="35" x2="110" y2="35" stroke="#94a3b8" strokeWidth="1" strokeDasharray="2 2" />
               {/* Entry */}
-              <line x1="102" y1="28" x2="148" y2="28" stroke="#16a34a" strokeWidth="1" />
-              <polygon points="102,28 108,25 108,31" fill="#16a34a" />
-              <text x="152" y="31" fontSize="8.5" fontWeight="bold" fill="#16a34a">Entry Long</text>
+              <line x1="102" y1="28" x2="148" y2="28" stroke={longColor} strokeWidth="1" />
+              <polygon points="102,28 108,25 108,31" fill={longColor} />
+              <text x="152" y="31" fontSize="8.5" fontWeight="bold" fill={longColor}>Entry Long</text>
               {/* SL */}
-              <line x1="72" y1="78" x2="185" y2="78" stroke="#dc2626" strokeWidth="1" strokeDasharray="3 2" />
-              <text x="190" y="81" fontSize="8.5" fontWeight="bold" fill="#dc2626">SL</text>
+              <line x1="72" y1="78" x2="185" y2="78" stroke={slColor} strokeWidth="1" strokeDasharray="3 2" />
+              <text x="190" y="81" fontSize="8.5" fontWeight="bold" fill={slColor}>SL</text>
               {/* TP */}
-              <line x1="118" y1="8" x2="185" y2="8" stroke="#16a34a" strokeWidth="1" strokeDasharray="3 2" />
-              <text x="190" y="11" fontSize="8.5" fontWeight="bold" fill="#16a34a">TP</text>
+              <line x1="118" y1="8" x2="185" y2="8" stroke={tpColor} strokeWidth="1" strokeDasharray="3 2" />
+              <text x="190" y="11" fontSize="8.5" fontWeight="bold" fill={tpColor}>TP</text>
             </>
           );
 
@@ -506,34 +523,34 @@ export const CandleChartDiagram: React.FC<PatternDiagramProps> = ({ patternId, i
           return (
             <>
               {/* 急伸ポール */}
-              <Candle x={8} open={78} close={64} high={62} low={80} />
-              <Candle x={16} open={65} close={48} high={46} low={67} />
-              <Candle x={24} open={49} close={30} high={28} low={51} />
+              <C x={8} open={78} close={64} high={62} low={80} />
+              <C x={16} open={65} close={48} high={46} low={67} />
+              <C x={24} open={49} close={30} high={28} low={51} />
               {/* もみ合い・調整（旗・カップ・保ち合い） */}
-              <Candle x={32} open={31} close={42} high={29} low={44} />
-              <Candle x={40} open={41} close={50} high={39} low={53} />
-              <Candle x={48} open={49} close={39} high={37} low={51} />
-              <Candle x={56} open={40} close={48} high={38} low={52} />
-              <Candle x={64} open={47} close={56} high={45} low={58} />
-              <Candle x={72} open={55} close={44} high={42} low={57} />
-              <Candle x={80} open={45} close={38} high={36} low={47} />
+              <C x={32} open={31} close={42} high={29} low={44} />
+              <C x={40} open={41} close={50} high={39} low={53} />
+              <C x={48} open={49} close={39} high={37} low={51} />
+              <C x={56} open={40} close={48} high={38} low={52} />
+              <C x={64} open={47} close={56} high={45} low={58} />
+              <C x={72} open={55} close={44} high={42} low={57} />
+              <C x={80} open={45} close={38} high={36} low={47} />
               {/* ブレイクアウト */}
-              <Candle x={88} open={39} close={26} high={24} low={41} />
-              <Candle x={96} open={27} close={18} high={16} low={29} />
-              <Candle x={104} open={19} close={10} high={8} low={21} />
+              <C x={88} open={39} close={26} high={24} low={41} />
+              <C x={96} open={27} close={18} high={16} low={29} />
+              <C x={104} open={19} close={10} high={8} low={21} />
 
               {/* 上値抵抗線 */}
               <line x1="28" y1="30" x2="92" y2="38" stroke="#94a3b8" strokeWidth="1" strokeDasharray="2 2" />
               {/* Entry */}
-              <line x1="92" y1="24" x2="148" y2="24" stroke="#16a34a" strokeWidth="1" />
-              <polygon points="92,24 98,21 98,27" fill="#16a34a" />
-              <text x="152" y="27" fontSize="8.5" fontWeight="bold" fill="#16a34a">Entry Long</text>
+              <line x1="92" y1="24" x2="148" y2="24" stroke={longColor} strokeWidth="1" />
+              <polygon points="92,24 98,21 98,27" fill={longColor} />
+              <text x="152" y="27" fontSize="8.5" fontWeight="bold" fill={longColor}>Entry Long</text>
               {/* SL */}
-              <line x1="62" y1="58" x2="185" y2="58" stroke="#dc2626" strokeWidth="1" strokeDasharray="3 2" />
-              <text x="190" y="61" fontSize="8.5" fontWeight="bold" fill="#dc2626">SL</text>
+              <line x1="62" y1="58" x2="185" y2="58" stroke={slColor} strokeWidth="1" strokeDasharray="3 2" />
+              <text x="190" y="61" fontSize="8.5" fontWeight="bold" fill={slColor}>SL</text>
               {/* TP */}
-              <line x1="100" y1="10" x2="185" y2="10" stroke="#16a34a" strokeWidth="1" strokeDasharray="3 2" />
-              <text x="190" y="13" fontSize="8.5" fontWeight="bold" fill="#16a34a">TP</text>
+              <line x1="100" y1="10" x2="185" y2="10" stroke={tpColor} strokeWidth="1" strokeDasharray="3 2" />
+              <text x="190" y="13" fontSize="8.5" fontWeight="bold" fill={tpColor}>TP</text>
             </>
           );
       }
@@ -544,42 +561,42 @@ export const CandleChartDiagram: React.FC<PatternDiagramProps> = ({ patternId, i
           return (
             <>
               {/* 上昇波 */}
-              <Candle x={8} open={56} close={46} high={44} low={58} />
-              <Candle x={16} open={47} close={34} high={32} low={49} />
+              <C x={8} open={56} close={46} high={44} low={58} />
+              <C x={16} open={47} close={34} high={32} low={49} />
               {/* 左肩の頂点 */}
-              <Candle x={24} open={35} close={42} high={30} low={44} />
-              <Candle x={32} open={41} close={56} high={39} low={58} />
+              <C x={24} open={35} close={42} high={30} low={44} />
+              <C x={32} open={41} close={56} high={39} low={58} />
               {/* ネックライン押し安値 */}
-              <Candle x={40} open={55} close={46} high={44} low={57} />
-              <Candle x={48} open={47} close={24} high={22} low={49} />
+              <C x={40} open={55} close={46} high={44} low={57} />
+              <C x={48} open={47} close={24} high={22} low={49} />
               {/* 頭(H)の頂点 */}
-              <Candle x={56} open={25} close={14} high={12} low={27} />
-              <Candle x={64} open={15} close={28} high={13} low={30} />
-              <Candle x={72} open={27} close={48} high={25} low={50} />
-              <Candle x={80} open={47} close={57} high={45} low={59} />
+              <C x={56} open={25} close={14} high={12} low={27} />
+              <C x={64} open={15} close={28} high={13} low={30} />
+              <C x={72} open={27} close={48} high={25} low={50} />
+              <C x={80} open={47} close={57} high={45} low={59} />
               {/* 右肩の頂点 */}
-              <Candle x={88} open={56} close={44} high={42} low={58} />
-              <Candle x={96} open={45} close={36} high={34} low={47} />
-              <Candle x={104} open={37} close={48} high={35} low={50} />
-              <Candle x={112} open={47} close={59} high={45} low={61} />
+              <C x={88} open={56} close={44} high={42} low={58} />
+              <C x={96} open={45} close={36} high={34} low={47} />
+              <C x={104} open={37} close={48} high={35} low={50} />
+              <C x={112} open={47} close={59} high={45} low={61} />
               {/* ネックライン割れ */}
-              <Candle x={120} open={58} close={70} high={56} low={72} />
+              <C x={120} open={58} close={70} high={56} low={72} />
               {/* 急落 */}
-              <Candle x={128} open={69} close={78} high={67} low={80} />
-              <Candle x={136} open={77} close={86} high={75} low={88} />
+              <C x={128} open={69} close={78} high={67} low={80} />
+              <C x={136} open={77} close={86} high={75} low={88} />
 
               {/* ネックライン */}
               <line x1="36" y1="58" x2="130" y2="58" stroke="#94a3b8" strokeWidth="1" strokeDasharray="2 2" />
               {/* Entry Short */}
-              <line x1="124" y1="68" x2="152" y2="68" stroke="#dc2626" strokeWidth="1" />
-              <polygon points="124,68 130,65 130,71" fill="#dc2626" />
-              <text x="156" y="71" fontSize="8.5" fontWeight="bold" fill="#dc2626">Entry Short</text>
+              <line x1="124" y1="68" x2="152" y2="68" stroke={shortColor} strokeWidth="1" />
+              <polygon points="124,68 130,65 130,71" fill={shortColor} />
+              <text x="156" y="71" fontSize="8.5" fontWeight="bold" fill={shortColor}>Entry Short</text>
               {/* SL */}
-              <line x1="94" y1="34" x2="185" y2="34" stroke="#dc2626" strokeWidth="1" strokeDasharray="3 2" />
-              <text x="190" y="37" fontSize="8.5" fontWeight="bold" fill="#dc2626">SL</text>
+              <line x1="94" y1="34" x2="185" y2="34" stroke={slColor} strokeWidth="1" strokeDasharray="3 2" />
+              <text x="190" y="37" fontSize="8.5" fontWeight="bold" fill={slColor}>SL</text>
               {/* TP */}
-              <line x1="134" y1="88" x2="185" y2="88" stroke="#16a34a" strokeWidth="1" strokeDasharray="3 2" />
-              <text x="190" y="91" fontSize="8.5" fontWeight="bold" fill="#16a34a">TP</text>
+              <line x1="134" y1="88" x2="185" y2="88" stroke={tpColor} strokeWidth="1" strokeDasharray="3 2" />
+              <text x="190" y="91" fontSize="8.5" fontWeight="bold" fill={tpColor}>TP</text>
             </>
           );
 
@@ -588,36 +605,36 @@ export const CandleChartDiagram: React.FC<PatternDiagramProps> = ({ patternId, i
         case "triple-top":
           return (
             <>
-              <Candle x={10} open={64} close={48} high={46} low={66} />
-              <Candle x={18} open={49} close={32} high={30} low={51} />
+              <C x={10} open={64} close={48} high={46} low={66} />
+              <C x={18} open={49} close={32} high={30} low={51} />
               {/* 1番天井 */}
-              <Candle x={26} open={33} close={20} high={18} low={35} />
-              <Candle x={34} open={21} close={34} high={19} low={36} />
-              <Candle x={42} open={33} close={50} high={31} low={52} />
+              <C x={26} open={33} close={20} high={18} low={35} />
+              <C x={34} open={21} close={34} high={19} low={36} />
+              <C x={42} open={33} close={50} high={31} low={52} />
               {/* 中央谷 */}
-              <Candle x={50} open={49} close={58} high={47} low={60} />
-              <Candle x={58} open={57} close={44} high={42} low={59} />
-              <Candle x={66} open={45} close={28} high={26} low={47} />
+              <C x={50} open={49} close={58} high={47} low={60} />
+              <C x={58} open={57} close={44} high={42} low={59} />
+              <C x={66} open={45} close={28} high={26} low={47} />
               {/* 2番天井 */}
-              <Candle x={74} open={29} close={21} high={19} low={31} />
-              <Candle x={82} open={22} close={36} high={20} low={38} />
-              <Candle x={90} open={35} close={52} high={33} low={54} />
+              <C x={74} open={29} close={21} high={19} low={31} />
+              <C x={82} open={22} close={36} high={20} low={38} />
+              <C x={90} open={35} close={52} high={33} low={54} />
               {/* ネックライン割り込み */}
-              <Candle x={98} open={51} close={66} high={49} low={68} />
-              <Candle x={106} open={65} close={76} high={63} low={78} />
-              <Candle x={114} open={75} close={86} high={73} low={88} />
+              <C x={98} open={51} close={66} high={49} low={68} />
+              <C x={106} open={65} close={76} high={63} low={78} />
+              <C x={114} open={75} close={86} high={73} low={88} />
 
               <line x1="46" y1="58" x2="110" y2="58" stroke="#94a3b8" strokeWidth="1" strokeDasharray="2 2" />
               {/* Entry */}
-              <line x1="102" y1="66" x2="150" y2="66" stroke="#dc2626" strokeWidth="1" />
-              <polygon points="102,66 108,63 108,69" fill="#dc2626" />
-              <text x="154" y="69" fontSize="8.5" fontWeight="bold" fill="#dc2626">Entry Short</text>
+              <line x1="102" y1="66" x2="150" y2="66" stroke={shortColor} strokeWidth="1" />
+              <polygon points="102,66 108,63 108,69" fill={shortColor} />
+              <text x="154" y="69" fontSize="8.5" fontWeight="bold" fill={shortColor}>Entry Short</text>
               {/* SL */}
-              <line x1="72" y1="18" x2="185" y2="18" stroke="#dc2626" strokeWidth="1" strokeDasharray="3 2" />
-              <text x="190" y="21" fontSize="8.5" fontWeight="bold" fill="#dc2626">SL</text>
+              <line x1="72" y1="18" x2="185" y2="18" stroke={slColor} strokeWidth="1" strokeDasharray="3 2" />
+              <text x="190" y="21" fontSize="8.5" fontWeight="bold" fill={slColor}>SL</text>
               {/* TP */}
-              <line x1="110" y1="88" x2="185" y2="88" stroke="#16a34a" strokeWidth="1" strokeDasharray="3 2" />
-              <text x="190" y="91" fontSize="8.5" fontWeight="bold" fill="#16a34a">TP</text>
+              <line x1="110" y1="88" x2="185" y2="88" stroke={tpColor} strokeWidth="1" strokeDasharray="3 2" />
+              <text x="190" y="91" fontSize="8.5" fontWeight="bold" fill={tpColor}>TP</text>
             </>
           );
 
@@ -631,32 +648,32 @@ export const CandleChartDiagram: React.FC<PatternDiagramProps> = ({ patternId, i
           return (
             <>
               {/* 急落ポール */}
-              <Candle x={8} open={18} close={34} high={16} low={36} />
-              <Candle x={16} open={33} close={52} high={31} low={54} />
-              <Candle x={24} open={51} close={70} high={49} low={72} />
+              <C x={8} open={18} close={34} high={16} low={36} />
+              <C x={16} open={33} close={52} high={31} low={54} />
+              <C x={24} open={51} close={70} high={49} low={72} />
               {/* 戻り・もみ合い（旗・保ち合い） */}
-              <Candle x={32} open={69} close={58} high={56} low={71} />
-              <Candle x={40} open={59} close={50} high={48} low={61} />
-              <Candle x={48} open={51} close={61} high={49} low={63} />
-              <Candle x={56} open={60} close={52} high={50} low={62} />
-              <Candle x={64} open={53} close={44} high={42} low={55} />
-              <Candle x={72} open={45} close={56} high={43} low={58} />
-              <Candle x={80} open={55} close={64} high={53} low={66} />
+              <C x={32} open={69} close={58} high={56} low={71} />
+              <C x={40} open={59} close={50} high={48} low={61} />
+              <C x={48} open={51} close={61} high={49} low={63} />
+              <C x={56} open={60} close={52} high={50} low={62} />
+              <C x={64} open={53} close={44} high={42} low={55} />
+              <C x={72} open={45} close={56} high={43} low={58} />
+              <C x={80} open={55} close={64} high={53} low={66} />
               {/* 下抜け */}
-              <Candle x={88} open={63} close={76} high={61} low={78} />
-              <Candle x={96} open={75} close={84} high={73} low={86} />
+              <C x={88} open={63} close={76} high={61} low={78} />
+              <C x={96} open={75} close={84} high={73} low={86} />
 
               <line x1="28" y1="70" x2="90" y2="62" stroke="#94a3b8" strokeWidth="1" strokeDasharray="2 2" />
               {/* Entry */}
-              <line x1="90" y1="74" x2="150" y2="74" stroke="#dc2626" strokeWidth="1" />
-              <polygon points="90,74 96,71 96,77" fill="#dc2626" />
-              <text x="154" y="77" fontSize="8.5" fontWeight="bold" fill="#dc2626">Entry Short</text>
+              <line x1="90" y1="74" x2="150" y2="74" stroke={shortColor} strokeWidth="1" />
+              <polygon points="90,74 96,71 96,77" fill={shortColor} />
+              <text x="154" y="77" fontSize="8.5" fontWeight="bold" fill={shortColor}>Entry Short</text>
               {/* SL */}
-              <line x1="60" y1="42" x2="185" y2="42" stroke="#dc2626" strokeWidth="1" strokeDasharray="3 2" />
-              <text x="190" y="45" fontSize="8.5" fontWeight="bold" fill="#dc2626">SL</text>
+              <line x1="60" y1="42" x2="185" y2="42" stroke={slColor} strokeWidth="1" strokeDasharray="3 2" />
+              <text x="190" y="45" fontSize="8.5" fontWeight="bold" fill={slColor}>SL</text>
               {/* TP */}
-              <line x1="96" y1="88" x2="185" y2="88" stroke="#16a34a" strokeWidth="1" strokeDasharray="3 2" />
-              <text x="190" y="91" fontSize="8.5" fontWeight="bold" fill="#16a34a">TP</text>
+              <line x1="96" y1="88" x2="185" y2="88" stroke={tpColor} strokeWidth="1" strokeDasharray="3 2" />
+              <text x="190" y="91" fontSize="8.5" fontWeight="bold" fill={tpColor}>TP</text>
             </>
           );
       }

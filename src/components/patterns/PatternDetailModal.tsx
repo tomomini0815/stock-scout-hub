@@ -7,7 +7,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { SchemaDiagram, CandleChartDiagram } from "./PatternDiagram";
+import { SchemaDiagram, CandleChartDiagram, type PatternColorMode } from "./PatternDiagram";
 import {
   ArrowUpRight,
   ArrowDownRight,
@@ -23,15 +23,21 @@ interface PatternDetailModalProps {
   item: ChartPatternItem | null;
   isOpen: boolean;
   onClose: () => void;
+  colorMode?: PatternColorMode;
 }
 
 export const PatternDetailModal: React.FC<PatternDetailModalProps> = ({
   item,
   isOpen,
   onClose,
+  colorMode = "jp",
 }) => {
   if (!item) return null;
   const isBullish = item.category === "bullish";
+
+  const badgeBg = colorMode === "jp"
+    ? isBullish ? "bg-red-600" : "bg-blue-600"
+    : isBullish ? "bg-emerald-600" : "bg-rose-600";
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -39,9 +45,7 @@ export const PatternDetailModal: React.FC<PatternDetailModalProps> = ({
         <DialogHeader className="space-y-2">
           <div className="flex flex-wrap items-center gap-2">
             <span
-              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-bold text-white ${
-                isBullish ? "bg-emerald-600" : "bg-rose-600"
-              }`}
+              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-bold text-white ${badgeBg}`}
             >
               {isBullish ? (
                 <ArrowUpRight className="w-4 h-4 stroke-[3]" />
@@ -72,7 +76,7 @@ export const PatternDetailModal: React.FC<PatternDetailModalProps> = ({
               幾何学ダイアグラム（骨格）
             </span>
             <div className="w-full max-w-[160px] h-[100px]">
-              <SchemaDiagram patternId={item.id} isBullish={isBullish} />
+              <SchemaDiagram patternId={item.id} isBullish={isBullish} colorMode={colorMode} />
             </div>
           </div>
 
@@ -81,7 +85,7 @@ export const PatternDetailModal: React.FC<PatternDetailModalProps> = ({
               ローソク足チャート ＆ 売買ポイント
             </span>
             <div className="w-full h-[100px]">
-              <CandleChartDiagram patternId={item.id} isBullish={isBullish} />
+              <CandleChartDiagram patternId={item.id} isBullish={isBullish} colorMode={colorMode} />
             </div>
           </div>
         </div>

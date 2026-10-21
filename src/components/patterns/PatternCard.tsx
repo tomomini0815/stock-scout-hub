@@ -1,15 +1,21 @@
 import React from "react";
 import { type ChartPatternItem } from "@/data/chartPatternsData";
-import { SchemaDiagram, CandleChartDiagram } from "./PatternDiagram";
+import { SchemaDiagram, CandleChartDiagram, type PatternColorMode } from "./PatternDiagram";
 import { ArrowUpRight, ArrowDownRight, Info } from "lucide-react";
 
 interface PatternCardProps {
   item: ChartPatternItem;
   onSelect: (item: ChartPatternItem) => void;
+  colorMode?: PatternColorMode;
 }
 
-export const PatternCard: React.FC<PatternCardProps> = ({ item, onSelect }) => {
+export const PatternCard: React.FC<PatternCardProps> = ({ item, onSelect, colorMode = "jp" }) => {
   const isBullish = item.category === "bullish";
+
+  // カラーモードに応じたバッジ色
+  const badgeBg = colorMode === "jp"
+    ? isBullish ? "bg-red-600 dark:bg-red-600" : "bg-blue-600 dark:bg-blue-600"
+    : isBullish ? "bg-emerald-600 dark:bg-emerald-600" : "bg-rose-600 dark:bg-rose-600";
 
   return (
     <div
@@ -19,11 +25,7 @@ export const PatternCard: React.FC<PatternCardProps> = ({ item, onSelect }) => {
       {/* 上部バッジ見出し */}
       <div className="mb-2">
         <div
-          className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-bold text-white shadow-sm tracking-wide ${
-            isBullish
-              ? "bg-emerald-600 dark:bg-emerald-600"
-              : "bg-rose-600 dark:bg-rose-600"
-          }`}
+          className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-bold text-white shadow-sm tracking-wide ${badgeBg}`}
         >
           {isBullish ? (
             <ArrowUpRight className="w-3.5 h-3.5 stroke-[3]" />
@@ -46,12 +48,12 @@ export const PatternCard: React.FC<PatternCardProps> = ({ item, onSelect }) => {
       <div className="grid grid-cols-12 gap-2 bg-slate-50 dark:bg-slate-950/60 p-2 rounded-lg border border-slate-100 dark:border-border/60">
         {/* 左: 幾何学ダイアグラム (約38%) */}
         <div className="col-span-4 flex items-center justify-center bg-white dark:bg-slate-900 rounded border border-slate-200/80 dark:border-slate-800 p-1">
-          <SchemaDiagram patternId={item.id} isBullish={isBullish} />
+          <SchemaDiagram patternId={item.id} isBullish={isBullish} colorMode={colorMode} />
         </div>
 
         {/* 右: ローソク足チャート図 (約62%) */}
         <div className="col-span-8 flex items-center justify-center bg-white dark:bg-slate-900 rounded border border-slate-200/80 dark:border-slate-800 p-1 overflow-hidden">
-          <CandleChartDiagram patternId={item.id} isBullish={isBullish} />
+          <CandleChartDiagram patternId={item.id} isBullish={isBullish} colorMode={colorMode} />
         </div>
       </div>
 

@@ -4,6 +4,7 @@ import SiteFooter from "@/components/SiteFooter";
 import { chartPatternPairs, type ChartPatternItem } from "@/data/chartPatternsData";
 import { PatternCard } from "@/components/patterns/PatternCard";
 import { PatternDetailModal } from "@/components/patterns/PatternDetailModal";
+import { type PatternColorMode } from "@/components/patterns/PatternDiagram";
 import {
   TrendingUp,
   Search,
@@ -15,6 +16,7 @@ import {
   Sparkles,
   HelpCircle,
   CheckCircle,
+  Palette,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -25,6 +27,7 @@ export const PatternsPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<FilterCategory>("all");
   const [selectedPattern, setSelectedPattern] = useState<ChartPatternItem | null>(null);
+  const [colorMode, setColorMode] = useState<PatternColorMode>("jp"); // デフォルトは日本株標準（上昇:赤 / 下降:青）
 
   // 検索とフィルター処理
   const filteredPairs = useMemo(() => {
@@ -64,6 +67,8 @@ export const PatternsPage: React.FC = () => {
     window.print();
   };
 
+  const isJp = colorMode === "jp";
+
   return (
     <div className="min-h-screen bg-slate-100/70 dark:bg-background text-foreground flex flex-col">
       <SiteHeader activeTab="チャートパターン" />
@@ -71,7 +76,7 @@ export const PatternsPage: React.FC = () => {
       <main className="flex-1 w-full max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-6 space-y-6">
         {/* チートシート・メインヘッダー（画像の雰囲気を美しく再現） */}
         <section className="bg-white dark:bg-card border-2 border-slate-300 dark:border-border rounded-2xl p-5 sm:p-7 shadow-sm">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 dark:border-border pb-5">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-200 dark:border-border pb-5">
             <div>
               <div className="inline-flex items-center gap-2 text-xs font-bold tracking-widest text-emerald-600 dark:text-emerald-400 uppercase mb-1">
                 <Sparkles className="w-4 h-4" />
@@ -85,20 +90,61 @@ export const PatternsPage: React.FC = () => {
               </p>
             </div>
 
-            {/* 凡例バッジ（画像のトップ凡例バーを忠実再現） */}
-            <div className="flex flex-wrap items-center gap-2 bg-slate-50 dark:bg-muted/50 p-2.5 rounded-xl border border-slate-200 dark:border-border/80 text-xs font-bold">
-              <span className="inline-flex items-center gap-1 bg-emerald-600 text-white px-2.5 py-1 rounded-md shadow-xs">
-                <ArrowUpRight className="w-3.5 h-3.5 stroke-[3]" />
-                Bullish = 買い (Long)
-              </span>
-              <span className="inline-flex items-center gap-1 bg-rose-600 text-white px-2.5 py-1 rounded-md shadow-xs">
-                <ArrowDownRight className="w-3.5 h-3.5 stroke-[3]" />
-                Bearish = 売り (Short)
-              </span>
-              <div className="hidden sm:flex items-center gap-2 px-2 text-slate-700 dark:text-slate-300">
-                <span className="text-rose-600 dark:text-rose-400 font-extrabold">SL = Stop Loss (損切り)</span>
-                <span>|</span>
-                <span className="text-emerald-600 dark:text-emerald-400 font-extrabold">TP = Take Profit (利確)</span>
+            {/* カラーモード切替 ＆ 凡例バー */}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+              {/* カラー設定トグル */}
+              <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-muted p-1 rounded-xl border border-slate-200 dark:border-border self-start sm:self-auto">
+                <button
+                  onClick={() => setColorMode("jp")}
+                  className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-all ${
+                    isJp
+                      ? "bg-white dark:bg-card text-red-600 dark:text-red-400 shadow-xs"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                  title="日本株標準（東証・証券会社標準：上昇が赤 / 下降が青）"
+                >
+                  🇯🇵 日本株 (上昇:赤 / 下降:青)
+                </button>
+                <button
+                  onClick={() => setColorMode("global")}
+                  className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-all ${
+                    !isJp
+                      ? "bg-white dark:bg-card text-emerald-600 dark:text-emerald-400 shadow-xs"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                  title="欧米・FX標準（TradingView標準：上昇が緑 / 下落が赤）"
+                >
+                  🌐 グローバル (上昇:緑 / 下落:赤)
+                </button>
+              </div>
+
+              {/* 凡例バッジ */}
+              <div className="flex flex-wrap items-center gap-2 bg-slate-50 dark:bg-muted/50 p-2 rounded-xl border border-slate-200 dark:border-border/80 text-xs font-bold">
+                <span
+                  className={`inline-flex items-center gap-1 text-white px-2.5 py-1 rounded-md shadow-xs ${
+                    isJp ? "bg-red-600" : "bg-emerald-600"
+                  }`}
+                >
+                  <ArrowUpRight className="w-3.5 h-3.5 stroke-[3]" />
+                  Bullish = 買い (Long)
+                </span>
+                <span
+                  className={`inline-flex items-center gap-1 text-white px-2.5 py-1 rounded-md shadow-xs ${
+                    isJp ? "bg-blue-600" : "bg-rose-600"
+                  }`}
+                >
+                  <ArrowDownRight className="w-3.5 h-3.5 stroke-[3]" />
+                  Bearish = 売り (Short)
+                </span>
+                <div className="hidden xl:flex items-center gap-2 px-1 text-slate-700 dark:text-slate-300">
+                  <span className={`${isJp ? "text-blue-600" : "text-rose-600"} font-extrabold`}>
+                    SL = Stop Loss (損切り)
+                  </span>
+                  <span>|</span>
+                  <span className={`${isJp ? "text-red-600" : "text-emerald-600"} font-extrabold`}>
+                    TP = Take Profit (利確)
+                  </span>
+                </div>
               </div>
             </div>
           </div>
@@ -109,8 +155,8 @@ export const PatternsPage: React.FC = () => {
             <div className="flex flex-wrap items-center gap-1.5">
               {[
                 { id: "all", label: "すべて (全20型)" },
-                { id: "bullish", label: "🟢 買い (Bullish)" },
-                { id: "bearish", label: "🔴 売り (Bearish)" },
+                { id: "bullish", label: isJp ? "🔴 買い (Bullish)" : "🟢 買い (Bullish)" },
+                { id: "bearish", label: isJp ? "🔵 売り (Bearish)" : "🔴 売り (Bearish)" },
                 { id: "reversal", label: "🔄 トレンド転換" },
                 { id: "continuation", label: "➡️ トレンド継続" },
               ].map((tab) => (
@@ -159,11 +205,23 @@ export const PatternsPage: React.FC = () => {
           {/* 列ヘッダーラベル（デスクトップ時） */}
           {selectedCategory === "all" && (
             <div className="hidden md:grid grid-cols-2 gap-4 text-center font-extrabold text-sm tracking-wide">
-              <div className="bg-emerald-600/10 text-emerald-700 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-800/60 py-2 rounded-lg flex items-center justify-center gap-2">
+              <div
+                className={`py-2 rounded-lg flex items-center justify-center gap-2 border ${
+                  isJp
+                    ? "bg-red-50 text-red-700 dark:bg-red-950/20 dark:text-red-400 border-red-200 dark:border-red-900/60"
+                    : "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-400 border-emerald-200 dark:border-emerald-900/60"
+                }`}
+              >
                 <ArrowUpRight className="w-4 h-4 stroke-[3]" />
                 <span>強気・買いパターン（BULLISH SIGNALS）</span>
               </div>
-              <div className="bg-rose-600/10 text-rose-700 dark:text-rose-400 border border-rose-300 dark:border-rose-800/60 py-2 rounded-lg flex items-center justify-center gap-2">
+              <div
+                className={`py-2 rounded-lg flex items-center justify-center gap-2 border ${
+                  isJp
+                    ? "bg-blue-50 text-blue-700 dark:bg-blue-950/20 dark:text-blue-400 border-blue-200 dark:border-blue-900/60"
+                    : "bg-rose-50 text-rose-700 dark:bg-rose-950/20 dark:text-rose-400 border-rose-200 dark:border-rose-900/60"
+                }`}
+              >
                 <ArrowDownRight className="w-4 h-4 stroke-[3]" />
                 <span>弱気・売りパターン（BEARISH SIGNALS）</span>
               </div>
@@ -182,7 +240,7 @@ export const PatternsPage: React.FC = () => {
                 if (selectedCategory === "bullish") {
                   return (
                     <div key={pair.bullish.id} className="grid grid-cols-1">
-                      <PatternCard item={pair.bullish} onSelect={setSelectedPattern} />
+                      <PatternCard item={pair.bullish} onSelect={setSelectedPattern} colorMode={colorMode} />
                     </div>
                   );
                 }
@@ -190,15 +248,15 @@ export const PatternsPage: React.FC = () => {
                 if (selectedCategory === "bearish") {
                   return (
                     <div key={pair.bearish.id} className="grid grid-cols-1">
-                      <PatternCard item={pair.bearish} onSelect={setSelectedPattern} />
+                      <PatternCard item={pair.bearish} onSelect={setSelectedPattern} colorMode={colorMode} />
                     </div>
                   );
                 }
 
                 return (
                   <div key={pair.id} className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-                    <PatternCard item={pair.bullish} onSelect={setSelectedPattern} />
-                    <PatternCard item={pair.bearish} onSelect={setSelectedPattern} />
+                    <PatternCard item={pair.bullish} onSelect={setSelectedPattern} colorMode={colorMode} />
+                    <PatternCard item={pair.bearish} onSelect={setSelectedPattern} colorMode={colorMode} />
                   </div>
                 );
               })}
@@ -264,6 +322,7 @@ export const PatternsPage: React.FC = () => {
         item={selectedPattern}
         isOpen={Boolean(selectedPattern)}
         onClose={() => setSelectedPattern(null)}
+        colorMode={colorMode}
       />
 
       <SiteFooter />

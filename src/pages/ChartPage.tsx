@@ -16,7 +16,7 @@ import {
 import { marketIndices, featuredStock, nikkei225Stocks, stockUniverse, type StockData } from "@/data/stockData";
 import { useLiveStockQuotes } from "@/hooks/useLiveStockQuote";
 import { addChartWatchlistStock, CHART_WATCHLIST_UPDATED_EVENT, readChartWatchlist } from "@/lib/chartWatchlist";
-import { Activity, BarChart3, ChevronDown, Clock, Search, Star } from "lucide-react";
+import { Activity, BarChart3, ChevronDown, Clock, Search, Star, TrendingUp } from "lucide-react";
 
 type ChartIndexOption = { id: string; label: string; shortLabel: string; stocks: StockData[] };
 type SmartMoneySignal = {
