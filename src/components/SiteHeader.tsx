@@ -85,7 +85,7 @@ const SiteHeader = ({ activeTab = "トップ" }: SiteHeaderProps) => {
       {/* Navigation bar */}
       <nav className="bg-nav-bg">
         <div className="container mx-auto flex items-center justify-between gap-2 px-2.5 sm:px-4">
-          <ul className="flex min-w-0 flex-1 items-center gap-0 overflow-x-auto no-scrollbar text-xxs sm:text-xs md:justify-center">
+          <ul className="flex min-w-0 flex-1 items-center justify-start gap-0 overflow-x-auto no-scrollbar text-xxs sm:text-xs">
             {navItems.map((item) => (
               <li key={item.label}>
                 <Link
