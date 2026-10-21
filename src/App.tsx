@@ -31,6 +31,7 @@ const ChartPage = lazy(() => import("./pages/ChartPage"));
 const NewsPage = lazy(() => import("./pages/NewsPage"));
 const SmartMoneyPage = lazy(() => import("./pages/SmartMoneyPage"));
 const AdvisorPage = lazy(() => import("./pages/AdvisorPage"));
+const PatternsPage = lazy(() => import("./pages/PatternsPage"));
 const TermsPage = lazy(() => import("./pages/TermsPage"));
 
 const queryClient = new QueryClient({
@@ -63,6 +64,8 @@ const App = () => (
             <Route path="/news" element={<NewsPage />} />
             <Route path="/smart-money" element={<SmartMoneyPage />} />
             <Route path="/advisor" element={<AdvisorPage />} />
+            <Route path="/patterns" element={<PatternsPage />} />
+            <Route path="/chart-patterns" element={<Navigate to="/patterns" replace />} />
             <Route path="/guide" element={<Navigate to="/advisor?tab=guide" replace />} />
             <Route path="/metrics-guide" element={<Navigate to="/advisor?tab=guide" replace />} />
             <Route path="/terms" element={<TermsPage />} />

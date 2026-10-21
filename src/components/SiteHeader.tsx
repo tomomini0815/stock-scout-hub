@@ -12,6 +12,7 @@ const navItems = [
   { label: "トップ", path: "/" },
   { label: "市況・スクリーニング", path: "/market" },
   { label: "銘柄・チャート", path: "/chart" },
+  { label: "チャートパターン", path: "/patterns" },
   { label: "銘柄診断", path: "/advisor" },
   { label: "大口・ファンド", path: "/smart-money" },
   { label: "テーマ別", path: "/themes" },

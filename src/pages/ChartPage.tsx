@@ -755,14 +755,24 @@ const ChartPage = () => {
                   ({selected?.market || featuredStock.market || "東証"})
                 </span>
               </div>
-              <Link
-                to={`/advisor?tab=health&code=${encodeURIComponent(selected?.code || featuredStock.code)}`}
-                className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-2.5 py-1 text-xs font-semibold text-foreground transition-colors hover:border-primary hover:bg-muted"
-                title={`${selected?.code || featuredStock.code} の銘柄カルテを開く`}
-              >
-                <Activity className="h-3.5 w-3.5 text-blue-500" />
-                <span>銘柄カルテを見る</span>
-              </Link>
+              <div className="flex items-center gap-2">
+                <Link
+                  to="/patterns"
+                  className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-2.5 py-1 text-xs font-semibold text-foreground transition-colors hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+                  title="チャートパターン・チートシートを見る"
+                >
+                  <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
+                  <span>チャートパターン</span>
+                </Link>
+                <Link
+                  to={`/advisor?tab=health&code=${encodeURIComponent(selected?.code || featuredStock.code)}`}
+                  className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-2.5 py-1 text-xs font-semibold text-foreground transition-colors hover:border-primary hover:bg-muted"
+                  title={`${selected?.code || featuredStock.code} の銘柄カルテを開く`}
+                >
+                  <Activity className="h-3.5 w-3.5 text-blue-500" />
+                  <span>銘柄カルテを見る</span>
+                </Link>
+              </div>
             </div>
 
             <RealStockChart

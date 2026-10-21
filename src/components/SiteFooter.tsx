@@ -23,6 +23,7 @@ const footerSections = [
     links: [
       { label: "日経225スクリーニング", path: "/market" },
       { label: "銘柄検索・チャート", path: "/chart" },
+      { label: "チャートパターン一覧", path: "/patterns" },
       { label: "EDINET検知", path: "/smart-money" },
     ],
   },
