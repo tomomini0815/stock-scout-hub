@@ -1,6 +1,8 @@
 import React, { useState, useMemo } from "react";
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
+import MarketTicker from "@/components/MarketTicker";
+import { marketIndices } from "@/data/stockData";
 import { chartPatternPairs, type ChartPatternItem } from "@/data/chartPatternsData";
 import { PatternCard } from "@/components/patterns/PatternCard";
 import { PatternDetailModal } from "@/components/patterns/PatternDetailModal";
@@ -8,15 +10,12 @@ import { type PatternColorMode } from "@/components/patterns/PatternDiagram";
 import {
   TrendingUp,
   Search,
-  Filter,
   ArrowUpRight,
   ArrowDownRight,
   Printer,
   BookOpen,
-  Sparkles,
   HelpCircle,
   CheckCircle,
-  Palette,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -70,135 +69,128 @@ export const PatternsPage: React.FC = () => {
   const isJp = colorMode === "jp";
 
   return (
-    <div className="min-h-screen bg-slate-100/70 dark:bg-background text-foreground flex flex-col">
+    <div className="min-h-screen bg-background text-foreground flex flex-col">
       <SiteHeader activeTab="チャートパターン" />
+      <MarketTicker indices={marketIndices} />
 
-      <main className="flex-1 w-full max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-6 space-y-6">
-        {/* チートシート・メインヘッダー（画像の雰囲気を美しく再現） */}
-        <section className="bg-white dark:bg-card border-2 border-slate-300 dark:border-border rounded-2xl p-5 sm:p-7 shadow-sm">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-200 dark:border-border pb-5">
-            <div>
-              <div className="inline-flex items-center gap-2 text-xs font-bold tracking-widest text-emerald-600 dark:text-emerald-400 uppercase mb-1">
-                <Sparkles className="w-4 h-4" />
-                <span>Forex & Stock Technical Analysis</span>
-              </div>
-              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100">
-                CHART PATTERN CHEAT SHEET
-              </h1>
-              <p className="text-xs sm:text-sm text-slate-600 dark:text-muted-foreground mt-1">
-                Spot the Pattern &nbsp;|&nbsp; Plan Your Trade &nbsp;|&nbsp; Trade with Confidence（パターンを見極め、計画を立て、確信を持ってトレードする）
-              </p>
-            </div>
-
-            {/* カラーモード切替 ＆ 凡例バー */}
-            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-              {/* カラー設定トグル */}
-              <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-muted p-1 rounded-xl border border-slate-200 dark:border-border self-start sm:self-auto">
-                <button
-                  onClick={() => setColorMode("jp")}
-                  className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-all ${
-                    isJp
-                      ? "bg-white dark:bg-card text-red-600 dark:text-red-400 shadow-xs"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                  title="日本株標準（東証・証券会社標準：上昇が赤 / 下降が青）"
-                >
-                  🇯🇵 日本株 (上昇:赤 / 下降:青)
-                </button>
-                <button
-                  onClick={() => setColorMode("global")}
-                  className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-all ${
-                    !isJp
-                      ? "bg-white dark:bg-card text-emerald-600 dark:text-emerald-400 shadow-xs"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                  title="欧米・FX標準（TradingView標準：上昇が緑 / 下落が赤）"
-                >
-                  🌐 グローバル (上昇:緑 / 下落:赤)
-                </button>
-              </div>
-
-              {/* 凡例バッジ */}
-              <div className="flex flex-wrap items-center gap-2 bg-slate-50 dark:bg-muted/50 p-2 rounded-xl border border-slate-200 dark:border-border/80 text-xs font-bold">
-                <span
-                  className={`inline-flex items-center gap-1 text-white px-2.5 py-1 rounded-md shadow-xs ${
-                    isJp ? "bg-red-600" : "bg-emerald-600"
-                  }`}
-                >
-                  <ArrowUpRight className="w-3.5 h-3.5 stroke-[3]" />
-                  Bullish = 買い (Long)
-                </span>
-                <span
-                  className={`inline-flex items-center gap-1 text-white px-2.5 py-1 rounded-md shadow-xs ${
-                    isJp ? "bg-blue-600" : "bg-rose-600"
-                  }`}
-                >
-                  <ArrowDownRight className="w-3.5 h-3.5 stroke-[3]" />
-                  Bearish = 売り (Short)
-                </span>
-                <div className="hidden xl:flex items-center gap-2 px-1 text-slate-700 dark:text-slate-300">
-                  <span className={`${isJp ? "text-blue-600" : "text-rose-600"} font-extrabold`}>
-                    SL = Stop Loss (損切り)
-                  </span>
-                  <span>|</span>
-                  <span className={`${isJp ? "text-red-600" : "text-emerald-600"} font-extrabold`}>
-                    TP = Take Profit (利確)
-                  </span>
-                </div>
-              </div>
-            </div>
+      <main className="container mx-auto space-y-3 px-2 py-2 sm:px-4 sm:py-3 flex-1">
+        {/* ページタイトル & コントロール行（サイト共通のコンパクトヘッダー） */}
+        <div className="flex flex-col gap-2 py-1 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-center gap-2 min-w-0">
+            <TrendingUp className="h-4 w-4 shrink-0 text-foreground" />
+            <h1 className="text-xs sm:text-sm font-bold text-foreground whitespace-nowrap">
+              チャートパターン一覧
+            </h1>
+            <span className="hidden xl:inline text-xxs text-muted-foreground truncate">
+              天底の反転・保ち合いブレイク等の王道チャートパターン（全20型）。売買エントリー・損切り・利確目標を解説
+            </span>
           </div>
 
-          {/* ツールバー（検索・カテゴリタブ・印刷ボタン） */}
-          <div className="mt-5 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
-            {/* カテゴリフィルタータブ */}
-            <div className="flex flex-wrap items-center gap-1.5">
-              {[
-                { id: "all", label: "すべて (全20型)" },
-                { id: "bullish", label: isJp ? "🔴 買い (Bullish)" : "🟢 買い (Bullish)" },
-                { id: "bearish", label: isJp ? "🔵 売り (Bearish)" : "🔴 売り (Bearish)" },
-                { id: "reversal", label: "🔄 トレンド転換" },
-                { id: "continuation", label: "➡️ トレンド継続" },
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setSelectedCategory(tab.id as FilterCategory)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                    selectedCategory === tab.id
-                      ? "bg-slate-900 text-white dark:bg-primary dark:text-primary-foreground shadow-xs"
-                      : "bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-muted dark:hover:bg-muted/80 dark:text-muted-foreground"
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-
-            {/* 検索入力 & 印刷ボタン */}
-            <div className="flex items-center gap-2">
-              <div className="relative flex-1 md:w-64">
-                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  type="text"
-                  placeholder="パターン名で検索..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9 h-9 text-xs bg-slate-50 dark:bg-background border-slate-200"
-                />
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handlePrint}
-                className="h-9 px-3 text-xs gap-1.5 shrink-0 hidden sm:inline-flex"
-                title="チートシートを印刷・PDF保存"
+          {/* カラーモード切替 ＆ 凡例 ＆ 印刷ボタン */}
+          <div className="flex flex-wrap items-center gap-2 self-start lg:self-auto">
+            {/* カラー設定トグル */}
+            <div className="flex items-center rounded-md border border-border/70 bg-card p-0.5 text-xs font-semibold shadow-2xs">
+              <button
+                type="button"
+                onClick={() => setColorMode("jp")}
+                className={`px-2 py-0.5 text-xxs sm:text-xs font-bold rounded transition-colors ${
+                  isJp
+                    ? "bg-muted text-red-600 dark:text-red-400 font-bold shadow-2xs"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+                title="日本株標準（東証・国内証券標準：上昇が赤 / 下降が青）"
               >
-                <Printer className="w-3.5 h-3.5" />
-                <span>印刷 / 保存</span>
-              </Button>
+                🇯🇵 日本株 (上昇:赤 / 下降:青)
+              </button>
+              <button
+                type="button"
+                onClick={() => setColorMode("global")}
+                className={`px-2 py-0.5 text-xxs sm:text-xs font-bold rounded transition-colors ${
+                  !isJp
+                    ? "bg-muted text-emerald-600 dark:text-emerald-400 font-bold shadow-2xs"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+                title="欧米・FX標準（TradingView標準：上昇が緑 / 下落が赤）"
+              >
+                🌐 グローバル (上昇:緑 / 下落:赤)
+              </button>
             </div>
+
+            {/* 凡例バッジ */}
+            <div className="flex items-center gap-1.5 text-xxs sm:text-xs font-bold">
+              <span
+                className={`inline-flex items-center gap-1 text-white px-2 py-0.5 rounded shadow-2xs ${
+                  isJp ? "bg-red-600" : "bg-emerald-600"
+                }`}
+              >
+                <ArrowUpRight className="w-3 h-3 stroke-[3]" />
+                買い (Long)
+              </span>
+              <span
+                className={`inline-flex items-center gap-1 text-white px-2 py-0.5 rounded shadow-2xs ${
+                  isJp ? "bg-blue-600" : "bg-rose-600"
+                }`}
+              >
+                <ArrowDownRight className="w-3 h-3 stroke-[3]" />
+                売り (Short)
+              </span>
+              <span className="hidden sm:inline-block text-xxs text-muted-foreground pl-1">
+                SL: 損切り / TP: 利確
+              </span>
+            </div>
+
+            {/* 印刷ボタン */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handlePrint}
+              className="h-6 sm:h-7 px-2 text-xxs gap-1 shrink-0 hidden sm:inline-flex"
+              title="チートシートを印刷・PDF保存"
+            >
+              <Printer className="w-3 h-3" />
+              <span>印刷</span>
+            </Button>
           </div>
-        </section>
+        </div>
+
+        {/* ツールバー（カテゴリフィルター ＆ 検索バー） */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 rounded border border-border/70 bg-card p-1.5 shadow-2xs">
+          {/* カテゴリフィルタータブ */}
+          <div className="flex flex-wrap items-center gap-1">
+            {[
+              { id: "all", label: "すべて (全20型)" },
+              { id: "bullish", label: isJp ? "🔴 買い (Bullish)" : "🟢 買い (Bullish)" },
+              { id: "bearish", label: isJp ? "🔵 売り (Bearish)" : "🔴 売り (Bearish)" },
+              { id: "reversal", label: "🔄 反転型" },
+              { id: "continuation", label: "➡️ 継続型" },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setSelectedCategory(tab.id as FilterCategory)}
+                className={`px-2.5 py-1 rounded text-xs font-semibold transition-colors ${
+                  selectedCategory === tab.id
+                    ? "bg-primary text-primary-foreground font-bold shadow-2xs"
+                    : "bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground font-medium"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {/* 検索入力 */}
+          <div className="relative w-full sm:w-56 shrink-0">
+            <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              type="text"
+              placeholder="パターン名で絞り込み..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-8 h-7 text-xs bg-background border-border/80"
+            />
+          </div>
+        </div>
 
         {/* 2カラム対比チートシート一覧（画像通りのレイアウト） */}
         <section className="space-y-4">
