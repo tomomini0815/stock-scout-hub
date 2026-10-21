@@ -164,6 +164,7 @@ export const officialStockMetricsMaster: Record<string, Partial<StockDetailedMet
   "4063": { per: 20.1, pbr: 2.65, dividendYield: 2.15, roe: 14.5, equityRatio: 82.5, creditRatio: 1.1, marketCap: 11_000_000_000_000 }, // 信越化学
   "2914": { per: 14.5, pbr: 1.85, dividendYield: 4.85, roe: 13.5, equityRatio: 48.5, creditRatio: 1.2, marketCap: 13_500_000_000_000 }, // JT
   "4502": { per: 35.0, pbr: 0.95, dividendYield: 4.65, roe: 2.8, equityRatio: 41.2, creditRatio: 1.5, marketCap: 6_200_000_000_000 },   // 武田薬品
+  "4477": { per: 24.5, pbr: 2.90, dividendYield: 1.30, roe: 12.8, equityRatio: 25.3, creditRatio: 2.1, marketCap: 44_000_000_000 },   // BASE
 };
 
 // 銘柄の指標セットを構築（正確な情報のみを採用し、未確定・不明確な値はnullで返却）
