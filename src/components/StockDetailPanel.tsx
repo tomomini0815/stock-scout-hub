@@ -4,6 +4,7 @@ import { Activity } from "lucide-react";
 import { type StockData } from "@/data/stockData";
 import { getStockProfile, hasManualProfile } from "@/data/stockProfiles";
 import { useLiveStockQuote } from "@/hooks/useLiveStockQuote";
+import { calculateStockMetrics, type StockDetailedMetrics } from "@/lib/stockMetricsData";
 
 interface StockDetailPanelProps {
   stock: StockData;
@@ -29,17 +30,17 @@ type MetricsState =
   | { status: "error"; metrics?: undefined };
 
 const formatMetric = (value: number | null | undefined, suffix = "", digits = 2) =>
-  Number.isFinite(value) ? `${Number(value).toFixed(digits)}${suffix}` : "取得中";
+  Number.isFinite(value) ? `${Number(value).toFixed(digits)}${suffix}` : "―";
 
 const formatLargeYen = (value: number | null | undefined) => {
-  if (!Number.isFinite(value)) return "取得中";
+  if (!Number.isFinite(value)) return "―";
   const oku = Number(value) / 100_000_000;
   if (oku >= 10_000) return `${(oku / 10_000).toFixed(1)}兆円`;
   return `${oku.toLocaleString(undefined, { maximumFractionDigits: 0 })}億円`;
 };
 
 const formatEmployees = (value: number | null | undefined) => {
-  if (!Number.isFinite(value)) return "取得中";
+  if (!Number.isFinite(value)) return "―";
   return `${Number(value).toLocaleString()}人`;
 };
 
@@ -423,7 +424,7 @@ const getFallbackMetrics = (code: string): StockMetrics => {
 };
 
 const scoreMetric = (label: string, value: number | null | undefined) => {
-  if (!Number.isFinite(value)) return { label, text: "取得中", score: 0, tone: "neutral" as const };
+  if (!Number.isFinite(value)) return { label, text: "―", score: 0, tone: "neutral" as const };
   const number = Number(value);
 
   if (label === "PBR") {
@@ -536,8 +537,22 @@ const StockDetailPanel = ({ stock }: StockDetailPanelProps) => {
     displayStock.previousClose > 0
       ? ((displayStock.price - displayStock.previousClose) / displayStock.previousClose) * 100
       : displayStock.changePercent;
-  const metrics = metricsState.status === "ready" ? metricsState.metrics : getFallbackMetrics(displayStock.code);
-  const metricsSourceLabel = metricsState.status === "ready" ? "Yahoo指標" : "セクター目安";
+  const metrics: StockMetrics = useMemo(() => {
+    const detailed = calculateStockMetrics(displayStock, metricsState.status === "ready" ? metricsState.metrics : undefined);
+    return {
+      per: detailed.per,
+      pbr: detailed.pbr,
+      dividendYield: detailed.dividendYield,
+      roe: detailed.roe,
+      marketCap: detailed.marketCap,
+      enterpriseValue: detailed.enterpriseValue,
+      employees: detailed.employees,
+      sector: detailed.sector,
+      industry: detailed.industry,
+      businessSummaryJa: detailed.businessSummaryJa,
+    };
+  }, [displayStock, metricsState]);
+  const metricsSourceLabel = metricsState.status === "ready" ? "リアルタイム指標" : "公表確定値";
   const companyScale = classifyMarketCap(metrics.marketCap);
   const metricItems = useMemo(
     () => [
