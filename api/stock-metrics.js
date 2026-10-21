@@ -67,7 +67,89 @@ const parseQuoteMetrics = (payload, symbol) => {
   };
 };
 
+const fetchYahooJapanMetrics = async (symbol) => {
+  try {
+    const code = symbol.replace(/\.T$/i, "");
+    const targetSymbol = `${code}.T`;
+    const url = `https://finance.yahoo.co.jp/quote/${targetSymbol}`;
+
+    const res = await fetchWithTimeout(url, 7000, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept-Language": "ja,en-US;q=0.9,en;q=0.8",
+      },
+    });
+    if (!res.ok) return null;
+    const html = await res.text();
+
+    const extractNumber = (name) => {
+      const idx = html.indexOf(`>${name}<`) !== -1 ? html.indexOf(`>${name}<`) : html.indexOf(name);
+      if (idx === -1) return null;
+      const chunk = html.slice(idx, idx + 1200);
+      if (chunk.includes("_StyledNumber__item--empty")) return null;
+      const m = chunk.match(/_StyledNumber__value[^"]*">([\d,.]+)</);
+      return m ? parseFloat(m[1].replace(/,/g, "")) : null;
+    };
+
+    const extractMarketCap = () => {
+      const idx = html.indexOf("時価総額");
+      if (idx === -1) return null;
+      const chunk = html.slice(idx, idx + 1200);
+      const valMatch = chunk.match(/_StyledNumber__value[^"]*">([\d,.]+)</);
+      const sufMatch = chunk.match(/_StyledNumber__suffix[^"]*">([^<]+)</);
+      if (!valMatch) return null;
+      const val = parseFloat(valMatch[1].replace(/,/g, ""));
+      const suffix = sufMatch ? sufMatch[1].trim() : "";
+      if (suffix.includes("兆")) return val * 1_000_000_000_000;
+      if (suffix.includes("億")) return val * 100_000_000;
+      if (suffix.includes("百万円")) return val * 1_000_000;
+      return val;
+    };
+
+    const per = extractNumber("PER");
+    const pbr = extractNumber("PBR");
+    const dividendYield = extractNumber("配当利回り");
+    const creditRatio = extractNumber("信用倍率");
+    const marketCap = extractMarketCap();
+
+    let roe = null;
+    if (per && pbr && per > 0) {
+      roe = parseFloat(((pbr / per) * 100).toFixed(2));
+    }
+
+    if ([per, pbr, dividendYield, marketCap].some((v) => v !== null)) {
+      return {
+        code,
+        symbol: targetSymbol,
+        per,
+        pbr,
+        dividendYield,
+        roe,
+        creditRatio,
+        marketCap,
+        enterpriseValue: null,
+        employees: null,
+        sector: null,
+        industry: null,
+        longBusinessSummary: null,
+        website: null,
+        country: "Japan",
+      };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+};
+
 const fetchYahooMetrics = async (symbol) => {
+  // 日本株の場合はまずYahoo!ファイナンス日本版から高精度に取得
+  if (/^\d{4}/.test(symbol) || symbol.endsWith(".T")) {
+    const jpnMetrics = await fetchYahooJapanMetrics(symbol);
+    if (jpnMetrics) return jpnMetrics;
+  }
+
   const summaryUrl =
     `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}` +
     "?modules=summaryDetail,defaultKeyStatistics,financialData,assetProfile";
