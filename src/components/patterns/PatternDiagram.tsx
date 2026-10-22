@@ -134,26 +134,8 @@ export const SchemaDiagram: React.FC<PatternDiagramProps> = ({ patternId, isBull
           </>
         );
 
-      case "descending-triangle-bullish":
-        return (
-          <>
-            {/* 水平サポート */}
-            <line x1="12" y1="76" x2="108" y2="76" stroke="#64748b" strokeWidth="1.5" />
-            {/* 切り下がるトレンドライン */}
-            <line x1="14" y1="22" x2="98" y2="76" stroke="#64748b" strokeWidth="1.5" />
-            <path
-              d="M 14 22 L 28 76 L 46 40 L 60 76 L 76 56 L 88 76 L 96 66"
-              fill="none"
-              stroke={strokeColor}
-              strokeWidth="2.5"
-              strokeLinejoin="round"
-            />
-            <line x1="96" y1="66" x2="112" y2="40" stroke={arrowColor} strokeWidth="2" strokeDasharray="3 2" />
-            <polygon points="112,40 106,42 110,47" fill={arrowColor} />
-          </>
-        );
-
-      case "ascending-triangle-bearish":
+      case "ascending-triangle":
+      case "descending-triangle-bullish": // 後方互換
         return (
           <>
             {/* 水平レジスタンス */}
@@ -161,14 +143,76 @@ export const SchemaDiagram: React.FC<PatternDiagramProps> = ({ patternId, isBull
             {/* 切り上がるトレンドライン */}
             <line x1="14" y1="78" x2="98" y2="24" stroke="#64748b" strokeWidth="1.5" />
             <path
-              d="M 14 78 L 28 24 L 46 60 L 60 24 L 76 44 L 88 24 L 96 34"
+              d="M 14 78 L 30 24 L 48 58 L 64 24 L 78 42 L 92 24 L 100 24"
               fill="none"
               stroke={strokeColor}
               strokeWidth="2.5"
               strokeLinejoin="round"
             />
-            <line x1="96" y1="34" x2="112" y2="60" stroke={arrowColor} strokeWidth="2" strokeDasharray="3 2" />
-            <polygon points="112,60 110,53 106,58" fill={arrowColor} />
+            {/* 上放れ矢印 */}
+            <line x1="100" y1="24" x2="114" y2="8" stroke={arrowColor} strokeWidth="2" strokeDasharray="3 2" />
+            <polygon points="114,8 107,10 112,15" fill={arrowColor} />
+          </>
+        );
+
+      case "descending-triangle":
+      case "ascending-triangle-bearish": // 後方互換
+        return (
+          <>
+            {/* 水平サポート */}
+            <line x1="12" y1="76" x2="108" y2="76" stroke="#64748b" strokeWidth="1.5" />
+            {/* 切り下がるトレンドライン */}
+            <line x1="14" y1="22" x2="98" y2="76" stroke="#64748b" strokeWidth="1.5" />
+            <path
+              d="M 14 22 L 30 76 L 48 42 L 64 76 L 78 58 L 92 76 L 100 76"
+              fill="none"
+              stroke={strokeColor}
+              strokeWidth="2.5"
+              strokeLinejoin="round"
+            />
+            {/* 下放れ矢印 */}
+            <line x1="100" y1="76" x2="114" y2="92" stroke={arrowColor} strokeWidth="2" strokeDasharray="3 2" />
+            <polygon points="114,92 112,85 107,90" fill={arrowColor} />
+          </>
+        );
+
+      case "symmetrical-triangle-bullish":
+        return (
+          <>
+            {/* 切り下がる上辺 */}
+            <line x1="14" y1="22" x2="98" y2="50" stroke="#64748b" strokeWidth="1.5" />
+            {/* 切り上がる下辺 */}
+            <line x1="14" y1="78" x2="98" y2="50" stroke="#64748b" strokeWidth="1.5" />
+            <path
+              d="M 14 78 L 28 26 L 46 68 L 62 36 L 76 58 L 88 44"
+              fill="none"
+              stroke={strokeColor}
+              strokeWidth="2.5"
+              strokeLinejoin="round"
+            />
+            {/* 上放れ矢印 */}
+            <line x1="88" y1="44" x2="112" y2="20" stroke={arrowColor} strokeWidth="2" strokeDasharray="3 2" />
+            <polygon points="112,20 106,22 110,27" fill={arrowColor} />
+          </>
+        );
+
+      case "symmetrical-triangle-bearish":
+        return (
+          <>
+            {/* 切り下がる上辺 */}
+            <line x1="14" y1="22" x2="98" y2="50" stroke="#64748b" strokeWidth="1.5" />
+            {/* 切り上がる下辺 */}
+            <line x1="14" y1="78" x2="98" y2="50" stroke="#64748b" strokeWidth="1.5" />
+            <path
+              d="M 14 22 L 28 74 L 46 32 L 62 64 L 76 42 L 88 56"
+              fill="none"
+              stroke={strokeColor}
+              strokeWidth="2.5"
+              strokeLinejoin="round"
+            />
+            {/* 下放れ矢印 */}
+            <line x1="88" y1="56" x2="112" y2="80" stroke={arrowColor} strokeWidth="2" strokeDasharray="3 2" />
+            <polygon points="112,80 110,73 106,78" fill={arrowColor} />
           </>
         );
 
@@ -759,46 +803,89 @@ export const CandleChartDiagram: React.FC<PatternDiagramProps> = ({ patternId, i
             </>
           );
 
+        case "ascending-triangle":
+          return (
+            <>
+              {/* 水平レジスタンス ＆ 安値切り上げ */}
+              <C x={8} open={68} close={46} high={44} low={70} />
+              <C x={16} open={47} close={26} high={24} low={49} />
+              {/* 天井タッチ1 */}
+              <C x={24} open={27} close={48} high={25} low={50} />
+              <C x={32} open={49} close={68} high={47} low={70} />
+              {/* 押し目1(安値) */}
+              <C x={40} open={67} close={50} high={48} low={69} />
+              <C x={48} open={49} close={26} high={24} low={51} />
+              {/* 天井タッチ2 */}
+              <C x={56} open={27} close={42} high={25} low={44} />
+              <C x={64} open={43} close={56} high={41} low={58} />
+              {/* 押し目2(切り上げ) */}
+              <C x={72} open={55} close={38} high={36} low={57} />
+              <C x={80} open={37} close={26} high={24} low={39} />
+              {/* 天井タッチ3 */}
+              <C x={88} open={27} close={40} high={25} low={42} />
+              {/* 押し目3(さらに浅い切り上げ)からブレイク */}
+              <C x={96} open={39} close={26} high={24} low={41} />
+              <C x={104} open={25} close={14} high={12} low={27} />
+              <C x={112} open={13} close={8} high={6} low={15} />
+
+              {/* 水平上辺レジスタンスライン */}
+              <line x1="16" y1="26" x2="110" y2="26" stroke="#94a3b8" strokeWidth="1" strokeDasharray="2 2" />
+              {/* 切り上がる下辺サポートライン */}
+              <line x1="28" y1="70" x2="102" y2="38" stroke="#94a3b8" strokeWidth="1" strokeDasharray="2 2" />
+              {/* Entry */}
+              <line x1="106" y1="24" x2="152" y2="24" stroke={longColor} strokeWidth="1" />
+              <polygon points="106,24 112,21 112,27" fill={longColor} />
+              <text x="156" y="27" fontSize="8.5" fontWeight="bold" fill={longColor}>Entry Long</text>
+              {/* SL */}
+              <line x1="86" y1="44" x2="185" y2="44" stroke={slColor} strokeWidth="1" strokeDasharray="3 2" />
+              <text x="190" y="47" fontSize="8.5" fontWeight="bold" fill={slColor}>SL</text>
+              {/* TP */}
+              <line x1="114" y1="8" x2="185" y2="8" stroke={tpColor} strokeWidth="1" strokeDasharray="3 2" />
+              <text x="190" y="11" fontSize="8.5" fontWeight="bold" fill={tpColor}>TP</text>
+            </>
+          );
+
+        case "symmetrical-triangle-bullish":
         case "descending-triangle-bullish":
         default:
           return (
             <>
-              {/* 上値切り下げ ＆ 水平サポート */}
-              <C x={8} open={42} close={24} high={22} low={44} />
-              <C x={16} open={25} close={48} high={23} low={50} />
-              <C x={24} open={49} close={70} high={47} low={72} />
-              {/* 水平サポートタッチ1 */}
-              <C x={32} open={69} close={52} high={50} low={71} />
-              <C x={40} open={51} close={36} high={34} low={53} />
+              {/* 上値切り下げ ＆ 安値切り上げ（対称三角形上放れ） */}
+              <C x={8} open={38} close={22} high={20} low={40} />
+              <C x={16} open={23} close={48} high={21} low={50} />
+              <C x={24} open={49} close={72} high={47} low={74} />
+              {/* 安値1 */}
+              <C x={32} open={71} close={52} high={50} low={73} />
+              <C x={40} open={51} close={32} high={30} low={53} />
               {/* 高値2(切り下げ) */}
-              <C x={48} open={37} close={54} high={35} low={56} />
-              <C x={56} open={55} close={70} high={53} low={72} />
-              {/* 水平サポートタッチ2 */}
-              <C x={64} open={69} close={58} high={56} low={71} />
-              <C x={72} open={57} close={46} high={44} low={59} />
+              <C x={48} open={33} close={50} high={31} low={52} />
+              <C x={56} open={51} close={64} high={49} low={66} />
+              {/* 安値2(切り上げ) */}
+              <C x={64} open={63} close={50} high={48} low={65} />
+              <C x={72} open={49} close={40} high={38} low={51} />
               {/* 高値3(さらに切り下げ) */}
-              <C x={80} open={47} close={60} high={45} low={62} />
-              <C x={88} open={59} close={70} high={57} low={72} />
-              {/* 水平サポートタッチ3から上放れ */}
-              <C x={96} open={69} close={48} high={46} low={71} />
-              <C x={104} open={47} close={28} high={26} low={49} />
-              <C x={112} open={27} close={16} high={14} low={29} />
-              <C x={120} open={15} close={8} high={6} low={17} />
+              <C x={80} open={41} close={52} high={39} low={54} />
+              <C x={88} open={51} close={58} high={49} low={60} />
+              {/* 安値3(さらに切り上げ)から上放れ */}
+              <C x={96} open={57} close={38} high={36} low={59} />
+              <C x={104} open={37} close={22} high={20} low={39} />
+              <C x={112} open={21} close={12} high={10} low={23} />
+              <C x={120} open={11} close={6} high={4} low={13} />
 
               {/* 切り下がる上辺トレンドライン */}
-              <line x1="8" y1="24" x2="98" y2="52" stroke="#94a3b8" strokeWidth="1" strokeDasharray="2 2" />
-              {/* 水平下辺サポートライン */}
-              <line x1="16" y1="72" x2="104" y2="72" stroke="#94a3b8" strokeWidth="1" strokeDasharray="2 2" />
+              <line x1="12" y1="22" x2="98" y2="46" stroke="#94a3b8" strokeWidth="1" strokeDasharray="2 2" />
+              {/* 切り上がる下辺トレンドライン */}
+              <line x1="20" y1="74" x2="98" y2="54" stroke="#94a3b8" strokeWidth="1" strokeDasharray="2 2" />
               {/* Entry */}
-              <line x1="106" y1="26" x2="152" y2="26" stroke={longColor} strokeWidth="1" />
-              <polygon points="106,26 112,23 112,29" fill={longColor} />
-              <text x="156" y="29" fontSize="8.5" fontWeight="bold" fill={longColor}>Entry Long</text>
+              <line x1="106" y1="22" x2="152" y2="22" stroke={longColor} strokeWidth="1" />
+              <polygon points="106,22 112,19 112,25" fill={longColor} />
+              <text x="156" y="25" fontSize="8.5" fontWeight="bold" fill={longColor}>Entry Long</text>
               {/* SL */}
-              <line x1="80" y1="74" x2="185" y2="74" stroke={slColor} strokeWidth="1" strokeDasharray="3 2" />
-              <text x="190" y="77" fontSize="8.5" fontWeight="bold" fill={slColor}>SL</text>
+              <line x1="84" y1="62" x2="185" y2="62" stroke={slColor} strokeWidth="1" strokeDasharray="3 2" />
+              <text x="190" y="65" fontSize="8.5" fontWeight="bold" fill={slColor}>SL</text>
               {/* TP */}
-              <line x1="114" y1="8" x2="185" y2="8" stroke={tpColor} strokeWidth="1" strokeDasharray="3 2" />
-              <text x="190" y="11" fontSize="8.5" fontWeight="bold" fill={tpColor}>TP</text>
+              <line x1="114" y1="6" x2="185" y2="6" stroke={tpColor} strokeWidth="1" strokeDasharray="3 2" />
+              <text x="190" y="9" fontSize="8.5" fontWeight="bold" fill={tpColor}>TP</text>
             </>
           );
       }
@@ -1132,46 +1219,89 @@ export const CandleChartDiagram: React.FC<PatternDiagramProps> = ({ patternId, i
             </>
           );
 
-        case "ascending-triangle-bearish":
-        default:
+        case "descending-triangle":
           return (
             <>
-              {/* 下値切り上げ ＆ 水平レジスタンス */}
-              <C x={8} open={58} close={76} high={56} low={78} />
-              <C x={16} open={75} close={52} high={50} low={77} />
-              <C x={24} open={51} close={28} high={26} low={53} />
-              {/* 水平レジスタンス1 */}
-              <C x={32} open={29} close={48} high={27} low={50} />
-              <C x={40} open={49} close={64} high={47} low={66} />
-              {/* 安値2(切り上げ) */}
-              <C x={48} open={63} close={46} high={44} low={65} />
-              <C x={56} open={45} close={28} high={26} low={47} />
-              {/* 水平レジスタンス2 */}
-              <C x={64} open={29} close={42} high={27} low={44} />
-              <C x={72} open={43} close={54} high={41} low={56} />
-              {/* 安値3(さらに切り上げ) */}
-              <C x={80} open={53} close={40} high={38} low={55} />
-              <C x={88} open={39} close={28} high={26} low={41} />
-              {/* 水平レジスタンス3から下放れ */}
-              <C x={96} open={29} close={52} high={27} low={54} />
-              <C x={104} open={53} close={72} high={51} low={74} />
-              <C x={112} open={73} close={84} high={71} low={86} />
-              <C x={120} open={85} close={92} high={83} low={94} />
+              {/* 水平サポート ＆ 高値切り下げ */}
+              <C x={8} open={28} close={50} high={26} low={52} />
+              <C x={16} open={51} close={72} high={49} low={74} />
+              {/* 床タッチ1 */}
+              <C x={24} open={71} close={52} high={50} low={73} />
+              <C x={32} open={51} close={30} high={28} low={53} />
+              {/* 戻り高値1 */}
+              <C x={40} open={31} close={52} high={29} low={54} />
+              <C x={48} open={53} close={72} high={51} low={74} />
+              {/* 床タッチ2 */}
+              <C x={56} open={71} close={58} high={56} low={73} />
+              <C x={64} open={57} close={44} high={42} low={59} />
+              {/* 戻り高値2(切り下げ) */}
+              <C x={72} open={45} close={62} high={43} low={64} />
+              <C x={80} open={63} close={72} high={61} low={74} />
+              {/* 床タッチ3 */}
+              <C x={88} open={71} close={60} high={58} low={73} />
+              {/* 戻り高値3(浅い)から下放れ */}
+              <C x={96} open={59} close={72} high={57} low={74} />
+              <C x={104} open={73} close={84} high={71} low={86} />
+              <C x={112} open={85} close={94} high={83} low={96} />
 
-              {/* 水平上辺レジスタンスライン */}
-              <line x1="16" y1="28" x2="104" y2="28" stroke="#94a3b8" strokeWidth="1" strokeDasharray="2 2" />
-              {/* 切り上がる下辺トレンドライン */}
-              <line x1="8" y1="76" x2="98" y2="48" stroke="#94a3b8" strokeWidth="1" strokeDasharray="2 2" />
+              {/* 水平下辺サポートライン */}
+              <line x1="16" y1="72" x2="110" y2="72" stroke="#94a3b8" strokeWidth="1" strokeDasharray="2 2" />
+              {/* 切り下がる上辺レジスタンスライン */}
+              <line x1="28" y1="28" x2="102" y2="60" stroke="#94a3b8" strokeWidth="1" strokeDasharray="2 2" />
               {/* Entry */}
               <line x1="106" y1="74" x2="152" y2="74" stroke={shortColor} strokeWidth="1" />
               <polygon points="106,74 112,71 112,77" fill={shortColor} />
               <text x="156" y="77" fontSize="8.5" fontWeight="bold" fill={shortColor}>Entry Short</text>
               {/* SL */}
-              <line x1="80" y1="26" x2="185" y2="26" stroke={slColor} strokeWidth="1" strokeDasharray="3 2" />
-              <text x="190" y="29" fontSize="8.5" fontWeight="bold" fill={slColor}>SL</text>
+              <line x1="86" y1="56" x2="185" y2="56" stroke={slColor} strokeWidth="1" strokeDasharray="3 2" />
+              <text x="190" y="59" fontSize="8.5" fontWeight="bold" fill={slColor}>SL</text>
               {/* TP */}
-              <line x1="114" y1="92" x2="185" y2="92" stroke={tpColor} strokeWidth="1" strokeDasharray="3 2" />
-              <text x="190" y="95" fontSize="8.5" fontWeight="bold" fill={tpColor}>TP</text>
+              <line x1="114" y1="94" x2="185" y2="94" stroke={tpColor} strokeWidth="1" strokeDasharray="3 2" />
+              <text x="190" y="97" fontSize="8.5" fontWeight="bold" fill={tpColor}>TP</text>
+            </>
+          );
+
+        case "symmetrical-triangle-bearish":
+        case "ascending-triangle-bearish":
+        default:
+          return (
+            <>
+              {/* 上値切り下げ ＆ 安値切り上げ（対称三角形下放れ） */}
+              <C x={8} open={62} close={78} high={60} low={80} />
+              <C x={16} open={77} close={52} high={50} low={79} />
+              <C x={24} open={51} close={26} high={24} low={53} />
+              {/* 高値1 */}
+              <C x={32} open={27} close={48} high={25} low={50} />
+              <C x={40} open={49} close={68} high={47} low={70} />
+              {/* 安値2(切り上げ) */}
+              <C x={48} open={67} close={50} high={48} low={69} />
+              <C x={56} open={49} close={36} high={34} low={51} />
+              {/* 高値2(切り下げ) */}
+              <C x={64} open={37} close={50} high={35} low={52} />
+              <C x={72} open={51} close={60} high={49} low={62} />
+              {/* 安値3(さらに切り上げ) */}
+              <C x={80} open={59} close={48} high={46} low={61} />
+              <C x={88} open={47} close={42} high={40} low={49} />
+              {/* 高値3(さらに切り下げ)から下放れ */}
+              <C x={96} open={43} close={62} high={41} low={64} />
+              <C x={104} open={63} close={78} high={61} low={80} />
+              <C x={112} open={79} close={88} high={77} low={90} />
+              <C x={120} open={89} close={94} high={87} low={96} />
+
+              {/* 切り下がる上辺トレンドライン */}
+              <line x1="20" y1="26" x2="98" y2="46" stroke="#94a3b8" strokeWidth="1" strokeDasharray="2 2" />
+              {/* 切り上がる下辺トレンドライン */}
+              <line x1="12" y1="78" x2="98" y2="54" stroke="#94a3b8" strokeWidth="1" strokeDasharray="2 2" />
+              {/* Entry */}
+              <line x1="106" y1="78" x2="152" y2="78" stroke={shortColor} strokeWidth="1" />
+              <polygon points="106,78 112,75 112,81" fill={shortColor} />
+              <text x="156" y="81" fontSize="8.5" fontWeight="bold" fill={shortColor}>Entry Short</text>
+              {/* SL */}
+              <line x1="84" y1="38" x2="185" y2="38" stroke={slColor} strokeWidth="1" strokeDasharray="3 2" />
+              <text x="190" y="41" fontSize="8.5" fontWeight="bold" fill={slColor}>SL</text>
+              {/* TP */}
+              <line x1="114" y1="94" x2="185" y2="94" stroke={tpColor} strokeWidth="1" strokeDasharray="3 2" />
+              <text x="190" y="97" fontSize="8.5" fontWeight="bold" fill={tpColor}>TP</text>
             </>
           );
       }
