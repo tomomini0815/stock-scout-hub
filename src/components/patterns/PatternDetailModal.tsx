@@ -17,6 +17,10 @@ import {
   BrainCircuit,
   Lightbulb,
   CheckCircle2,
+  Scale,
+  Zap,
+  Building2,
+  HelpCircle,
 } from "lucide-react";
 
 interface PatternDetailModalProps {
@@ -89,6 +93,95 @@ export const PatternDetailModal: React.FC<PatternDetailModalProps> = ({
             </div>
           </div>
         </div>
+
+        {/* なぜ上昇/下落するのか？価格変動のメカニズムと根拠 */}
+        {item.rationale && (
+          <div className="mt-4 rounded-xl border border-slate-200 dark:border-border overflow-hidden bg-white dark:bg-slate-900/90 shadow-sm">
+            <div
+              className={`px-4 py-2.5 flex items-center justify-between border-b ${
+                isBullish
+                  ? "bg-red-50/80 dark:bg-red-950/20 border-red-100 dark:border-red-900/30"
+                  : "bg-blue-50/80 dark:bg-blue-950/20 border-blue-100 dark:border-blue-900/30"
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <HelpCircle
+                  className={`w-4 h-4 ${
+                    isBullish ? "text-red-600 dark:text-red-400" : "text-blue-600 dark:text-blue-400"
+                  }`}
+                />
+                <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                  なぜ{isBullish ? "上昇" : "下落"}するのか？（価格変動のメカニズムと根拠）
+                </h4>
+              </div>
+              <span
+                className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                  isBullish
+                    ? "bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300"
+                    : "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300"
+                }`}
+              >
+                需給＆オーダーフロー根拠
+              </span>
+            </div>
+
+            <div className="p-3.5 space-y-3">
+              {/* 核心サマリー */}
+              <div
+                className={`p-3 rounded-lg text-xs leading-relaxed font-medium border ${
+                  isBullish
+                    ? "bg-red-50/40 dark:bg-red-950/10 border-red-200/60 dark:border-red-900/30 text-red-950 dark:text-red-200"
+                    : "bg-blue-50/40 dark:bg-blue-950/10 border-blue-200/60 dark:border-blue-900/30 text-blue-950 dark:text-blue-200"
+                }`}
+              >
+                <span className="font-bold mr-1">【要約・核心】</span>
+                {item.rationale.summary}
+              </div>
+
+              {/* 3つの詳細根拠 (需給 / 損切り・注文集中 / 機関・大口) */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                {/* 需給力学 */}
+                <div className="bg-slate-50 dark:bg-slate-950/50 rounded-lg p-2.5 border border-slate-200/70 dark:border-slate-800 flex flex-col">
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <Scale className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                      需給バランスの転換
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed flex-1">
+                    {item.rationale.supplyDemand}
+                  </p>
+                </div>
+
+                {/* 損切り巻き込み・オーダーフロー */}
+                <div className="bg-slate-50 dark:bg-slate-950/50 rounded-lg p-2.5 border border-slate-200/70 dark:border-slate-800 flex flex-col">
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <Zap className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                      損切り巻き込みと注文集中
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed flex-1">
+                    {item.rationale.orderFlow}
+                  </p>
+                </div>
+
+                {/* 機関投資家・大口の意図 */}
+                <div className="bg-slate-50 dark:bg-slate-950/50 rounded-lg p-2.5 border border-slate-200/70 dark:border-slate-800 flex flex-col">
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <Building2 className="w-3.5 h-3.5 text-cyan-600 shrink-0" />
+                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                      大口・機関の狙い
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed flex-1">
+                    {item.rationale.institutional}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* 実戦トレード戦略カード（Entry, SL, TP） */}
         <div className="mt-4 space-y-3">
