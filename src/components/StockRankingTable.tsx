@@ -35,10 +35,10 @@ const StockRankingTable = ({ title, stocks, type, limit }: StockRankingTableProp
 
   return (
     <div className="rounded border border-border bg-card">
-      <div className="flex items-center justify-between border-b border-border bg-table-header-bg px-3 py-1.5">
-        <h3 className="text-xs font-bold text-foreground">{title}</h3>
-        <div className="flex items-center gap-2 text-xxs font-semibold text-muted-foreground">
-          <span className="rounded bg-muted px-1.5 py-0.5 text-muted-foreground">
+      <div className="flex items-center justify-between gap-2 border-b border-border bg-table-header-bg px-3 py-1.5">
+        <h3 className="text-xs font-bold text-foreground whitespace-nowrap shrink-0">{title}</h3>
+        <div className="flex shrink-0 items-center gap-2 text-xxs font-semibold text-muted-foreground">
+          <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-muted-foreground whitespace-nowrap">
             {updatedLabel ? `更新 ${updatedLabel}` : status === "loading" ? "取得中" : "更新確認中"}
           </span>
         </div>
@@ -129,7 +129,7 @@ const StockRankingTable = ({ title, stocks, type, limit }: StockRankingTableProp
         <button
           type="button"
           onClick={() => setExpanded((value) => !value)}
-          className="flex w-full items-center justify-center gap-1 border-t border-border px-3 py-2 text-xs font-semibold text-primary transition-colors hover:bg-muted/50"
+          className="flex w-full items-center justify-center gap-1 whitespace-nowrap border-t border-border px-3 py-2 text-xs font-semibold text-primary transition-colors hover:bg-muted/50"
         >
           {expanded ? `${limit}位までに戻す` : "もっと見る（20位まで）"}
           <ChevronDown className={`h-3.5 w-3.5 transition-transform ${expanded ? "rotate-180" : ""}`} />

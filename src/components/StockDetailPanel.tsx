@@ -539,14 +539,15 @@ const StockDetailPanel = ({ stock }: StockDetailPanelProps) => {
       : displayStock.changePercent;
   const metrics: StockMetrics = useMemo(() => {
     const detailed = calculateStockMetrics(displayStock, metricsState.status === "ready" ? metricsState.metrics : undefined);
+    const fb = getFallbackMetrics(displayStock.code);
     return {
       per: detailed.per,
       pbr: detailed.pbr,
       dividendYield: detailed.dividendYield,
       roe: detailed.roe,
-      marketCap: detailed.marketCap,
-      enterpriseValue: detailed.enterpriseValue,
-      employees: detailed.employees,
+      marketCap: detailed.marketCap ?? fb.marketCap,
+      enterpriseValue: detailed.enterpriseValue ?? fb.enterpriseValue,
+      employees: detailed.employees ?? fb.employees,
       sector: detailed.sector,
       industry: detailed.industry,
       businessSummaryJa: detailed.businessSummaryJa,

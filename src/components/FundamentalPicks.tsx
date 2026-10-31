@@ -85,10 +85,10 @@ const FundamentalPicks = ({
   return (
     <section className="rounded border border-border bg-card">
       <div className="flex flex-col gap-1 border-b border-border bg-table-header-bg px-3 py-2 md:flex-row md:items-center md:justify-between">
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2">
           <Target className="h-4 w-4 text-primary" />
-          <h2 className="text-sm font-bold text-foreground">{title}</h2>
-          <span className="group relative inline-flex" tabIndex={0}>
+          <h2 className="text-sm font-bold text-foreground whitespace-nowrap">{title}</h2>
+          <span className="group relative inline-flex shrink-0" tabIndex={0}>
             <Info className="h-3.5 w-3.5 cursor-help text-muted-foreground" />
             <span className="pointer-events-none absolute left-0 top-5 z-20 hidden w-72 rounded border border-border bg-popover p-2 text-left text-xxs leading-relaxed text-popover-foreground shadow-lg group-hover:block group-focus-within:block">
               <span className="mb-1 block font-bold text-foreground">スコア判断基準</span>
@@ -97,13 +97,13 @@ const FundamentalPicks = ({
               ))}
             </span>
           </span>
-          <span className="rounded bg-primary px-2 py-0.5 text-xxs font-bold text-primary-foreground">
+          <span className="shrink-0 rounded bg-primary px-2 py-0.5 text-xxs font-bold text-primary-foreground whitespace-nowrap">
             {badge}
           </span>
         </div>
-        <div className="flex items-center gap-2 text-xxs text-muted-foreground">
-          <span>{updatedAt || picks[0]?.updatedAt}更新・{note}</span>
-          <span className="rounded bg-muted px-1.5 py-0.5 font-bold text-muted-foreground">
+        <div className="flex shrink-0 items-center gap-2 text-xxs text-muted-foreground">
+          <span className="whitespace-nowrap">{updatedAt || picks[0]?.updatedAt}更新・{note}</span>
+          <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 font-bold text-muted-foreground whitespace-nowrap">
             {status === "loading" ? "材料取得中" : "材料更新済み"}
           </span>
         </div>
@@ -235,7 +235,7 @@ const FundamentalPicks = ({
                       [pick.code]: !current[pick.code],
                     }))
                   }
-                  className="inline-flex items-center gap-1 text-xxs font-semibold text-primary hover:underline"
+                  className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-xxs font-semibold text-primary hover:underline"
                 >
                   <BarChart3 className="h-3 w-3" />
                   {openCharts[pick.code] ? "チャートを閉じる" : "チャートを見る"}
@@ -244,7 +244,7 @@ const FundamentalPicks = ({
                   href={pick.source.url}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center gap-1 text-xxs font-semibold text-primary hover:underline"
+                  className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-xxs font-semibold text-primary hover:underline"
                 >
                   IR
                   <ExternalLink className="h-3 w-3" />
@@ -259,7 +259,7 @@ const FundamentalPicks = ({
         <button
           type="button"
           onClick={handleToggleExpanded}
-          className="flex w-full items-center justify-center gap-1 border-t border-border px-3 py-2 text-xs font-semibold text-primary transition-colors hover:bg-muted/50"
+          className="flex w-full items-center justify-center gap-1 whitespace-nowrap border-t border-border px-3 py-2 text-xs font-semibold text-primary transition-colors hover:bg-muted/50"
         >
           {expanded ? "表示を絞る" : `さらに${picks.length - initialCount}銘柄を見る`}
           <ChevronDown className={`h-3.5 w-3.5 transition-transform ${expanded ? "rotate-180" : ""}`} />

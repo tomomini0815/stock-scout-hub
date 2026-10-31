@@ -703,9 +703,9 @@ const MarketOverview = ({ indices, detailed = false }: MarketOverviewProps) => {
 
   return (
     <div className="rounded border border-border bg-card">
-      <div className="flex items-center justify-between gap-2 border-b border-border bg-table-header-bg px-3 py-1.5">
-        <div className="flex items-center gap-2">
-          <h3 className="flex items-center gap-1 text-xs font-bold text-foreground">
+      <div className="flex items-center justify-between gap-1.5 border-b border-border bg-table-header-bg px-2.5 py-1.5 sm:px-3">
+        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+          <h3 className="flex shrink-0 items-center gap-1 text-xs font-bold text-foreground whitespace-nowrap">
             <Newspaper className="h-3.5 w-3.5 text-primary" />
             {detailed ? "主要指数詳細" : "主要指数"}
           </h3>
@@ -722,7 +722,7 @@ const MarketOverview = ({ indices, detailed = false }: MarketOverviewProps) => {
                 return nextValue;
               });
             }}
-            className={`inline-flex h-7 items-center justify-center gap-1 rounded border px-2 text-xxs font-bold transition-colors ${
+            className={`inline-flex h-7 shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded border px-2 text-xxs font-bold transition-colors ${
               showIndexCharts
                 ? "border-primary bg-primary text-primary-foreground"
                 : "border-border bg-background text-primary hover:bg-muted"
@@ -731,21 +731,21 @@ const MarketOverview = ({ indices, detailed = false }: MarketOverviewProps) => {
             title={showIndexCharts ? "チャートを閉じる" : "主要指数チャート"}
           >
             <LayoutGrid className="h-3.5 w-3.5" />
-            <span>各チャート表示</span>
+            <span className="whitespace-nowrap">各チャート表示</span>
           </button>
         </div>
-        <div className="flex items-center gap-2 text-xxs font-semibold text-muted-foreground">
-          {/* 日本株カラー表記案内（コンパクト） */}
-          <span className="inline-flex items-center gap-1 rounded border border-border/80 bg-background px-1.5 py-0.5 text-xxs font-bold shadow-2xs" title="当サイトのカラー設定：赤が上昇・買い、青が下降・売りです">
-            <span className="text-red-600 dark:text-red-400">赤▲ 上昇</span>
+        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2 text-xxs font-semibold text-muted-foreground">
+          {/* 日本株カラー表記案内（超コンパクト） */}
+          <span className="inline-flex shrink-0 items-center gap-0.5 whitespace-nowrap rounded border border-border/80 bg-background px-1.5 py-0.5 text-xxs font-bold shadow-2xs" title="当サイトのカラー設定：赤が上昇・買い、青が下降・売りです">
+            <span className="whitespace-nowrap text-red-600 dark:text-red-400">赤▲</span>
             <span className="text-muted-foreground/30">/</span>
-            <span className="text-blue-600 dark:text-blue-400">青▼ 下降</span>
+            <span className="whitespace-nowrap text-blue-600 dark:text-blue-400">青▼</span>
           </span>
-          <span className="hidden rounded bg-muted px-1.5 py-0.5 text-muted-foreground sm:inline">
+          <span className="hidden shrink-0 whitespace-nowrap rounded bg-muted px-1.5 py-0.5 text-muted-foreground sm:inline">
             {driverStatus === "loading" ? "材料取得中" : driverStatus === "live" ? "材料反映" : "推定材料"}
           </span>
           <span
-            className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-bold ${
+            className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded px-1.5 py-0.5 font-bold ${
               status === "live"
                 ? "border border-red-600 bg-white text-red-600"
                 : "bg-muted text-muted-foreground"
@@ -890,16 +890,16 @@ const MarketOverview = ({ indices, detailed = false }: MarketOverviewProps) => {
       {showIndexCharts && (
         <div ref={indexChartsRef} className="scroll-mt-3 border-t border-border bg-background p-2">
           <div className="mb-2 flex flex-wrap items-center justify-between gap-2 px-1">
-            <div className="text-xs font-bold text-foreground">主要指数チャート {indexChartLayout}分割</div>
-            <div className="flex items-center gap-2">
+            <div className="text-xs font-bold text-foreground whitespace-nowrap">主要指数チャート {indexChartLayout}分割</div>
+            <div className="flex shrink-0 items-center gap-2">
               <button
                 type="button"
                 onClick={() => setMobileDrawingToolsOpen((value) => !value)}
-                className="inline-flex h-7 items-center rounded border border-border bg-card px-2 text-xxs font-bold text-primary md:hidden"
+                className="inline-flex h-7 shrink-0 items-center whitespace-nowrap rounded border border-border bg-card px-2 text-xxs font-bold text-primary md:hidden"
               >
                 {mobileDrawingToolsOpen ? "描画ツールを隠す" : "描画ツールを表示"}
               </button>
-              <div className="text-xxs font-semibold text-muted-foreground">TradingView / MA200 / BB3σ</div>
+              <div className="text-xxs font-semibold text-muted-foreground whitespace-nowrap">TradingView / MA200 / BB3σ</div>
             </div>
           </div>
           <TradingViewQuadPanel

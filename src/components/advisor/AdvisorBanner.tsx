@@ -25,25 +25,25 @@ export const AdvisorBanner = () => {
         <div className="flex flex-wrap items-center gap-2">
           <Link
             to="/advisor?tab=simulator"
-            className="inline-flex items-center gap-1.5 rounded-lg bg-header-accent px-3.5 py-2 text-xs font-bold text-header-bg shadow-sm hover:opacity-90 transition-opacity"
+            className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg bg-header-accent px-3.5 py-2 text-xs font-bold text-header-bg shadow-sm transition-opacity hover:opacity-90"
           >
             <Cpu className="h-3.5 w-3.5" />
-            <span>投資シミュレーター</span>
+            <span className="whitespace-nowrap">投資シミュレーター</span>
             <ArrowRight className="h-3 w-3" />
           </Link>
           <Link
             to="/advisor?tab=wizard"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border/80 bg-background/80 px-3.5 py-2 text-xs font-semibold text-foreground hover:bg-muted transition-colors"
+            className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border border-border/80 bg-background/80 px-3.5 py-2 text-xs font-semibold text-foreground transition-colors hover:bg-muted"
           >
             <Compass className="h-3.5 w-3.5 text-header-accent" />
-            <span>3分スタイル診断</span>
+            <span className="whitespace-nowrap">3分スタイル診断</span>
           </Link>
           <Link
             to="/advisor?tab=health"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border/80 bg-background/80 px-3.5 py-2 text-xs font-semibold text-foreground hover:bg-muted transition-colors"
+            className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border border-border/80 bg-background/80 px-3.5 py-2 text-xs font-semibold text-foreground transition-colors hover:bg-muted"
           >
             <Activity className="h-3.5 w-3.5 text-blue-500" />
-            <span>銘柄カルテ発行</span>
+            <span className="whitespace-nowrap">銘柄カルテ発行</span>
           </Link>
         </div>
       </div>

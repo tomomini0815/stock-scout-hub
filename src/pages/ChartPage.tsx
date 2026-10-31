@@ -344,6 +344,42 @@ const ChartPage = () => {
     };
   }, []);
 
+  const scrollToStockHeader = (smooth = true) => {
+    const doScroll = () => {
+      const el = document.getElementById("selected-stock-header") || chartSectionRef.current;
+      if (el) {
+        el.scrollIntoView({
+          behavior: smooth ? "smooth" : "auto",
+          block: "start",
+        });
+      }
+    };
+    doScroll();
+    const t1 = window.setTimeout(doScroll, 100);
+    const t2 = window.setTimeout(doScroll, 300);
+    const t3 = window.setTimeout(doScroll, 600);
+    return () => {
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+      window.clearTimeout(t3);
+    };
+  };
+
+  useEffect(() => {
+    const onSearchNavigate = (event: Event) => {
+      const customEvent = event as CustomEvent<{ code: string }>;
+      const code = customEvent.detail?.code;
+      if (code) {
+        const upperCode = code.toUpperCase();
+        setSelectedCode(upperCode);
+        scrollToStockHeader();
+      }
+    };
+
+    window.addEventListener("stock-search-navigate", onSearchNavigate);
+    return () => window.removeEventListener("stock-search-navigate", onSearchNavigate);
+  }, []);
+
   useEffect(() => {
     if (!queryFromUrl) return;
 
@@ -373,13 +409,8 @@ const ChartPage = () => {
       });
     }
 
-    const timer = window.setTimeout(() => {
-      chartSectionRef.current?.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      });
-    }, 100);
-    return () => window.clearTimeout(timer);
+    const cancelScroll = scrollToStockHeader();
+    return () => cancelScroll();
   }, [queryFromUrl]);
 
   useEffect(() => {
@@ -532,12 +563,7 @@ const ChartPage = () => {
       window.history.replaceState(null, '', newUrl);
     }
 
-    window.setTimeout(() => {
-      chartSectionRef.current?.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      });
-    }, 80);
+    scrollToStockHeader();
   };
 
   return (
@@ -740,9 +766,12 @@ const ChartPage = () => {
           </div>
 
           {/* Chart area */}
-          <div ref={chartSectionRef} className="scroll-mt-24 lg:col-span-3">
+          <div ref={chartSectionRef} className="scroll-mt-20 sm:scroll-mt-24 lg:col-span-3">
             {/* 銘柄カルテへのクイック導線 */}
-            <div className="mb-2 flex flex-wrap items-center justify-between gap-2 rounded border border-border/80 bg-card px-3 py-1.5 shadow-2xs">
+            <div
+              id="selected-stock-header"
+              className="scroll-mt-20 sm:scroll-mt-24 mb-2 flex flex-wrap items-center justify-between gap-2 rounded border border-border/80 bg-card px-3 py-1.5 shadow-2xs"
+            >
               <div className="flex items-center gap-2 text-xs">
                 <span className="font-semibold text-muted-foreground">選択銘柄:</span>
                 <span className="rounded bg-primary px-1.5 py-0.5 font-mono text-xxs font-bold text-primary-foreground">

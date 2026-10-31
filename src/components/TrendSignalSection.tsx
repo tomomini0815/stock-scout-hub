@@ -318,16 +318,16 @@ const TrendSignalSection = ({ stocks, growthPicks, dailyPicks }: TrendSignalSect
   return (
     <section className="rounded border border-border bg-card">
       <div className="flex flex-col gap-1 border-b border-border bg-table-header-bg px-3 py-2 md:flex-row md:items-center md:justify-between">
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2">
           <RadioTower className="h-4 w-4 text-primary" />
-          <h2 className="text-sm font-bold text-foreground">トレンド・需給シグナル</h2>
-          <span className="rounded bg-primary px-2 py-0.5 text-xxs font-bold text-primary-foreground">
+          <h2 className="text-sm font-bold text-foreground whitespace-nowrap">トレンド・需給シグナル</h2>
+          <span className="shrink-0 rounded bg-primary px-2 py-0.5 text-xxs font-bold text-primary-foreground whitespace-nowrap">
             SMA/RSI/MACD/BB
           </span>
         </div>
-        <div className="flex items-center gap-2 text-xxs text-muted-foreground">
-          <span>{updatedAt ? `${updatedAt}更新` : "チャート解析中"}</span>
-          {!updatedAt && <span className="rounded bg-muted px-1.5 py-0.5 font-bold">取得中</span>}
+        <div className="flex shrink-0 items-center gap-2 text-xxs text-muted-foreground">
+          <span className="whitespace-nowrap">{updatedAt ? `${updatedAt}更新` : "チャート解析中"}</span>
+          {!updatedAt && <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 font-bold whitespace-nowrap">取得中</span>}
         </div>
       </div>
       <div className="border-b border-border bg-muted/20 px-3 py-1.5 text-xs leading-relaxed text-muted-foreground">

@@ -73,8 +73,8 @@ export const PatternsPage: React.FC = () => {
         {/* ページタイトル & コントロール行（サイト共通のコンパクトヘッダー） */}
         <div className="flex flex-col gap-2 py-1 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-2 min-w-0">
-            <TrendingUp className="h-4 w-4 shrink-0 text-foreground" />
-            <h1 className="text-xs sm:text-sm font-bold text-foreground whitespace-nowrap">
+            <TrendingUp className="h-4 w-4 shrink-0 text-primary" />
+            <h1 className="text-sm font-bold text-foreground whitespace-nowrap">
               チャートパターン一覧
             </h1>
             <span className="hidden xl:inline text-xxs text-muted-foreground truncate">
@@ -82,22 +82,11 @@ export const PatternsPage: React.FC = () => {
             </span>
           </div>
 
-          {/* 凡例（赤:上昇 / 青:下降） ＆ 印刷ボタン */}
-          <div className="flex flex-wrap items-center gap-2 self-start lg:self-auto">
-            {/* 凡例バッジ */}
-            <div className="flex items-center gap-1.5 text-xxs sm:text-xs font-bold">
-              <span className="inline-flex items-center gap-1 text-white px-2 py-0.5 rounded shadow-2xs bg-red-600">
-                <ArrowUpRight className="w-3 h-3 stroke-[3]" />
-                買い (赤: 上昇)
-              </span>
-              <span className="inline-flex items-center gap-1 text-white px-2 py-0.5 rounded shadow-2xs bg-blue-600">
-                <ArrowDownRight className="w-3 h-3 stroke-[3]" />
-                売り (青: 下降)
-              </span>
-              <span className="hidden sm:inline-block text-xxs text-muted-foreground pl-1">
-                SL: 損切り / TP: 利確
-              </span>
-            </div>
+          {/* コントロール（印刷ボタン等） */}
+          <div className="flex items-center gap-2 self-start lg:self-auto">
+            <span className="text-xxs text-muted-foreground hidden sm:inline-block">
+              SL: 損切り / TP: 利確
+            </span>
 
             {/* 印刷ボタン */}
             <Button
