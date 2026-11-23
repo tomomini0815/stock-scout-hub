@@ -74,9 +74,9 @@ const SiteHeader = ({ activeTab = "トップ" }: SiteHeaderProps) => {
   };
 
   return (
-    <header className="md:sticky md:top-0 md:z-40 md:shadow-sm">
+    <>
       {/* Top bar */}
-      <div className="bg-header-bg text-header-foreground">
+      <header className="bg-header-bg text-header-foreground">
         <div className="container mx-auto flex items-center justify-between px-2.5 py-1.5 sm:px-4 sm:py-2">
           <div className="flex items-center gap-2 sm:gap-3">
             <Link to="/" className="inline-flex items-baseline font-black tracking-[0.08em]">
@@ -188,10 +188,10 @@ const SiteHeader = ({ activeTab = "トップ" }: SiteHeaderProps) => {
             </Sheet>
           </div>
         </div>
-      </div>
+      </header>
 
-      {/* Navigation bar */}
-      <nav className="bg-nav-bg">
+      {/* Navigation bar（PC時はスクロールしても常時表示） */}
+      <nav className="bg-nav-bg md:sticky md:top-0 md:z-40 md:shadow-sm">
         <div className="container mx-auto flex items-center justify-between gap-2 px-2.5 sm:px-4">
           <ul className="flex min-w-0 flex-1 items-center justify-start gap-0 overflow-x-auto no-scrollbar text-xs sm:text-[13px]">
             {navItems.map((item) => (
@@ -224,7 +224,7 @@ const SiteHeader = ({ activeTab = "トップ" }: SiteHeaderProps) => {
           </div>
         </div>
       </nav>
-    </header>
+    </>
   );
 };
 

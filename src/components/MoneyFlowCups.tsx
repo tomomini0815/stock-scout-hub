@@ -1,9 +1,11 @@
 import { useEffect, useId, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { ExternalLink } from "lucide-react";
 import { type MarketIndex, type StockData } from "@/data/stockData";
 import { useLiveMarketData } from "@/hooks/useLiveMarketData";
 import { useLiveNewsSearch } from "@/hooks/useLiveNewsSearch";
 import { useLiveStockQuotes } from "@/hooks/useLiveStockQuote";
+import FlowNewsReaderModal, { type ArticleBodyState } from "@/components/FlowNewsReaderModal";
 import {
   analyzeFlowNews,
   buildGlobalMoneyFlow,
@@ -12,6 +14,7 @@ import {
   formatSignedPercent,
   SECTOR_STOCK_SEEDS,
   type CupFlowLevel,
+  type FlowNewsImpact,
   type FlowTimeframe,
   type FlowViewMode,
   type MoneyFlowCup,
@@ -296,6 +299,40 @@ const MoneyFlowCups = ({ indices, stocks = [] }: MoneyFlowCupsProps) => {
   const uid = useId().replace(/:/g, "");
   const [mode, setMode] = useState<FlowViewMode>("global");
   const [timeframe, setTimeframe] = useState<FlowTimeframe>("1D");
+  const [activeArticle, setActiveArticle] = useState<FlowNewsImpact | null>(null);
+  const [articleBodies, setArticleBodies] = useState<Record<string, ArticleBodyState>>({});
+
+  const openNewsModal = (item: FlowNewsImpact) => {
+    setActiveArticle(item);
+    const url = item.url;
+    if (url && !articleBodies[url]) {
+      setArticleBodies((curr) => ({ ...curr, [url]: { status: "loading" } }));
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), 9500);
+      fetch(`/api/article-summary?url=${encodeURIComponent(url)}`, {
+        signal: controller.signal,
+      })
+        .then((res) => {
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          return res.json();
+        })
+        .then((payload) => {
+          const summary = typeof payload.summary === "string" ? payload.summary.trim() : "";
+          const fullText =
+            typeof payload.fullText === "string" && payload.fullText.trim()
+              ? payload.fullText.trim()
+              : summary;
+          setArticleBodies((curr) => ({
+            ...curr,
+            [url]: summary ? { status: "ready", summary, fullText } : { status: "error" },
+          }));
+        })
+        .catch(() => {
+          setArticleBodies((curr) => ({ ...curr, [url]: { status: "error" } }));
+        })
+        .finally(() => window.clearTimeout(timeout));
+    }
+  };
 
   const {
     indices: liveIndices,
@@ -391,14 +428,14 @@ const MoneyFlowCups = ({ indices, stocks = [] }: MoneyFlowCupsProps) => {
       aria-label="資金集中マップ（コップで可視化）"
       className="overflow-hidden rounded-md border border-border bg-card"
     >
-      {/* ヘッダー */}
-      <div className="flex items-start justify-between gap-2 border-b border-border bg-table-header-bg px-4 py-2">
-        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-          <h2 className="text-base sm:text-lg font-extrabold text-foreground">
+      {/* ヘッダー（タイトル＋タブ＋LIVEバッジを右寄せ1行に集約） */}
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-table-header-bg px-3 py-2 sm:px-4">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <h2 className="whitespace-nowrap text-sm sm:text-base font-extrabold text-foreground">
             いま資金はどこに集中している？
           </h2>
           <span
-            className={`rounded border px-2 py-0.5 text-xxs sm:text-xs font-bold ${getRegimeBadgeClass(
+            className={`whitespace-nowrap rounded border px-2 py-0.5 text-xxs font-bold ${getRegimeBadgeClass(
               overview.regimeTone
             )}`}
           >
@@ -406,79 +443,78 @@ const MoneyFlowCups = ({ indices, stocks = [] }: MoneyFlowCupsProps) => {
           </span>
         </div>
 
-        {/* 常に右上端に配置するLIVEバッジ */}
-        <span
-          className={`inline-flex shrink-0 self-start items-center gap-1 whitespace-nowrap rounded px-1.5 py-0.5 text-xxs font-bold ${
-            liveBadgeStatus === "live"
-              ? "border border-red-600 bg-white text-red-600"
-              : "bg-muted text-muted-foreground"
-          }`}
-          title={updatedLabel ? `更新 ${updatedLabel}` : undefined}
-        >
-          {liveBadgeStatus === "live" && <span className="h-1.5 w-1.5 rounded-full bg-red-600" />}
-          {liveBadgeStatus === "live" ? "LIVE" : liveBadgeStatus === "cached" ? "前回値" : "確認中"}
-        </span>
-      </div>
+        <div className="ml-auto flex max-w-full flex-nowrap items-center justify-end gap-1.5 overflow-x-auto no-scrollbar sm:gap-2">
+          {/* 期間切替タブ（今日 / 1週間 / 1ヶ月） */}
+          <div
+            role="tablist"
+            aria-label="資金フローの期間切替"
+            className="inline-flex shrink-0 flex-nowrap rounded border border-border bg-background p-0.5 text-xxs font-bold"
+          >
+            {TIMEFRAMES.map((tf) => (
+              <button
+                key={tf}
+                type="button"
+                role="tab"
+                aria-selected={timeframe === tf}
+                onClick={() => setTimeframe(tf)}
+                title={FLOW_TIMEFRAME_META[tf].hint}
+                className={`shrink-0 whitespace-nowrap rounded px-2 py-1 transition-colors ${
+                  timeframe === tf
+                    ? "bg-primary text-primary-foreground"
+                    : "text-foreground/75 hover:text-foreground"
+                }`}
+              >
+                {FLOW_TIMEFRAME_META[tf].label}
+              </button>
+            ))}
+          </div>
 
-      {/* 期間・視点切替タブ（常に1行表示） */}
-      <div className="flex flex-nowrap items-center justify-between gap-2 overflow-x-auto no-scrollbar border-b border-border bg-muted/20 px-4 py-1.5">
-        {/* 期間切替タブ（今日 / 1週間 / 1ヶ月） */}
-        <div
-          role="tablist"
-          aria-label="資金フローの期間切替"
-          className="inline-flex shrink-0 flex-nowrap rounded border border-border bg-background p-0.5 text-xxs sm:text-xs font-bold"
-        >
-          {TIMEFRAMES.map((tf) => (
+          {/* 視点切替タブ */}
+          <div
+            role="tablist"
+            aria-label="資金フローの視点切替"
+            className="inline-flex shrink-0 flex-nowrap rounded border border-border bg-background p-0.5 text-xxs font-bold"
+          >
             <button
-              key={tf}
               type="button"
               role="tab"
-              aria-selected={timeframe === tf}
-              onClick={() => setTimeframe(tf)}
-              title={FLOW_TIMEFRAME_META[tf].hint}
+              aria-selected={mode === "global"}
+              onClick={() => setMode("global")}
               className={`shrink-0 whitespace-nowrap rounded px-2 py-1 transition-colors sm:px-2.5 ${
-                timeframe === tf
+                mode === "global"
                   ? "bg-primary text-primary-foreground"
                   : "text-foreground/75 hover:text-foreground"
               }`}
             >
-              {FLOW_TIMEFRAME_META[tf].label}
+              世界の資金フロー
             </button>
-          ))}
-        </div>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mode === "sectors"}
+              onClick={() => setMode("sectors")}
+              className={`shrink-0 whitespace-nowrap rounded px-2 py-1 transition-colors sm:px-2.5 ${
+                mode === "sectors"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-foreground/75 hover:text-foreground"
+              }`}
+            >
+              日本株セクター別
+            </button>
+          </div>
 
-        {/* 視点切替タブ */}
-        <div
-          role="tablist"
-          aria-label="資金フローの視点切替"
-          className="inline-flex shrink-0 flex-nowrap rounded border border-border bg-background p-0.5 text-xxs sm:text-xs font-bold"
-        >
-          <button
-            type="button"
-            role="tab"
-            aria-selected={mode === "global"}
-            onClick={() => setMode("global")}
-            className={`shrink-0 whitespace-nowrap rounded px-2 py-1 transition-colors sm:px-3 ${
-              mode === "global"
-                ? "bg-primary text-primary-foreground"
-                : "text-foreground/75 hover:text-foreground"
+          {/* 常に右端に配置するLIVEバッジ */}
+          <span
+            className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded px-1.5 py-0.5 text-xxs font-bold ${
+              liveBadgeStatus === "live"
+                ? "border border-red-600 bg-white text-red-600"
+                : "bg-muted text-muted-foreground"
             }`}
+            title={updatedLabel ? `更新 ${updatedLabel}` : undefined}
           >
-            世界の資金フロー
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={mode === "sectors"}
-            onClick={() => setMode("sectors")}
-            className={`shrink-0 whitespace-nowrap rounded px-2 py-1 transition-colors sm:px-3 ${
-              mode === "sectors"
-                ? "bg-primary text-primary-foreground"
-                : "text-foreground/75 hover:text-foreground"
-            }`}
-          >
-            日本株セクター別
-          </button>
+            {liveBadgeStatus === "live" && <span className="h-1.5 w-1.5 rounded-full bg-red-600" />}
+            {liveBadgeStatus === "live" ? "LIVE" : liveBadgeStatus === "cached" ? "前回値" : "確認中"}
+          </span>
         </div>
       </div>
 
@@ -650,25 +686,41 @@ const MoneyFlowCups = ({ indices, stocks = [] }: MoneyFlowCupsProps) => {
                         </span>
                       </div>
 
-                      {item.url ? (
-                        <a
-                          href={item.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="block text-sm font-bold leading-snug text-foreground hover:text-primary hover:underline"
-                        >
-                          {item.title}
-                        </a>
-                      ) : (
-                        <div className="text-sm font-bold leading-snug text-foreground">
-                          {item.title}
-                        </div>
-                      )}
+                      <button
+                        type="button"
+                        onClick={() => openNewsModal(item)}
+                        className="block w-full text-left text-sm font-bold leading-snug text-foreground hover:text-primary"
+                      >
+                        {item.title}
+                      </button>
 
                       <p className="mt-1.5 text-xs sm:text-[13px] leading-relaxed text-foreground/85">
                         <span className="font-bold text-primary">解説：</span>
                         {item.impactSummary}
                       </p>
+
+                      <div className="mt-2 flex items-center justify-between gap-2 text-xxs">
+                        {item.url ? (
+                          <a
+                            href={item.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-0.5 font-semibold text-muted-foreground hover:text-primary hover:underline"
+                          >
+                            <span>元記事</span>
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        ) : (
+                          <span />
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => openNewsModal(item)}
+                          className="inline-flex items-center gap-0.5 rounded border border-border bg-background px-2 py-0.5 font-bold text-primary transition-colors hover:bg-muted"
+                        >
+                          <span>詳しく見る</span>
+                        </button>
+                      </div>
                     </article>
                   ))}
                 </div>
@@ -771,23 +823,39 @@ const MoneyFlowCups = ({ indices, stocks = [] }: MoneyFlowCupsProps) => {
                               {item.dateLabel ? `・${item.dateLabel}` : ""}
                             </span>
                           </div>
-                          {item.url ? (
-                            <a
-                              href={item.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="block text-xs sm:text-sm font-bold leading-snug text-foreground hover:text-primary hover:underline"
-                            >
-                              {item.title}
-                            </a>
-                          ) : (
-                            <div className="text-xs sm:text-sm font-bold leading-snug text-foreground">
-                              {item.title}
-                            </div>
-                          )}
+                          <button
+                            type="button"
+                            onClick={() => openNewsModal(item)}
+                            className="block w-full text-left text-xs sm:text-sm font-bold leading-snug text-foreground hover:text-primary"
+                          >
+                            {item.title}
+                          </button>
                           <p className="mt-1 text-xs leading-relaxed text-foreground/80">
                             {item.impactSummary}
                           </p>
+
+                          <div className="mt-1.5 flex items-center justify-between gap-2 text-xxs">
+                            {item.url ? (
+                              <a
+                                href={item.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-0.5 font-semibold text-muted-foreground hover:text-primary hover:underline"
+                              >
+                                <span>元記事</span>
+                                <ExternalLink className="h-3 w-3" />
+                              </a>
+                            ) : (
+                              <span />
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => openNewsModal(item)}
+                              className="inline-flex items-center gap-0.5 rounded border border-border bg-background px-2 py-0.5 font-bold text-primary transition-colors hover:bg-muted"
+                            >
+                              <span>詳しく見る</span>
+                            </button>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -882,6 +950,12 @@ const MoneyFlowCups = ({ indices, stocks = [] }: MoneyFlowCupsProps) => {
           から算出した資金集中の目安です。投資判断の最終確認はチャートや一次情報と併せて行ってください。
         </p>
       </div>
+
+      <FlowNewsReaderModal
+        item={activeArticle}
+        bodyState={activeArticle?.url ? articleBodies[activeArticle.url] : undefined}
+        onClose={() => setActiveArticle(null)}
+      />
     </section>
   );
 };

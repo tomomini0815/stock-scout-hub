@@ -1,5 +1,6 @@
 import { type MarketIndex } from "@/data/stockData";
 import { useLiveMarketData } from "@/hooks/useLiveMarketData";
+import { isIndexMarketAfterHours } from "@/lib/marketHours";
 import { Newspaper, TrendingDown, TrendingUp } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -78,7 +79,24 @@ const MarketTicker = ({ indices }: MarketTickerProps) => {
           </span>
         </div>
         {[...displayIndices, ...displayIndices].map((index, i) => {
-          const isUp = index.change >= 0;
+          const hasFutures = typeof index.futuresValue === "number";
+          const displayName = hasFutures
+            ? index.name === "NASDAQ"
+              ? "NASDAQ100先物"
+              : `${index.name}先物`
+            : index.name;
+          const displayValue = hasFutures ? (index.futuresValue as number) : index.value;
+          const displayChange =
+            hasFutures && typeof index.futuresChange === "number"
+              ? index.futuresChange
+              : index.change;
+          const displayChangePercent =
+            hasFutures && typeof index.futuresChangePercent === "number"
+              ? index.futuresChangePercent
+              : index.changePercent;
+          const isWhole = hasFutures && (index.name === "日経平均" || index.name === "NYダウ");
+          const isUp = displayChange >= 0;
+          const isAfterHours = isIndexMarketAfterHours(index.name);
 
           return (
             <div key={`${index.name}-${i}`} className="flex items-center gap-1.5 text-xs">
@@ -87,9 +105,17 @@ const MarketTicker = ({ indices }: MarketTickerProps) => {
                   {logoLabelForIndex(index.name)}
                 </span>
               </span>
-              <span className="font-semibold text-foreground">{index.name}</span>
+              <span className="font-semibold text-foreground">{displayName}</span>
+              {isAfterHours && (
+                <span className="rounded border border-slate-300 bg-slate-100 px-1 py-0 text-[10px] font-semibold text-slate-600">
+                  時間外
+                </span>
+              )}
               <span className="tabular-nums font-bold text-foreground">
-                {index.value.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                {displayValue.toLocaleString(undefined, {
+                  minimumFractionDigits: isWhole ? 0 : 2,
+                  maximumFractionDigits: isWhole ? 0 : 2,
+                })}
               </span>
               <span
                 className={`flex items-center gap-0.5 tabular-nums font-semibold ${
@@ -98,10 +124,10 @@ const MarketTicker = ({ indices }: MarketTickerProps) => {
               >
                 {isUp ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
                 {isUp ? "+" : ""}
-                {index.change.toFixed(2)}
+                {displayChange.toFixed(isWhole ? 0 : 2)}
                 <span>
                   ({isUp ? "+" : ""}
-                  {index.changePercent.toFixed(2)}%)
+                  {displayChangePercent.toFixed(2)}%)
                 </span>
               </span>
             </div>

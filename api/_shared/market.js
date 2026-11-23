@@ -274,51 +274,127 @@ export const parseYahooMarketAsset = async (name, symbol) => {
     : null;
 };
 
+export const tradingViewFuturesByName = {
+  日経平均: "CME:NIY1!",
+  NYダウ: "CBOT_MINI:YM1!",
+  NASDAQ: "CME_MINI:NQ1!",
+  "S&P500": "CME_MINI:ES1!",
+};
+
+export const fetchYahooNikkeiCash = async () => {
+  try {
+    const r = await fetchWithTimeout(
+      "https://query1.finance.yahoo.com/v8/finance/chart/%5EN225?range=5d&interval=1d",
+      5500
+    );
+    if (!r.ok) return null;
+    const j = await r.json();
+    const res = j?.chart?.result?.[0];
+    const meta = res?.meta;
+    const closes = (res?.indicators?.quote?.[0]?.close ?? []).filter((v) => Number.isFinite(v));
+    const price = Number(meta?.regularMarketPrice ?? closes[closes.length - 1]);
+    const prevClose = Number(
+      closes.length >= 2 ? closes[closes.length - 2] : meta?.previousClose ?? meta?.chartPreviousClose
+    );
+    if (!Number.isFinite(price) || !Number.isFinite(prevClose) || prevClose <= 0) return null;
+    const change = price - prevClose;
+    const changePercent = (change / prevClose) * 100;
+    return { value: price, change, changePercent };
+  } catch {
+    return null;
+  }
+};
+
 export const fetchTradingViewMarketIndices = async () => {
   const tvUrl = "https://scanner.tradingview.com/global/scan";
-  if (isCircuitOpen(tvUrl)) return [];
-  const response = await fetchWithTimeout(
-    tvUrl,
-    7000,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        symbols: {
-          tickers: tradingViewQuotes.map((quote) => quote.symbol),
-          query: { types: [] },
-        },
-        columns: ["close", "change", "change_abs", "Perf.W", "Perf.1M"],
-      }),
-    }
-  );
-  if (!response.ok) {
-    if (response.status === 403) tripCircuit(tvUrl);
-    return [];
-  }
-  resolveCircuit(tvUrl);
+  const futuresTickers = Object.values(tradingViewFuturesByName);
+  const [tvResult, nikkeiCash] = await Promise.all([
+    (async () => {
+      if (isCircuitOpen(tvUrl)) return [];
+      const response = await fetchWithTimeout(
+        tvUrl,
+        7000,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            symbols: {
+              tickers: [...tradingViewQuotes.map((quote) => quote.symbol), ...futuresTickers],
+              query: { types: [] },
+            },
+            columns: ["close", "change", "change_abs", "Perf.W", "Perf.1M"],
+          }),
+        }
+      );
+      if (!response.ok) {
+        if (response.status === 403) tripCircuit(tvUrl);
+        return [];
+      }
+      resolveCircuit(tvUrl);
+      const payload = await response.json();
+      return Array.isArray(payload?.data) ? payload.data : [];
+    })(),
+    fetchYahooNikkeiCash(),
+  ]);
 
-  const payload = await response.json();
-  const rows = Array.isArray(payload?.data) ? payload.data : [];
+  const rows = tvResult;
+  const rowBySymbol = new Map(rows.map((row) => [row?.s, row]));
   const nameBySymbol = new Map(tradingViewQuotes.map((quote) => [quote.symbol, quote.name]));
 
   return rows
     .map((row) => {
       const name = nameBySymbol.get(row?.s);
       const [value, changePercent, change, perfW, perf1M] = row?.d ?? [];
-      return name &&
-        [value, changePercent, change].every((item) => Number.isFinite(Number(item)))
+      if (!name || ![value, changePercent, change].every((item) => Number.isFinite(Number(item)))) {
+        return null;
+      }
+
+      const futSymbol = tradingViewFuturesByName[name];
+      const futRow = futSymbol ? rowBySymbol.get(futSymbol) : null;
+      const [fVal, fChgPct, fChg, fPerfW, fPerf1M] = futRow?.d ?? [];
+      const hasTvFutures = [fVal, fChgPct, fChg].every((item) => Number.isFinite(Number(item)));
+      const futuresFields = hasTvFutures
         ? {
-            name,
-            value: Number(value),
-            change: Number(change),
-            changePercent: Number(changePercent),
-            ...(Number.isFinite(Number(perfW)) ? { changePercent1W: Number(perfW) } : {}),
-            ...(Number.isFinite(Number(perf1M)) ? { changePercent1M: Number(perf1M) } : {}),
+            futuresValue: Number(fVal),
+            futuresChange: Number(fChg),
+            futuresChangePercent: Number(fChgPct),
           }
-        : null;
+        : {};
+
+      const resolvedPerfW = Number.isFinite(Number(fPerfW))
+        ? Number(fPerfW)
+        : Number.isFinite(Number(perfW))
+          ? Number(perfW)
+          : undefined;
+      const resolvedPerf1M = Number.isFinite(Number(fPerf1M))
+        ? Number(fPerf1M)
+        : Number.isFinite(Number(perf1M))
+          ? Number(perf1M)
+          : undefined;
+
+      // 日経平均の現物はTVC:NI225が遅延・古い値を返すことがあるためYahoo ^N225を優先
+      if (name === "日経平均") {
+        return {
+          name,
+          value: nikkeiCash ? nikkeiCash.value : Number(value),
+          change: nikkeiCash ? nikkeiCash.change : Number(change),
+          changePercent: nikkeiCash ? nikkeiCash.changePercent : Number(changePercent),
+          ...(resolvedPerfW !== undefined ? { changePercent1W: resolvedPerfW } : {}),
+          ...(resolvedPerf1M !== undefined ? { changePercent1M: resolvedPerf1M } : {}),
+          ...futuresFields,
+        };
+      }
+      return {
+        name,
+        value: Number(value),
+        change: Number(change),
+        changePercent: Number(changePercent),
+        ...(resolvedPerfW !== undefined ? { changePercent1W: resolvedPerfW } : {}),
+        ...(resolvedPerf1M !== undefined ? { changePercent1M: resolvedPerf1M } : {}),
+        ...futuresFields,
+      };
     })
     .filter(Boolean);
 };

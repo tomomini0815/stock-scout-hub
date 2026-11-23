@@ -296,6 +296,10 @@ const pickIndexChangeByTimeframe = (
       ? index.changePercent1M
       : fallback1M || index.changePercent * 3.2;
   }
+  // 1D（今日）は24時間リアルタイム先物がある場合は先物騰落率を優先
+  if (typeof index.futuresChangePercent === "number" && Number.isFinite(index.futuresChangePercent)) {
+    return index.futuresChangePercent;
+  }
   return index.changePercent;
 };
 
@@ -321,7 +325,11 @@ export const buildGlobalMoneyFlow = (
 
   const nikkeiPct = pickIndexChangeByTimeframe(nikkei, timeframe);
   const topixPct = pickIndexChangeByTimeframe(topix, timeframe);
-  const jpAvgPct = (nikkeiPct + topixPct) / 2;
+  const hasNikkeiFutures =
+    timeframe === "1D" &&
+    typeof nikkei?.futuresChangePercent === "number" &&
+    Number.isFinite(nikkei.futuresChangePercent);
+  const jpAvgPct = hasNikkeiFutures ? nikkeiPct : (nikkeiPct + topixPct) / 2;
   const nasdaqPct = pickIndexChangeByTimeframe(nasdaq, timeframe);
   const dowPct = pickIndexChangeByTimeframe(dow ?? sp500, timeframe);
   const sp500Pct = pickIndexChangeByTimeframe(sp500 ?? dow, timeframe);
@@ -343,7 +351,11 @@ export const buildGlobalMoneyFlow = (
       subtitle: "日経平均・TOPIX",
       changePercent: jpAvgPct,
       normalizedScore: jpAvgPct / (0.85 * scale),
-      displayMetric: nikkei ? `日経 ${Math.round(nikkei.value).toLocaleString()}円` : "--",
+      displayMetric: nikkei
+        ? typeof nikkei.futuresValue === "number"
+          ? `先物 ${Math.round(nikkei.futuresValue).toLocaleString()}円`
+          : `日経 ${Math.round(nikkei.value).toLocaleString()}円`
+        : "--",
       tags: ["日経平均", "TOPIX", "海外勢・円安"],
       structuralBackground:
         "日経平均（値がさ半導体主導）とTOPIX（銀行・自動車・主力全般）の2軸で動く日本株は、海外投資家の売買比率が高く、米ハイテク株やドル円、東証の資本効率改善（自社株買い・増配）を材料に資金が出入りします。",
@@ -360,7 +372,11 @@ export const buildGlobalMoneyFlow = (
       subtitle: "NASDAQ・メガテック",
       changePercent: nasdaqPct,
       normalizedScore: nasdaqPct / (0.9 * scale),
-      displayMetric: nasdaq ? `${Math.round(nasdaq.value).toLocaleString()}pt` : "--",
+      displayMetric: nasdaq
+        ? typeof nasdaq.futuresValue === "number"
+          ? `先物 ${Math.round(nasdaq.futuresValue).toLocaleString()}pt`
+          : `${Math.round(nasdaq.value).toLocaleString()}pt`
+        : "--",
       tags: ["NASDAQ", "AI・メガテック", "米長期金利"],
       structuralBackground:
         "世界の投資マネーの中心である米メガテック・AI関連株は、圧倒的な利益成長力から長期的な資金の受け皿になっています。米長期金利が落ち着いている局面ではバリュエーションが許容されやすく、資金が集中します。",
@@ -377,7 +393,11 @@ export const buildGlobalMoneyFlow = (
       subtitle: "NYダウ・S&P500",
       changePercent: usLargePct,
       normalizedScore: usLargePct / (0.75 * scale),
-      displayMetric: sp500 ? `S&P ${Math.round(sp500.value).toLocaleString()}` : "--",
+      displayMetric: sp500
+        ? typeof sp500.futuresValue === "number"
+          ? `先物 ${Math.round(sp500.futuresValue).toLocaleString()}`
+          : `S&P ${Math.round(sp500.value).toLocaleString()}`
+        : "--",
       tags: ["NYダウ", "S&P500", "景気循環・金融"],
       structuralBackground:
         "NYダウやS&P500は米国経済全体の底堅さを映します。ハイテク一強から金融・資本財・消費へ資金が広がる局面（ブロードニング）では、このコップの水位が上がり、相場全体の上昇持続力が高まります。",

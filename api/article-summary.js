@@ -113,7 +113,7 @@ const extractParagraphs = (html) => {
         !GENERIC_META_PATTERN.test(text)
     );
 
-  return paragraphs.slice(0, 6).join(" ");
+  return paragraphs.slice(0, 16).join("\n\n");
 };
 
 const extractArticleText = (html) => {
@@ -152,6 +152,18 @@ const trimSummaryAtSentence = (text, maxLength) => {
   }
 
   return `${clipped.replace(/[、,。\s]+$/, "")}…`;
+};
+
+const formatFullJapaneseText = (text) => {
+  const cleaned = text
+    .replace(/記事全文を読む[\s\S]*$/, "")
+    .replace(/ココがポイント[\s\S]*$/, "")
+    .replace(/関連記事|続きを読む|ログイン|会員登録|コメント/g, "")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  if (cleaned.length <= 1600) return cleaned;
+  return trimSummaryAtSentence(cleaned, 1600);
 };
 
 const summarizeJapaneseText = (text) => {
@@ -288,6 +300,7 @@ export default async function handler(req, res) {
 
     const articleText = extractArticleText(html);
     const summary = summarizeJapaneseText(articleText);
+    const fullText = formatFullJapaneseText(articleText);
 
     if (!summary || summary.length < 24 || looksMojibake(summary)) {
       res.status(422).json({ error: "article text unavailable" });
@@ -295,7 +308,7 @@ export default async function handler(req, res) {
     }
 
     res.setHeader("Cache-Control", "s-maxage=1800, stale-while-revalidate=3600");
-    res.status(200).json({ summary });
+    res.status(200).json({ summary, fullText: fullText || summary });
   } catch {
     res.status(500).json({ error: "article summary failed" });
   }

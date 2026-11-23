@@ -136,16 +136,19 @@ const summarizeArticleText = (text: string) => {
 const GENERIC_META_PATTERN =
   /Yahoo!ニュースは|最新のニュースをお届け|速報ニュース|公式ページ|ニュースサイト|経済ニュースを配信|記事一覧|Google ニュースが世界中のニュース提供元|Google ニュース|Google News/;
 
-const extractArticleSummaryFromHtml = (html: string) => {
+const extractArticleContentFromHtml = (html: string): { summary: string; fullText: string } => {
   // 1. JSON-LD の articleBody を最優先
   const ldScripts = html.match(/<script[^>]+application\/ld\+json[^>]*>([\s\S]*?)<\/script>/gi) ?? [];
   for (const script of ldScripts) {
     const bodyMatch = script.match(/"articleBody"\s*:\s*"((?:[^"\\]|\\.)+)"/);
     if (bodyMatch?.[1] && bodyMatch[1].length >= 40) {
       try {
-        const parsed = JSON.parse(`"${bodyMatch[1]}"`);
-        const summary = summarizeArticleText(stripHtml(parsed));
-        if (summary.length >= 30) return summary;
+        const parsed = stripHtml(JSON.parse(`"${bodyMatch[1]}"`));
+        const summary = summarizeArticleText(parsed);
+        if (summary.length >= 30) {
+          const fullText = parsed.length > 1600 ? `${parsed.slice(0, 1600)}...` : parsed;
+          return { summary, fullText };
+        }
       } catch {
         // fallback below
       }
@@ -175,16 +178,21 @@ const extractArticleSummaryFromHtml = (html: string) => {
 
   if (paragraphs.length) {
     const bodySummary = summarizeArticleText(paragraphs.slice(0, 5).join(" "));
-    if (bodySummary.length >= 30) return bodySummary;
+    if (bodySummary.length >= 30) {
+      const joinedFull = paragraphs.slice(0, 16).join("\n\n");
+      const fullText = joinedFull.length > 1600 ? `${joinedFull.slice(0, 1600)}...` : joinedFull;
+      return { summary: bodySummary, fullText };
+    }
   }
 
   // 3. フォールバックとして記事固有の meta description（サイト共通定型文は除外）
   const metaDescription = getMetaContent(html, ["og:description", "description", "twitter:description"]);
   if (metaDescription && !GENERIC_META_PATTERN.test(metaDescription)) {
-    return summarizeArticleText(metaDescription);
+    const summary = summarizeArticleText(metaDescription);
+    return { summary, fullText: normalizeArticleText(metaDescription) };
   }
 
-  return "";
+  return { summary: "", fullText: "" };
 };
 
 const isBlockedArticleHost = (hostname: string) => {
@@ -322,45 +330,123 @@ const parseYahooMarketAsset = async (name: string, symbol: string) => {
   return { name, value, change, changePercent };
 };
 
-const fetchTradingViewMarketIndices = async () => {
-  const response = await fetchWithTimeout(
-    "https://scanner.tradingview.com/global/scan",
-    7000,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        symbols: {
-          tickers: tradingViewQuotes.map((quote) => quote.symbol),
-          query: { types: [] },
-        },
-        columns: ["close", "change", "change_abs", "Perf.W", "Perf.1M"],
-      }),
-    }
-  );
-  if (!response.ok) return [];
+const tradingViewFuturesByName: Record<string, string> = {
+  日経平均: "CME:NIY1!",
+  NYダウ: "CBOT_MINI:YM1!",
+  NASDAQ: "CME_MINI:NQ1!",
+  "S&P500": "CME_MINI:ES1!",
+};
 
-  const payload = await response.json();
-  const rows = Array.isArray(payload?.data) ? payload.data : [];
+const fetchYahooNikkeiCash = async () => {
+  try {
+    const r = await fetchWithTimeout(
+      "https://query1.finance.yahoo.com/v8/finance/chart/%5EN225?range=5d&interval=1d",
+      5500,
+      { headers: { "User-Agent": "Mozilla/5.0" } }
+    );
+    if (!r.ok) return null;
+    const j = await r.json();
+    const res = j?.chart?.result?.[0];
+    const meta = res?.meta;
+    const closes = (res?.indicators?.quote?.[0]?.close ?? []).filter((v: unknown) =>
+      Number.isFinite(v)
+    ) as number[];
+    const price = Number(meta?.regularMarketPrice ?? closes[closes.length - 1]);
+    const prevClose = Number(
+      closes.length >= 2 ? closes[closes.length - 2] : meta?.previousClose ?? meta?.chartPreviousClose
+    );
+    if (!Number.isFinite(price) || !Number.isFinite(prevClose) || prevClose <= 0) return null;
+    const change = price - prevClose;
+    const changePercent = (change / prevClose) * 100;
+    return { value: price, change, changePercent };
+  } catch {
+    return null;
+  }
+};
+
+const fetchTradingViewMarketIndices = async () => {
+  const futuresTickers = Object.values(tradingViewFuturesByName);
+  const [tvRows, nikkeiCash] = await Promise.all([
+    (async () => {
+      const response = await fetchWithTimeout(
+        "https://scanner.tradingview.com/global/scan",
+        7000,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            symbols: {
+              tickers: [...tradingViewQuotes.map((quote) => quote.symbol), ...futuresTickers],
+              query: { types: [] },
+            },
+            columns: ["close", "change", "change_abs", "Perf.W", "Perf.1M"],
+          }),
+        }
+      );
+      if (!response.ok) return [];
+      const payload = await response.json();
+      return Array.isArray(payload?.data) ? payload.data : [];
+    })(),
+    fetchYahooNikkeiCash(),
+  ]);
+
+  const rows = tvRows;
+  const rowBySymbol = new Map(rows.map((row) => [row?.s, row]));
   const nameBySymbol = new Map(tradingViewQuotes.map((quote) => [quote.symbol, quote.name]));
 
   return rows
     .map((row) => {
       const name = nameBySymbol.get(row?.s);
       const [value, changePercent, change, perfW, perf1M] = row?.d ?? [];
-      return name &&
-        [value, changePercent, change].every((item) => Number.isFinite(Number(item)))
+      if (!name || ![value, changePercent, change].every((item) => Number.isFinite(Number(item)))) {
+        return null;
+      }
+
+      const futSymbol = tradingViewFuturesByName[name];
+      const futRow = futSymbol ? rowBySymbol.get(futSymbol) : null;
+      const [fVal, fChgPct, fChg, fPerfW, fPerf1M] = futRow?.d ?? [];
+      const hasTvFutures = [fVal, fChgPct, fChg].every((item) => Number.isFinite(Number(item)));
+      const futuresFields = hasTvFutures
         ? {
-            name,
-            value: Number(value),
-            change: Number(change),
-            changePercent: Number(changePercent),
-            ...(Number.isFinite(Number(perfW)) ? { changePercent1W: Number(perfW) } : {}),
-            ...(Number.isFinite(Number(perf1M)) ? { changePercent1M: Number(perf1M) } : {}),
+            futuresValue: Number(fVal),
+            futuresChange: Number(fChg),
+            futuresChangePercent: Number(fChgPct),
           }
-        : null;
+        : {};
+
+      const resolvedPerfW = Number.isFinite(Number(fPerfW))
+        ? Number(fPerfW)
+        : Number.isFinite(Number(perfW))
+          ? Number(perfW)
+          : undefined;
+      const resolvedPerf1M = Number.isFinite(Number(fPerf1M))
+        ? Number(fPerf1M)
+        : Number.isFinite(Number(perf1M))
+          ? Number(perf1M)
+          : undefined;
+
+      if (name === "日経平均") {
+        return {
+          name,
+          value: nikkeiCash ? nikkeiCash.value : Number(value),
+          change: nikkeiCash ? nikkeiCash.change : Number(change),
+          changePercent: nikkeiCash ? nikkeiCash.changePercent : Number(changePercent),
+          ...(resolvedPerfW !== undefined ? { changePercent1W: resolvedPerfW } : {}),
+          ...(resolvedPerf1M !== undefined ? { changePercent1M: resolvedPerf1M } : {}),
+          ...futuresFields,
+        };
+      }
+      return {
+        name,
+        value: Number(value),
+        change: Number(change),
+        changePercent: Number(changePercent),
+        ...(resolvedPerfW !== undefined ? { changePercent1W: resolvedPerfW } : {}),
+        ...(resolvedPerf1M !== undefined ? { changePercent1M: resolvedPerf1M } : {}),
+        ...futuresFields,
+      };
     })
     .filter(Boolean);
 };
@@ -1312,14 +1398,15 @@ const newsSourcePlugin = () => ({
           }
         }
 
-        const summary = extractArticleSummaryFromHtml(html);
+        const { summary, fullText } = extractArticleContentFromHtml(html);
         if (!summary) {
-          sendJson(res, { summary: "", error: "article text unavailable" }, 422);
+          sendJson(res, { summary: "", fullText: "", error: "article text unavailable" }, 422);
           return;
         }
 
         sendJson(res, {
           summary,
+          fullText: fullText || summary,
           source: resolvedSourceHost,
           extractedAt: new Date().toISOString(),
         });

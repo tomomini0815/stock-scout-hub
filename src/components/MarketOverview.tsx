@@ -1,5 +1,6 @@
 import { type MarketIndex } from "@/data/stockData";
 import { useLiveMarketData } from "@/hooks/useLiveMarketData";
+import { isIndexMarketAfterHours } from "@/lib/marketHours";
 import TradingViewQuadPanel from "@/components/TradingViewQuadPanel";
 import { AlertTriangle, LayoutGrid, Newspaper, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -29,11 +30,11 @@ const URGENT_MOVE_THRESHOLD = 1.5;
 const URGENT_NEWS_MAX_AGE_MS = 1000 * 60 * 60 * 24;
 
 const indexChartConfigs = [
-  { id: "nikkei", name: "日経平均", symbol: "OANDA:JP225USD" },
+  { id: "nikkei", name: "日経225 (CFD)", symbol: "OANDA:JP225USD" },
   { id: "topix", name: "TOPIX先物", symbol: "OSE:TOPIX1!" },
-  { id: "dow", name: "NYダウ", symbol: "OANDA:US30USD" },
-  { id: "nasdaq", name: "NASDAQ", symbol: "OANDA:NAS100USD" },
-  { id: "sp500", name: "S&P500", symbol: "OANDA:SPX500USD" },
+  { id: "dow", name: "NYダウ (CFD)", symbol: "OANDA:US30USD" },
+  { id: "nasdaq", name: "NASDAQ100 (CFD)", symbol: "OANDA:NAS100USD" },
+  { id: "sp500", name: "S&P500 (CFD)", symbol: "OANDA:SPX500USD" },
   { id: "usdjpy", name: "USD/JPY", symbol: "FX:USDJPY" },
   { id: "gold", name: "GOLD", symbol: "TVC:GOLD" },
   { id: "btc", name: "BTC/USDT", symbol: "BINANCE:BTCUSDT" },
@@ -548,6 +549,18 @@ const MarketOverview = ({ indices, detailed = false }: MarketOverviewProps) => {
     () =>
       indexChartConfigs.map((config) => {
         const matchingIndex = displayIndices.find((index) => chartIndexMatchers[config.id]?.test(index.name));
+        if (typeof matchingIndex?.futuresValue === "number") {
+          const pct = matchingIndex.futuresChangePercent ?? 0;
+          const sign = pct >= 0 ? "+" : "";
+          const isWhole = config.id === "nikkei" || config.id === "dow";
+          return {
+            ...config,
+            currentPrice: `先物RT ${matchingIndex.futuresValue.toLocaleString(undefined, {
+              minimumFractionDigits: isWhole ? 0 : 2,
+              maximumFractionDigits: isWhole ? 0 : 2,
+            })} (${sign}${pct.toFixed(2)}%)`,
+          };
+        }
         return {
           ...config,
           currentPrice: formatIndexValue(matchingIndex),
@@ -758,53 +771,114 @@ const MarketOverview = ({ indices, detailed = false }: MarketOverviewProps) => {
         </div>
       </div>
       <div className="grid grid-cols-2 gap-0 md:grid-cols-4">
-        {displayIndices.map((index, i) => {
-          const isUp = index.change > 0;
-          const isDown = index.change < 0;
-          const urgentMove = isUrgentMove(index.changePercent);
+        {displayIndices.map((index) => {
+          const hasFutures = typeof index.futuresValue === "number";
+          const mainValue = hasFutures ? (index.futuresValue as number) : index.value;
+          const mainChange =
+            hasFutures && typeof index.futuresChange === "number"
+              ? index.futuresChange
+              : index.change;
+          const mainChangePercent =
+            hasFutures && typeof index.futuresChangePercent === "number"
+              ? index.futuresChangePercent
+              : index.changePercent;
+          const isUp = mainChange > 0;
+          const isDown = mainChange < 0;
+          const isAfterHours = isIndexMarketAfterHours(index.name);
+          const urgentMove = isUrgentMove(mainChangePercent);
           const driverText = urgentDrivers[index.name]?.text ?? marketDriverByName.get(index.name);
           return (
             <div
               key={index.name}
-              className={`border-b border-r border-border p-2 sm:p-2.5 transition-colors hover:bg-muted/50 ${
-                i % 2 === 0 ? "" : ""
-              }`}
+              className="border-b border-r border-border px-2.5 py-2 transition-colors hover:bg-muted/40"
             >
-              <div className="mb-0.5 sm:mb-1 text-xs font-semibold text-muted-foreground">
-                {index.name}
-              </div>
-              <div className="mb-0.5 text-sm sm:text-base font-bold tabular-nums text-foreground">
-                {index.value.toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}
-              </div>
-              <div
-                className={`flex items-center gap-1 text-xs font-semibold tabular-nums ${
-                  isUp
-                    ? "text-stock-up"
-                    : isDown
-                    ? "text-stock-down"
-                    : "text-stock-unchanged"
-                }`}
-              >
-                {isUp ? (
-                  <TrendingUp className="h-3 w-3" />
-                ) : isDown ? (
-                  <TrendingDown className="h-3 w-3" />
-                ) : (
-                  <Minus className="h-3 w-3" />
-                )}
-                <span>
+              {/* 1行目: 指数名（左）＋ 騰落率（右） */}
+              <div className="flex items-center justify-between gap-1">
+                <div className="flex min-w-0 items-center gap-1 text-xs font-bold text-foreground/80">
+                  <span className="truncate">
+                    {hasFutures
+                      ? index.name === "NASDAQ"
+                        ? "NASDAQ100先物"
+                        : `${index.name}先物`
+                      : index.name}
+                  </span>
+                  {isAfterHours ? (
+                    <span className="shrink-0 rounded border border-slate-300 bg-slate-100 px-1 py-0 text-[10px] font-semibold text-slate-600">
+                      時間外
+                    </span>
+                  ) : hasFutures ? (
+                    <span className="shrink-0 rounded bg-muted px-1 py-0 text-[10px] font-medium text-muted-foreground">
+                      RT
+                    </span>
+                  ) : null}
+                </div>
+                <span
+                  className={`shrink-0 text-xxs font-bold tabular-nums ${
+                    isUp
+                      ? "text-stock-up"
+                      : isDown
+                      ? "text-stock-down"
+                      : "text-stock-unchanged"
+                  }`}
+                >
                   {isUp ? "+" : ""}
-                  {index.change.toFixed(2)}
-                </span>
-                <span>
-                  ({isUp ? "+" : ""}
-                  {index.changePercent.toFixed(2)}%)
+                  {mainChangePercent.toFixed(2)}%
                 </span>
               </div>
-              <div className={`group relative mt-1.5 rounded border p-1.5 sm:mt-2 sm:px-2 sm:py-1.5 ${getDriverPanelClass(index.changePercent)}`}>
+
+              {/* 2行目: メイン現在値 ＋ 前日比（1行スリム表示） */}
+              <div className="mt-0.5 flex flex-wrap items-baseline gap-x-1.5">
+                <span className="text-sm sm:text-base font-extrabold tabular-nums text-foreground">
+                  {mainValue.toLocaleString(undefined, {
+                    minimumFractionDigits: hasFutures && (index.name === "日経平均" || index.name === "NYダウ") ? 0 : 2,
+                    maximumFractionDigits: hasFutures && (index.name === "日経平均" || index.name === "NYダウ") ? 0 : 2,
+                  })}
+                </span>
+                <span
+                  className={`inline-flex items-center gap-0.5 text-xxs font-semibold tabular-nums ${
+                    isUp
+                      ? "text-stock-up"
+                      : isDown
+                      ? "text-stock-down"
+                      : "text-stock-unchanged"
+                  }`}
+                >
+                  {isUp ? (
+                    <TrendingUp className="h-2.5 w-2.5" />
+                  ) : isDown ? (
+                    <TrendingDown className="h-2.5 w-2.5" />
+                  ) : (
+                    <Minus className="h-2.5 w-2.5" />
+                  )}
+                  {isUp ? "+" : ""}
+                  {mainChange.toFixed(hasFutures && (index.name === "日経平均" || index.name === "NYダウ") ? 0 : 2)}
+                </span>
+              </div>
+
+              {/* 現物（サブ1行表示） */}
+              {hasFutures && (
+                <div className="mt-0.5 flex items-center gap-1 text-xxs tabular-nums text-muted-foreground">
+                  <span className="font-bold text-foreground/70">
+                    {index.name === "NASDAQ" ? "現物(総合)" : "現物"}
+                  </span>
+                  <span className="font-bold text-foreground">
+                    {index.value.toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </span>
+                  <span
+                    className={`font-bold ${
+                      index.changePercent >= 0 ? "text-stock-up" : "text-stock-down"
+                    }`}
+                  >
+                    ({index.changePercent >= 0 ? "+" : ""}
+                    {index.changePercent.toFixed(2)}%)
+                  </span>
+                </div>
+              )}
+
+              <div className={`group relative mt-1 rounded border px-1.5 py-1 ${getDriverPanelClass(mainChangePercent)}`}>
                 {detailed ? (
                   <>
                     <div className="mb-1 flex flex-wrap items-center gap-1">
@@ -816,9 +890,9 @@ const MarketOverview = ({ indices, detailed = false }: MarketOverviewProps) => {
                           : "bg-slate-600 text-white"
                       }`}>
                         {urgentMove && <AlertTriangle className="h-3 w-3" />}
-                        {getMarketTone(index.changePercent)}
+                        {getMarketTone(mainChangePercent)}
                       </span>
-                      <span className="text-xs font-bold text-muted-foreground">{getMoveLabel(index.changePercent)}</span>
+                      <span className="text-xs font-bold text-muted-foreground">{getMoveLabel(mainChangePercent)}</span>
                     </div>
                     <div className="mb-1 flex flex-wrap gap-1">
                       {getIndexFocusTags(index).map((tag) => (
@@ -836,9 +910,9 @@ const MarketOverview = ({ indices, detailed = false }: MarketOverviewProps) => {
                   </>
                 ) : (
                   <>
-                    <div className="mb-0.5 flex items-center gap-1 text-xs font-bold text-muted-foreground">
+                    <div className="mb-0.5 flex items-center gap-1 text-xxs font-bold text-muted-foreground">
                       {urgentMove && <AlertTriangle className="h-3 w-3 text-amber-500" />}
-                      {getMoveLabel(index.changePercent)}
+                      {getMoveLabel(mainChangePercent)}
                     </div>
                     <ClampedDriverText text={driverText} />
                   </>

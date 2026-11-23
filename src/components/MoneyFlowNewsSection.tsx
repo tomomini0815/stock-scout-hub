@@ -4,6 +4,7 @@ import { ExternalLink } from "lucide-react";
 import { marketIndices } from "@/data/stockData";
 import { useLiveMarketData } from "@/hooks/useLiveMarketData";
 import { useLiveNewsSearch } from "@/hooks/useLiveNewsSearch";
+import FlowNewsReaderModal, { type ArticleBodyState } from "@/components/FlowNewsReaderModal";
 import {
   analyzeFlowNews,
   buildGlobalMoneyFlow,
@@ -22,9 +23,9 @@ const MONEY_FLOW_CRYPTO_COMMODITY_QUERY =
   "ビットコイン OR BTC OR 暗号資産 OR 仮想通貨 OR 金価格 OR 金先物 OR 金相場 OR NY金 OR 原油 OR WTI when:5d";
 
 type ArticleSummaryState =
-  | { status: "loading"; summary?: string }
-  | { status: "ready"; summary: string }
-  | { status: "error"; summary?: string };
+  | { status: "loading"; summary?: string; fullText?: string }
+  | { status: "ready"; summary: string; fullText: string }
+  | { status: "error"; summary?: string; fullText?: string };
 
 const getAssetBadgeClass = (label: string) => {
   switch (label) {
@@ -77,7 +78,40 @@ const MoneyFlowNewsSection = () => {
   const { indices, macroAssets, status: marketStatus } = useLiveMarketData(marketIndices);
   const isLive = marketStatus === "live";
   const [selectedCupId, setSelectedCupId] = useState<string>("all");
-  const [articleSummaries, setArticleSummaries] = useState<Record<string, ArticleSummaryState>>({});
+  const [articleSummaries, setArticleSummaries] = useState<Record<string, ArticleBodyState>>({});
+  const [activeArticle, setActiveArticle] = useState<FlowNewsImpact | null>(null);
+
+  const openArticleModal = (item: FlowNewsImpact) => {
+    setActiveArticle(item);
+    const url = item.url;
+    if (url && !articleSummaries[url]) {
+      setArticleSummaries((prev) => ({ ...prev, [url]: { status: "loading" } }));
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), 9500);
+      fetch(`/api/article-summary?url=${encodeURIComponent(url)}`, {
+        signal: controller.signal,
+      })
+        .then((res) => {
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          return res.json();
+        })
+        .then((payload) => {
+          const summary = typeof payload.summary === "string" ? payload.summary.trim() : "";
+          const fullText =
+            typeof payload.fullText === "string" && payload.fullText.trim()
+              ? payload.fullText.trim()
+              : summary;
+          setArticleSummaries((prev) => ({
+            ...prev,
+            [url]: summary ? { status: "ready", summary, fullText } : { status: "error" },
+          }));
+        })
+        .catch(() => {
+          setArticleSummaries((prev) => ({ ...prev, [url]: { status: "error" } }));
+        })
+        .finally(() => window.clearTimeout(timeout));
+    }
+  };
 
   const { news: macroNews, status: macroStatus } = useLiveNewsSearch({
     query: MONEY_FLOW_NEWS_QUERY,
@@ -161,9 +195,15 @@ const MoneyFlowNewsSection = () => {
         })
         .then((payload) => {
           const summary = typeof payload.summary === "string" ? payload.summary.trim() : "";
+          const fullText =
+            typeof payload.fullText === "string" && payload.fullText.trim()
+              ? payload.fullText.trim()
+              : summary;
           setArticleSummaries((prev) => ({
             ...prev,
-            [item.url as string]: summary ? { status: "ready", summary } : { status: "error" },
+            [item.url as string]: summary
+              ? { status: "ready", summary, fullText }
+              : { status: "error" },
           }));
         })
         .catch(() => {
@@ -292,17 +332,21 @@ const MoneyFlowNewsSection = () => {
           この資産に関連する直近ニュースはまだ取得されていません。
         </div>
       ) : (
-        <div className="always-scrollbar max-h-[300px] overscroll-contain sm:max-h-[320px]">
+        <div className="always-scrollbar max-h-[460px] overscroll-contain md:max-h-[520px]">
           <div className="grid grid-cols-1 divide-y divide-border md:grid-cols-2 md:divide-y-0">
             {visibleItems.map((item, idx) => {
               const summaryState = item.url ? articleSummaries[item.url] : undefined;
+              const previewText =
+                summaryState?.status === "loading"
+                  ? "記事本文を取得して要約しています。"
+                  : summaryState?.status === "ready"
+                    ? summaryState.summary
+                    : item.impactSummary;
+
               return (
-                <a
+                <article
                   key={item.id}
-                  href={item.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className={`block px-3 py-2.5 transition-colors hover:bg-muted/40 ${
+                  className={`px-3 py-2.5 transition-colors hover:bg-muted/30 ${
                     idx >= 2 ? "md:border-t md:border-border" : ""
                   } ${idx % 2 === 1 ? "md:border-l md:border-border" : ""}`}
                 >
@@ -329,35 +373,60 @@ const MoneyFlowNewsSection = () => {
                     >
                       {item.directionLabel}
                     </span>
-                    {item.url && (
-                      <ExternalLink className="ml-auto h-3 w-3 shrink-0 text-muted-foreground" />
-                    )}
                   </div>
 
-                  <div className="text-xs font-bold leading-relaxed text-foreground hover:text-primary">
+                  <button
+                    type="button"
+                    onClick={() => openArticleModal(item)}
+                    className="block w-full text-left text-xs font-bold leading-relaxed text-foreground hover:text-primary"
+                  >
                     {item.title}
-                  </div>
+                  </button>
 
-                  <p className="mt-1 line-clamp-3 text-xs leading-relaxed text-muted-foreground">
-                    {summaryState?.status === "loading"
-                      ? "記事本文を取得して要約しています。"
-                      : summaryState?.status === "ready"
-                        ? summaryState.summary
-                        : item.impactSummary}
+                  <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+                    {previewText}
                   </p>
 
-                  <div className="mt-1 flex flex-wrap items-center justify-between gap-2 text-xxs">
-                    <span className="font-semibold text-foreground/75">
-                      材料: {item.impactTag}
-                    </span>
-                    <span className="text-muted-foreground">出典: {item.source}</span>
+                  <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2 text-xxs">
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      {item.url && (
+                        <a
+                          href={item.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-0.5 font-semibold text-foreground/70 hover:text-primary hover:underline"
+                        >
+                          <span>元記事</span>
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      )}
+                      <span className="font-semibold text-foreground/70">
+                        材料: {item.impactTag}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-muted-foreground">出典: {item.source}</span>
+                      <button
+                        type="button"
+                        onClick={() => openArticleModal(item)}
+                        className="inline-flex items-center gap-0.5 rounded border border-border bg-background px-2 py-0.5 font-bold text-primary transition-colors hover:bg-muted"
+                      >
+                        <span>詳しく見る</span>
+                      </button>
+                    </div>
                   </div>
-                </a>
+                </article>
               );
             })}
           </div>
         </div>
       )}
+
+      <FlowNewsReaderModal
+        item={activeArticle}
+        bodyState={activeArticle?.url ? articleSummaries[activeArticle.url] : undefined}
+        onClose={() => setActiveArticle(null)}
+      />
     </section>
   );
 };
