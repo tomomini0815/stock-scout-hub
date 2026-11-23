@@ -55,7 +55,7 @@ interface RivalPreset {
 
 const rivalPresets: RivalPreset[] = [
   {
-    title: "🚗 自動車覇権対決",
+    title: "自動車覇権対決",
     category: "自動車",
     codeA: "7203",
     nameA: "トヨタ自動車",
@@ -63,7 +63,7 @@ const rivalPresets: RivalPreset[] = [
     nameB: "本田技研工業",
   },
   {
-    title: "🏦 メガバンク利上げ対決",
+    title: "メガバンク利上げ対決",
     category: "メガバンク",
     codeA: "8306",
     nameA: "三菱UFJフィナンシャルG",
@@ -71,7 +71,7 @@ const rivalPresets: RivalPreset[] = [
     nameB: "三井住友フィナンシャルG",
   },
   {
-    title: "💼 五大商社バフェット対決",
+    title: "五大商社バフェット対決",
     category: "総合商社",
     codeA: "8058",
     nameA: "三菱商事",
@@ -79,7 +79,7 @@ const rivalPresets: RivalPreset[] = [
     nameB: "伊藤忠商事",
   },
   {
-    title: "🔬 AI半導体製造装置対決",
+    title: "AI半導体製造装置対決",
     category: "半導体",
     codeA: "8035",
     nameA: "東京エレクトロン",
@@ -87,7 +87,7 @@ const rivalPresets: RivalPreset[] = [
     nameB: "アドバンテスト",
   },
   {
-    title: "🎮 ゲーム・エンタメ巨頭対決",
+    title: "ゲーム・エンタメ巨頭対決",
     category: "エンタメ",
     codeA: "7974",
     nameA: "任天堂",
@@ -95,7 +95,7 @@ const rivalPresets: RivalPreset[] = [
     nameB: "ソニーグループ",
   },
   {
-    title: "🛡️ 国策・防衛重工対決",
+    title: "国策・防衛重工対決",
     category: "防衛・重工",
     codeA: "7011",
     nameA: "三菱重工業",
@@ -103,7 +103,7 @@ const rivalPresets: RivalPreset[] = [
     nameB: "川崎重工業",
   },
   {
-    title: "📱 ディフェンシブ通信対決",
+    title: "ディフェンシブ通信対決",
     category: "通信",
     codeA: "9432",
     nameA: "日本電信電話 (NTT)",
@@ -111,7 +111,7 @@ const rivalPresets: RivalPreset[] = [
     nameB: "KDDI",
   },
   {
-    title: "⚡ 半導体精密加工対決",
+    title: "半導体精密加工対決",
     category: "先端半導体",
     codeA: "6146",
     nameA: "ディスコ",
@@ -497,7 +497,6 @@ export const StockDecisionSimulator = ({
       <section id="versus-section" className="rounded border border-border bg-card">
         <div className="flex flex-col gap-1 border-b border-border bg-table-header-bg px-3 py-2 md:flex-row md:items-center md:justify-between rounded-t">
           <div className="flex items-center gap-2">
-            <Scale className="h-4 w-4 text-header-accent" />
             <h2 className="text-xs sm:text-sm font-bold text-foreground">2銘柄ガチンコ比較</h2>
             <span className="rounded bg-primary px-2 py-0.5 text-xxs font-bold text-primary-foreground shrink-0">
               ライバル対決
@@ -510,9 +509,8 @@ export const StockDecisionSimulator = ({
         <div className="p-3 sm:p-4 space-y-3 sm:space-y-4">
           {/* ライバル対決プリセットバー */}
           <div className="rounded-xl border border-border/70 bg-card p-2.5 sm:p-3.5 shadow-2xs">
-            <div className="mb-2 flex items-center gap-1.5 text-xs font-bold text-foreground">
-              <Flame className="h-3.5 w-3.5 text-amber-500" />
-              <span>人気のライバル対決を選ぶ（ワンクリックで即座に対比）</span>
+            <div className="mb-2 text-xs font-bold text-foreground">
+              人気のライバル対決を選ぶ（ワンクリックで即座に対比）
             </div>
             <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 lg:grid-cols-4">
               {rivalPresets.map((rp, idx) => {
@@ -596,14 +594,12 @@ export const StockDecisionSimulator = ({
                   </span>
                 </div>
                 <div className="text-right">
-                  <div className="font-mono font-black text-base text-foreground">
+                  <div className="font-mono font-black text-xl tabular-nums text-foreground">
                     ¥{stockA.price.toLocaleString()}
                   </div>
                   <span
                     className={`text-xxs font-bold font-mono ${
-                      stockA.change >= 0
-                        ? "text-emerald-600 dark:text-emerald-400"
-                        : "text-rose-600 dark:text-rose-400"
+                      stockA.change >= 0 ? "text-stock-up" : "text-stock-down"
                     }`}
                   >
                     {stockA.change >= 0 ? "+" : ""}
@@ -663,14 +659,12 @@ export const StockDecisionSimulator = ({
                   </span>
                 </div>
                 <div className="text-right">
-                  <div className="font-mono font-black text-base text-foreground">
+                  <div className="font-mono font-black text-xl tabular-nums text-foreground">
                     ¥{stockB.price.toLocaleString()}
                   </div>
                   <span
                     className={`text-xxs font-bold font-mono ${
-                      stockB.change >= 0
-                        ? "text-emerald-600 dark:text-emerald-400"
-                        : "text-rose-600 dark:text-rose-400"
+                      stockB.change >= 0 ? "text-stock-up" : "text-stock-down"
                     }`}
                   >
                     {stockB.change >= 0 ? "+" : ""}
@@ -838,7 +832,7 @@ export const StockDecisionSimulator = ({
       <section id="scenario-section" className="rounded border border-border bg-card">
         <div className="flex flex-col gap-1 border-b border-border bg-table-header-bg px-3 py-2 md:flex-row md:items-center md:justify-between rounded-t">
           <div className="flex items-center gap-2">
-            <Target className="h-4 w-4 text-header-accent" />
+            <Target className="h-4 w-4 text-foreground" />
             <h2 className="text-xs sm:text-sm font-bold text-foreground">売買シナリオ判定</h2>
             <span className="rounded bg-primary px-2 py-0.5 text-xxs font-bold text-primary-foreground shrink-0">
               売買シミュレーション
@@ -933,8 +927,7 @@ export const StockDecisionSimulator = ({
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             {/* 投資スタンス */}
             <div className="rounded-xl border border-border/80 bg-card p-4 shadow-2xs space-y-2">
-              <span className="text-xs font-bold text-foreground flex items-center gap-1">
-                <Target className="h-3.5 w-3.5 text-blue-500" />
+              <span className="text-xs font-bold text-foreground block">
                 1. 投資スタンスを選ぶ
               </span>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -963,7 +956,7 @@ export const StockDecisionSimulator = ({
                     }
                     className={`flex flex-col items-start rounded-lg border p-2.5 text-left text-xs transition-colors ${
                       tradeStance === st.id
-                        ? "border-blue-500 bg-blue-500/10 font-bold"
+                        ? "border-primary bg-primary/10 font-bold"
                         : "border-border/70 bg-background text-muted-foreground hover:bg-muted/40"
                     }`}
                   >
@@ -980,8 +973,7 @@ export const StockDecisionSimulator = ({
 
             {/* リスク許容度 */}
             <div className="rounded-xl border border-border/80 bg-card p-4 shadow-2xs space-y-2">
-              <span className="text-xs font-bold text-foreground flex items-center gap-1">
-                <Shield className="h-3.5 w-3.5 text-emerald-500" />
+              <span className="text-xs font-bold text-foreground block">
                 2. リスク許容度を選ぶ
               </span>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -1056,37 +1048,37 @@ export const StockDecisionSimulator = ({
             {/* 視覚的プライス階層ラダー */}
             <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-5">
               {/* 第2目標株価 */}
-              <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 text-center space-y-0.5">
-                <span className="text-xxs font-bold text-emerald-600 dark:text-emerald-400">
+              <div className="rounded-lg border border-border border-t-2 border-t-primary bg-background p-3 text-center space-y-1">
+                <span className="text-xxs font-bold text-primary">
                   第2目標 (大波利確)
                 </span>
-                <div className="font-mono font-black text-sm text-foreground">
+                <div className="font-mono font-black text-lg tabular-nums text-foreground">
                   ¥{calculatedScenario.targetPrice2.toLocaleString()}
                 </div>
-                <span className="text-xxs text-emerald-600 dark:text-emerald-400 font-semibold">
+                <span className="text-xs text-stock-up font-bold">
                   想定 +{Math.round(calculatedScenario.upsidePct * 2.2)}%
                 </span>
               </div>
 
               {/* 第1目標株価 */}
-              <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-3 text-center space-y-0.5">
-                <span className="text-xxs font-bold text-emerald-600 dark:text-emerald-400">
+              <div className="rounded-lg border border-border border-t-2 border-t-primary/70 bg-background p-3 text-center space-y-1">
+                <span className="text-xxs font-bold text-primary">
                   第1目標 (直近高値)
                 </span>
-                <div className="font-mono font-black text-sm text-foreground">
+                <div className="font-mono font-black text-lg tabular-nums text-foreground">
                   ¥{calculatedScenario.targetPrice1.toLocaleString()}
                 </div>
-                <span className="text-xxs text-emerald-600 dark:text-emerald-400 font-semibold">
+                <span className="text-xs text-stock-up font-bold">
                   想定 +{calculatedScenario.upsidePct.toFixed(1)}%
                 </span>
               </div>
 
               {/* 打診買いゾーン */}
-              <div className="rounded-lg border border-blue-500/40 bg-blue-500/10 p-3 text-center space-y-0.5">
-                <span className="text-xxs font-bold text-blue-600 dark:text-blue-400">
+              <div className="rounded-lg border border-border bg-muted/25 p-3 text-center space-y-1">
+                <span className="text-xxs font-bold text-foreground">
                   打診買いゾーン (30%)
                 </span>
-                <div className="font-mono font-black text-xs text-foreground">
+                <div className="font-mono font-black text-sm sm:text-base tabular-nums text-foreground">
                   {calculatedScenario.entryZone}
                 </div>
                 <span className="text-xxs text-muted-foreground">
@@ -1095,11 +1087,11 @@ export const StockDecisionSimulator = ({
               </div>
 
               {/* 本命押し目ゾーン */}
-              <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-center space-y-0.5">
-                <span className="text-xxs font-bold text-amber-600 dark:text-amber-400">
+              <div className="rounded-lg border border-border bg-muted/25 p-3 text-center space-y-1">
+                <span className="text-xxs font-bold text-foreground">
                   本命押し目ゾーン (70%)
                 </span>
-                <div className="font-mono font-black text-xs text-foreground">
+                <div className="font-mono font-black text-sm sm:text-base tabular-nums text-foreground">
                   {calculatedScenario.deepEntryZone}
                 </div>
                 <span className="text-xxs text-muted-foreground">
@@ -1108,14 +1100,14 @@ export const StockDecisionSimulator = ({
               </div>
 
               {/* 損切りライン */}
-              <div className="rounded-lg border border-rose-500/40 bg-rose-500/10 p-3 text-center space-y-0.5">
-                <span className="text-xxs font-bold text-rose-600 dark:text-rose-400">
+              <div className="rounded-lg border border-border border-t-2 border-t-stock-down bg-background p-3 text-center space-y-1">
+                <span className="text-xxs font-bold text-stock-down">
                   撤退・損切りライン
                 </span>
-                <div className="font-mono font-black text-sm text-foreground">
+                <div className="font-mono font-black text-lg tabular-nums text-foreground">
                   ¥{calculatedScenario.stopLossPrice.toLocaleString()} 割れ
                 </div>
-                <span className="text-xxs text-rose-600 dark:text-rose-400 font-semibold">
+                <span className="text-xs text-stock-down font-bold">
                   最大 -{calculatedScenario.downsidePct.toFixed(1)}%
                 </span>
               </div>
@@ -1123,9 +1115,8 @@ export const StockDecisionSimulator = ({
 
             {/* 戦略アドバイス所見 */}
             <div className="rounded-lg border border-border/70 bg-background/60 p-3.5 space-y-2 text-xs">
-              <div className="font-bold text-foreground flex items-center gap-1.5">
-                <Sparkles className="h-3.5 w-3.5 text-header-accent" />
-                プロの執行アドバイス:
+              <div className="font-bold text-foreground">
+                プロの執行アドバイス
               </div>
               <p className="text-muted-foreground leading-relaxed">
                 全額を一括購入せず、まず資金の30%を{" "}
@@ -1140,7 +1131,7 @@ export const StockDecisionSimulator = ({
               </p>
               <div className="flex flex-wrap items-center gap-3 pt-1 border-t border-border/50 text-xxs text-muted-foreground">
                 <span>
-                  🏢 事業概況: {scenarioReport?.shikihoSummary}
+                  事業概況: {scenarioReport?.shikihoSummary}
                 </span>
               </div>
             </div>
@@ -1149,16 +1140,14 @@ export const StockDecisionSimulator = ({
             <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
               <Link
                 to={`/chart?code=${scenarioStock.code}`}
-                className="inline-flex items-center gap-1 rounded-md border border-border/80 bg-background px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted"
+                className="inline-flex items-center rounded-md border border-border/80 bg-background px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted"
               >
-                <BarChart3 className="h-3.5 w-3.5 text-muted-foreground" />
                 チャートで節目を確認
               </Link>
               <Link
                 to={`/advisor?tab=health&code=${scenarioStock.code}`}
-                className="inline-flex items-center gap-1 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-blue-700 shadow-xs"
+                className="inline-flex items-center rounded-md bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground hover:bg-primary/90 shadow-xs"
               >
-                <Activity className="h-3.5 w-3.5" />
                 銘柄カルテで5軸詳細を見る
               </Link>
             </div>
@@ -1172,7 +1161,7 @@ export const StockDecisionSimulator = ({
       <section id="portfolio-section" className="rounded border border-border bg-card">
         <div className="flex flex-col gap-1 border-b border-border bg-table-header-bg px-3 py-2 md:flex-row md:items-center md:justify-between rounded-t">
           <div className="flex items-center gap-2">
-            <Wallet className="h-4 w-4 text-header-accent" />
+            <Wallet className="h-4 w-4 text-foreground" />
             <h2 className="text-xs sm:text-sm font-bold text-foreground">予算別ポートフォリオ</h2>
             <span className="rounded bg-primary px-2 py-0.5 text-xxs font-bold text-primary-foreground shrink-0">
               新NISA対応
@@ -1188,11 +1177,10 @@ export const StockDecisionSimulator = ({
             {/* 予算選択 */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between text-xs font-bold">
-                <span className="text-foreground flex items-center gap-1">
-                  <Wallet className="h-3.5 w-3.5 text-emerald-500" />
+                <span className="text-foreground">
                   1. 投資予算を選択
                 </span>
-                <span className="font-mono text-sm text-emerald-600 dark:text-emerald-400">
+                <span className="font-mono text-lg font-black tabular-nums text-primary">
                   ¥{budget.toLocaleString()}
                 </span>
               </div>
@@ -1205,7 +1193,7 @@ export const StockDecisionSimulator = ({
                       onClick={() => setBudget(b)}
                       className={`rounded-lg border py-2 text-center text-xs font-bold transition-colors ${
                         budget === b
-                          ? "border-emerald-500 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-black shadow-2xs"
+                          ? "border-primary bg-primary text-primary-foreground font-black shadow-2xs"
                           : "border-border/70 bg-background text-foreground/80 hover:bg-muted"
                       }`}
                     >
@@ -1224,9 +1212,9 @@ export const StockDecisionSimulator = ({
                 </span>
                 <div className="grid grid-cols-3 gap-1.5">
                   {[
-                    { id: "dividend", label: "💰 高配当・インカム" },
-                    { id: "balanced", label: "🛡️ 安定バランス" },
-                    { id: "growth", label: "🚀 高成長キャピタル" },
+                    { id: "dividend", label: "高配当・インカム" },
+                    { id: "balanced", label: "安定バランス" },
+                    { id: "growth", label: "高成長キャピタル" },
                   ].map((p) => (
                     <button
                       key={p.id}
@@ -1236,9 +1224,9 @@ export const StockDecisionSimulator = ({
                           p.id as "dividend" | "growth" | "balanced"
                         )
                       }
-                      className={`rounded-md border p-2 text-left text-xs font-semibold transition-colors ${
+                      className={`rounded-md border p-2 text-center text-xs font-semibold transition-colors ${
                         portfolioStrategy === p.id
-                          ? "border-emerald-500 bg-emerald-500/10 font-bold text-emerald-600 dark:text-emerald-400"
+                          ? "border-primary bg-primary/10 font-bold text-primary"
                           : "border-border/70 bg-background text-muted-foreground hover:bg-muted"
                       }`}
                     >
@@ -1258,7 +1246,7 @@ export const StockDecisionSimulator = ({
                     onClick={() => setAllowOddLot(true)}
                     className={`flex-1 rounded-md border p-2 text-center text-xs font-semibold ${
                       allowOddLot
-                        ? "border-emerald-500 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold"
+                        ? "border-primary bg-primary/10 text-primary font-bold"
                         : "border-border/70 bg-background text-muted-foreground hover:bg-muted"
                     }`}
                   >
@@ -1269,7 +1257,7 @@ export const StockDecisionSimulator = ({
                     onClick={() => setAllowOddLot(false)}
                     className={`flex-1 rounded-md border p-2 text-center text-xs font-semibold ${
                       !allowOddLot
-                        ? "border-emerald-500 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold"
+                        ? "border-primary bg-primary/10 text-primary font-bold"
                         : "border-border/70 bg-background text-muted-foreground hover:bg-muted"
                     }`}
                   >
@@ -1284,11 +1272,11 @@ export const StockDecisionSimulator = ({
           <div className="rounded-xl border border-border/80 bg-card p-4 shadow-xs space-y-4">
             {/* KPIサマリー */}
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <div className="rounded-lg border border-border/60 bg-muted/20 p-3 text-center">
+              <div className="rounded-lg border border-border/60 bg-muted/20 p-3 text-center space-y-0.5">
                 <span className="text-xxs font-semibold text-muted-foreground">
                   想定投資総額
                 </span>
-                <div className="font-mono font-black text-base text-foreground">
+                <div className="font-mono font-black text-xl sm:text-2xl tabular-nums text-foreground">
                   ¥{generatedPortfolio.totalInvested.toLocaleString()}
                 </div>
                 <span className="text-xxs text-muted-foreground">
@@ -1296,37 +1284,37 @@ export const StockDecisionSimulator = ({
                 </span>
               </div>
 
-              <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 text-center">
-                <span className="text-xxs font-bold text-emerald-600 dark:text-emerald-400">
+              <div className="rounded-lg border border-border border-t-2 border-t-primary bg-background p-3 text-center space-y-0.5">
+                <span className="text-xxs font-bold text-muted-foreground">
                   年間予想配当金
                 </span>
-                <div className="font-mono font-black text-base text-emerald-600 dark:text-emerald-400">
+                <div className="font-mono font-black text-xl sm:text-2xl tabular-nums text-primary">
                   ¥{generatedPortfolio.totalExpectedDividend.toLocaleString()}
-                  <span className="text-xs"> /年</span>
+                  <span className="text-xs font-bold"> /年</span>
                 </div>
-                <span className="text-xxs text-emerald-600 dark:text-emerald-400">
+                <span className="text-xxs text-muted-foreground">
                   税引前受取額
                 </span>
               </div>
 
-              <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 text-center">
-                <span className="text-xxs font-bold text-emerald-600 dark:text-emerald-400">
+              <div className="rounded-lg border border-border border-t-2 border-t-primary bg-background p-3 text-center space-y-0.5">
+                <span className="text-xxs font-bold text-muted-foreground">
                   ポートフォリオ総合利回り
                 </span>
-                <div className="font-mono font-black text-base text-emerald-600 dark:text-emerald-400">
+                <div className="font-mono font-black text-xl sm:text-2xl tabular-nums text-primary">
                   {generatedPortfolio.overallYield.toFixed(2)}%
                 </div>
                 <span className="text-xxs text-muted-foreground">加重平均</span>
               </div>
 
-              <div className="rounded-lg border border-border/60 bg-muted/20 p-3 text-center">
+              <div className="rounded-lg border border-border/60 bg-muted/20 p-3 text-center space-y-0.5">
                 <span className="text-xxs font-semibold text-muted-foreground">
                   銘柄分散
                 </span>
-                <div className="font-mono font-black text-base text-foreground">
+                <div className="font-mono font-black text-xl sm:text-2xl tabular-nums text-foreground">
                   {generatedPortfolio.items.length} 銘柄
                 </div>
-                <span className="text-xxs text-emerald-600 dark:text-emerald-400 font-semibold">
+                <span className="text-xxs text-muted-foreground font-semibold">
                   セクター分散最適化済
                 </span>
               </div>
@@ -1390,9 +1378,8 @@ export const StockDecisionSimulator = ({
 
             {/* 新NISA活用ワンポイント */}
             <div className="rounded-lg border border-border/70 bg-background/60 p-3 space-y-1 text-xs">
-              <span className="font-bold text-foreground flex items-center gap-1">
-                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-                新NISA（成長投資枠）での実践ポイント:
+              <span className="font-bold text-foreground block">
+                新NISA（成長投資枠）での実践ポイント
               </span>
               <p className="text-xxs text-muted-foreground leading-relaxed">
                 上記の組み合わせは、新NISAの成長投資枠（年間240万円上限）でそのまま非課税保有が可能です。通常引かれる約20.315%の税金がゼロになるため、年間配当金
@@ -1412,7 +1399,7 @@ export const StockDecisionSimulator = ({
       <section id="wizard-section" className="rounded border border-border bg-card">
         <div className="flex flex-col gap-1 border-b border-border bg-table-header-bg px-3 py-2 md:flex-row md:items-center md:justify-between rounded-t">
           <div className="flex items-center gap-2">
-            <Compass className="h-4 w-4 text-header-accent" />
+            <Compass className="h-4 w-4 text-foreground" />
             <h2 className="text-xs sm:text-sm font-bold text-foreground">3分スタイル診断</h2>
             <span className="rounded bg-primary px-2 py-0.5 text-xxs font-bold text-primary-foreground shrink-0">
               簡単マッチング

@@ -83,7 +83,7 @@ const SiteHeader = ({ activeTab = "トップ" }: SiteHeaderProps) => {
               <span className="text-lg sm:text-xl text-header-accent">株</span>
               <span className="text-base sm:text-lg">Navi</span>
             </Link>
-            <span className="hidden text-xxs opacity-60 sm:inline">
+            <span className="hidden text-xs opacity-90 sm:inline">
               株式投資の総合情報サイト
             </span>
           </div>
@@ -95,18 +95,18 @@ const SiteHeader = ({ activeTab = "トップ" }: SiteHeaderProps) => {
                 placeholder="銘柄検索"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="h-6.5 w-24 rounded bg-nav-bg px-2 text-xxs text-nav-foreground placeholder:text-nav-foreground/50 focus:outline-none focus:ring-1 focus:ring-header-accent xs:w-32 sm:h-7 sm:w-52 sm:text-xs"
+                className="h-7 w-28 rounded bg-nav-bg px-2.5 text-xs text-nav-foreground placeholder:text-nav-foreground/75 focus:outline-none focus:ring-1 focus:ring-header-accent xs:w-36 sm:h-8 sm:w-56"
               />
               <button
                 type="submit"
                 aria-label="銘柄検索"
-                className="inline-flex h-6.5 w-6.5 items-center justify-center rounded bg-nav-bg text-nav-foreground/70 transition-colors hover:bg-nav-hover hover:text-header-accent focus:outline-none focus:ring-1 focus:ring-header-accent sm:h-7 sm:w-7"
+                className="inline-flex h-7 w-7 items-center justify-center rounded bg-nav-bg text-nav-foreground/90 transition-colors hover:bg-nav-hover hover:text-header-accent focus:outline-none focus:ring-1 focus:ring-header-accent sm:h-8 sm:w-8"
               >
-                <Search className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                <Search className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </button>
             </form>
 
-            <span className="hidden text-xxs opacity-60 md:inline">
+            <span className="hidden text-xs opacity-90 md:inline">
               {todayLabel}
             </span>
 
@@ -153,7 +153,7 @@ const SiteHeader = ({ activeTab = "トップ" }: SiteHeaderProps) => {
                           <Icon className={`h-4 w-4 shrink-0 ${isActive ? "text-primary-foreground" : "text-primary"}`} />
                           <div className="min-w-0">
                             <div className="truncate">{item.label}</div>
-                            <div className={`text-[10px] truncate ${isActive ? "text-primary-foreground/80" : "text-muted-foreground"}`}>
+                            <div className={`text-xs truncate ${isActive ? "text-primary-foreground/90" : "text-muted-foreground"}`}>
                               {item.desc}
                             </div>
                           </div>
@@ -193,12 +193,12 @@ const SiteHeader = ({ activeTab = "トップ" }: SiteHeaderProps) => {
       {/* Navigation bar */}
       <nav className="bg-nav-bg">
         <div className="container mx-auto flex items-center justify-between gap-2 px-2.5 sm:px-4">
-          <ul className="flex min-w-0 flex-1 items-center justify-start gap-0 overflow-x-auto no-scrollbar text-xxs sm:text-xs">
+          <ul className="flex min-w-0 flex-1 items-center justify-start gap-0 overflow-x-auto no-scrollbar text-xs sm:text-[13px]">
             {navItems.map((item) => (
               <li key={item.label}>
                 <Link
                   to={item.path}
-                  className={`block whitespace-nowrap px-2.5 py-1.5 font-medium transition-colors hover:bg-nav-hover sm:px-3 sm:py-2 ${
+                  className={`block whitespace-nowrap px-2.5 py-2 font-medium transition-colors hover:bg-nav-hover sm:px-3 ${
                     activeTab === item.label
                       ? "border-b-2 border-header-accent text-header-accent"
                       : "text-nav-foreground"
@@ -209,13 +209,13 @@ const SiteHeader = ({ activeTab = "トップ" }: SiteHeaderProps) => {
               </li>
             ))}
           </ul>
-          <div className="hidden shrink-0 items-center gap-1.5 text-xxs font-medium text-nav-foreground/70 lg:flex">
-            <Info className="h-3 w-3 text-header-accent" />
+          <div className="hidden shrink-0 items-center gap-1.5 text-xs font-medium text-nav-foreground/90 lg:flex">
+            <Info className="h-3.5 w-3.5 text-header-accent" />
             <span>LIVE以外は約5分更新</span>
             <button
               type="button"
               onClick={handleManualRefresh}
-              className="ml-1 inline-flex h-6 items-center gap-1 rounded border border-nav-foreground/20 bg-nav-hover px-2 text-xxs font-semibold text-nav-foreground transition-colors hover:border-header-accent hover:text-header-accent"
+              className="ml-1 inline-flex h-6.5 items-center gap-1 rounded border border-nav-foreground/30 bg-nav-hover px-2 text-xs font-semibold text-nav-foreground transition-colors hover:border-header-accent hover:text-header-accent"
               title="ページを再読み込みして最新データを取得"
             >
               <RefreshCw className="h-3 w-3" />

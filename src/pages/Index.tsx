@@ -2,6 +2,7 @@ import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
 import MarketTicker from "@/components/MarketTicker";
 import MarketOverview from "@/components/MarketOverview";
+import MoneyFlowCups from "@/components/MoneyFlowCups";
 import StockRankingTable from "@/components/StockRankingTable";
 import NewsFeed from "@/components/NewsFeed";
 import TradingViewMarketNews from "@/components/TradingViewMarketNews";
@@ -25,6 +26,10 @@ const Index = () => {
       <main className="container mx-auto space-y-3 px-4 py-3">
         <div>
           <MarketOverview indices={marketIndices} />
+        </div>
+
+        <div>
+          <MoneyFlowCups indices={marketIndices} stocks={stockUniverse} />
         </div>
 
         <div>

@@ -48,15 +48,13 @@ export const translateEnglishNewsTitle = (rawTitle: string) => {
 
 export const normalizeArticleSummaryToJapanese = (
   summary: string,
-  item: NewsItem,
-  buildFallbackSummary: (title: string, category: string, source: string) => string
+  _item: NewsItem,
+  _buildFallbackSummary: (title: string, category: string, source: string) => string
 ) => {
   const cleaned = summary.replace(/\s+/g, " ").trim();
   if (!cleaned) return "";
-  if (!isMostlyEnglish(cleaned)) return cleaned;
-  if (/skip to content|browser does not support javascript|site policy|bookmark|copy link/i.test(cleaned)) {
-    return buildFallbackSummary(item.title, item.category, item.source ?? "");
+  if (/skip to content|browser does not support javascript|site policy|bookmark|copy link|enable javascript|access denied|just a moment/i.test(cleaned)) {
+    return "";
   }
-
-  return buildFallbackSummary(item.title, item.category, item.source ?? "");
+  return cleaned;
 };

@@ -145,7 +145,7 @@ const FundamentalPicks = ({
               <span className="text-xxs text-muted-foreground">短期値動きより業績の質を重視</span>
             </div>
 
-            <p className={`${compact ? "mb-2 max-h-[2.7rem] overflow-hidden" : "mb-3 min-h-[4.5rem]"} text-xs leading-relaxed text-foreground`}>{pick.thesis}</p>
+            <p className={`${compact ? "mb-2.5 md:min-h-[5.5rem]" : "mb-3 min-h-[4.5rem]"} text-xs leading-relaxed text-foreground`}>{pick.thesis}</p>
 
             {(!compact || openCharts[pick.code]) && (
               <RealStockChart
@@ -155,6 +155,7 @@ const FundamentalPicks = ({
                 chartApiSymbol={pick.chartApiSymbol}
                 currentPrice={livePick?.price}
                 currentPriceUpdatedAt={livePickUpdatedAt}
+                irUrl={compact ? pick.source.url : undefined}
               />
             )}
 
@@ -225,32 +226,7 @@ const FundamentalPicks = ({
                 {pick.source.label}
                 <ExternalLink className="h-3 w-3" />
               </a>
-            </div> : (
-              <div className="mt-auto flex items-center justify-between gap-2 border-t border-border pt-2">
-                <button
-                  type="button"
-                  onClick={() =>
-                    setOpenCharts((current) => ({
-                      ...current,
-                      [pick.code]: !current[pick.code],
-                    }))
-                  }
-                  className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-xxs font-semibold text-primary hover:underline"
-                >
-                  <BarChart3 className="h-3 w-3" />
-                  {openCharts[pick.code] ? "チャートを閉じる" : "チャートを見る"}
-                </button>
-                <a
-                  href={pick.source.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-xxs font-semibold text-primary hover:underline"
-                >
-                  IR
-                  <ExternalLink className="h-3 w-3" />
-                </a>
-              </div>
-            )}
+            </div> : null}
           </article>
         );
         })}

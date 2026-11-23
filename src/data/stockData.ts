@@ -28,6 +28,8 @@ export interface MarketIndex {
   value: number;
   change: number;
   changePercent: number;
+  changePercent1W?: number;
+  changePercent1M?: number;
 }
 
 export interface NewsItem {

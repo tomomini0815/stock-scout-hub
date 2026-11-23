@@ -131,6 +131,55 @@ const handleTdnet = async (requestUrl, res) => {
   res.status(200).send(text);
 };
 
+const handleTradingViewNews = async (_requestUrl, res) => {
+  const endpoints = [
+    "https://news-mediator.tradingview.com/news-flow/v2/news?filter=lang:ja&client=overview&streaming=false",
+    "https://news-mediator.tradingview.com/news-flow/v2/news?filter=lang:ja&filter=market:stock&client=overview&streaming=false",
+    "https://news-mediator.tradingview.com/news-flow/v2/news?filter=lang:ja&filter=market:crypto&client=overview&streaming=false",
+  ];
+  const results = await Promise.allSettled(
+    endpoints.map(async (url) => {
+      if (isCircuitOpen(url)) return [];
+      const response = await fetchWithTimeout(url, 6000, {
+        headers: { "User-Agent": BROWSER_USER_AGENT },
+      });
+      if (!response.ok) {
+        if (response.status === 403) tripCircuit(url);
+        return [];
+      }
+      resolveCircuit(url);
+      const payload = await response.json();
+      return Array.isArray(payload?.items) ? payload.items : [];
+    })
+  );
+
+  const seen = new Set();
+  const items = results
+    .flatMap((result) => (result.status === "fulfilled" ? result.value : []))
+    .filter((item) => {
+      if (!item?.id || !item?.title || seen.has(item.id)) return false;
+      seen.add(item.id);
+      return true;
+    })
+    .sort((a, b) => Number(b.published ?? 0) - Number(a.published ?? 0))
+    .slice(0, 60)
+    .map((item) => ({
+      id: item.id,
+      title: String(item.title).replace(/\u3000/g, " ").trim(),
+      published: Number(item.published ?? 0),
+      provider: item.provider?.name || "TradingView",
+      storyPath: item.storyPath || "",
+      isFree: !item.paywall,
+      symbols: Array.isArray(item.relatedSymbols)
+        ? item.relatedSymbols.map((s) => s?.symbol).filter(Boolean).slice(0, 4)
+        : [],
+    }));
+
+  res.setHeader("Content-Type", "application/json; charset=utf-8");
+  res.setHeader("Cache-Control", "s-maxage=120, stale-while-revalidate=300");
+  res.status(200).json({ items, updatedAt: new Date().toISOString() });
+};
+
 export default async function handler(req, res) {
   try {
     const requestUrl = new URL(req.url ?? "", "http://localhost");
@@ -139,6 +188,7 @@ export default async function handler(req, res) {
     if (source === "yahoo") return await handleYahooRss(requestUrl, res);
     if (source === "gdelt") return await handleGdelt(requestUrl, res);
     if (source === "tdnet") return await handleTdnet(requestUrl, res);
+    if (source === "tradingview") return await handleTradingViewNews(requestUrl, res);
     // デフォルト: google
     return await handleGoogleNews(requestUrl, res);
   } catch {

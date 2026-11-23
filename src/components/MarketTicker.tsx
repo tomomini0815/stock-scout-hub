@@ -67,13 +67,13 @@ const MarketTicker = ({ indices }: MarketTickerProps) => {
 
   return (
     <div className="overflow-hidden border-b border-border bg-card">
-      <div className="flex animate-ticker-scroll items-center gap-4 whitespace-nowrap bg-background px-4 py-1">
-        <div className="flex items-center gap-1.5 text-[10px] font-bold text-muted-foreground">
+      <div className="flex animate-ticker-scroll items-center gap-4 whitespace-nowrap bg-background px-4 py-1.5">
+        <div className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground">
           <span className="relative inline-flex h-4 w-4 shrink-0 items-center justify-center overflow-hidden rounded bg-primary/10 text-primary">
             <TrendingUp className="h-3 w-3" />
           </span>
           <span className="font-bold text-foreground">TradingView</span>
-          <span className="text-[9px] text-muted-foreground/80 font-normal">
+          <span className="text-xs text-muted-foreground font-normal">
             (<span className="text-red-600 dark:text-red-400 font-bold">赤:上昇</span> / <span className="text-blue-600 dark:text-blue-400 font-bold">青:下降</span>)
           </span>
         </div>
@@ -81,22 +81,22 @@ const MarketTicker = ({ indices }: MarketTickerProps) => {
           const isUp = index.change >= 0;
 
           return (
-            <div key={`${index.name}-${i}`} className="flex items-center gap-1.5 text-[11px]">
+            <div key={`${index.name}-${i}`} className="flex items-center gap-1.5 text-xs">
               <span className="relative inline-flex h-4 w-4 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary/10 border border-primary/20">
-                <span className="text-[8px] font-black text-primary">
+                <span className="text-[9px] font-black text-primary">
                   {logoLabelForIndex(index.name)}
                 </span>
               </span>
-              <span className="font-medium text-foreground">{index.name}</span>
-              <span className="tabular-nums font-semibold text-foreground">
+              <span className="font-semibold text-foreground">{index.name}</span>
+              <span className="tabular-nums font-bold text-foreground">
                 {index.value.toLocaleString(undefined, { maximumFractionDigits: 2 })}
               </span>
               <span
-                className={`flex items-center gap-0.5 tabular-nums font-medium ${
+                className={`flex items-center gap-0.5 tabular-nums font-semibold ${
                   isUp ? "text-stock-up" : "text-stock-down"
                 }`}
               >
-                {isUp ? <TrendingUp className="h-2.5 w-2.5" /> : <TrendingDown className="h-2.5 w-2.5" />}
+                {isUp ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
                 {isUp ? "+" : ""}
                 {index.change.toFixed(2)}
                 <span>

@@ -123,7 +123,7 @@ export const ProMetricsGuide = ({
       <section className="rounded border border-border bg-card">
         <div className="flex flex-col gap-2 border-b border-border bg-table-header-bg px-3 py-2 md:flex-row md:items-center md:justify-between rounded-t">
           <div className="flex items-center gap-2 min-w-0">
-            <BookOpen className="h-4 w-4 shrink-0 text-header-accent" />
+            <BookOpen className="h-4 w-4 shrink-0 text-foreground" />
             <h2 className="text-xs sm:text-sm font-bold text-foreground whitespace-nowrap">
               投資指標の実践ガイド（PBR・PER・ROE）
             </h2>
@@ -180,7 +180,6 @@ export const ProMetricsGuide = ({
             {/* 全体像・理論方程式 */}
             <section className="rounded-xl border border-border/80 bg-card p-4 sm:p-5 shadow-xs space-y-4">
               <div className="flex items-center gap-2 border-b border-border/60 pb-2.5">
-                <Compass className="h-4 w-4 text-header-accent" />
                 <h2 className="text-sm font-bold text-foreground sm:text-base">
                   理論株価の基本方程式（立体的アプローチ）
                 </h2>
@@ -190,17 +189,17 @@ export const ProMetricsGuide = ({
                 指標を単体で見ず、収益性（ROE）、割安性（PER・PBR）、財務健全性、需給の4次元で総合判定します。
               </p>
 
-              {/* 理論株価の計算式ボックス（上品なアンバーアクセント） */}
-              <div className="rounded-lg border border-amber-500/25 bg-amber-500/5 p-4 space-y-2 text-center">
-                <div className="text-xxs uppercase tracking-wider font-bold text-amber-700 dark:text-amber-400">
+              {/* 理論株価の計算式ボックス（控えめなプライマリトーン） */}
+              <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 space-y-2 text-center">
+                <div className="text-xxs uppercase tracking-wider font-bold text-primary">
                   黄金方程式
                 </div>
                 <div className="flex flex-wrap items-center justify-center gap-2 text-base font-bold text-foreground sm:text-lg">
                   <span className="font-mono">PBR（純資産倍率）</span>
                   <span className="text-muted-foreground">＝</span>
-                  <span className="font-mono text-blue-600 dark:text-blue-400">PER（利益倍率）</span>
+                  <span className="font-mono text-primary">PER（利益倍率）</span>
                   <span className="text-muted-foreground">×</span>
-                  <span className="font-mono text-emerald-600 dark:text-emerald-400">ROE（稼ぐ力）</span>
+                  <span className="font-mono text-primary">ROE（稼ぐ力）</span>
                 </div>
                 <p className="text-xs text-muted-foreground pt-1 leading-relaxed">
                   数学的に <code>(株価 ÷ 純資産) ＝ (株価 ÷ 利益) × (利益 ÷ 純資産)</code> が常に成立します。<br />
@@ -211,7 +210,7 @@ export const ProMetricsGuide = ({
               {/* 4つの評価軸テーブル */}
               <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
                 <div className="rounded-lg border border-border/70 bg-muted/20 p-3 space-y-1">
-                  <div className="text-xs font-bold text-blue-600 dark:text-blue-400">1. 利益の割安度</div>
+                  <div className="text-xs font-bold text-primary">1. 利益の割安度</div>
                   <div className="text-sm font-bold text-foreground">予想PER / PEG</div>
                   <p className="text-xs text-muted-foreground leading-relaxed">
                     過去平均との比較や、成長率で割安度を測るPEGレシオを活用。
@@ -219,7 +218,7 @@ export const ProMetricsGuide = ({
                 </div>
 
                 <div className="rounded-lg border border-border/70 bg-muted/20 p-3 space-y-1">
-                  <div className="text-xs font-bold text-amber-600 dark:text-amber-400">2. 資産の安全域</div>
+                  <div className="text-xs font-bold text-primary">2. 資産の安全域</div>
                   <div className="text-sm font-bold text-foreground">実績PBR / 解散価値</div>
                   <p className="text-xs text-muted-foreground leading-relaxed">
                     東証PBR1倍是正の動向と、現預金が豊富な本物のバリュー株を選別。
@@ -227,7 +226,7 @@ export const ProMetricsGuide = ({
                 </div>
 
                 <div className="rounded-lg border border-border/70 bg-muted/20 p-3 space-y-1">
-                  <div className="text-xs font-bold text-emerald-600 dark:text-emerald-400">3. 資本の稼ぐ力</div>
+                  <div className="text-xs font-bold text-primary">3. 資本の稼ぐ力</div>
                   <div className="text-sm font-bold text-foreground">ROE / デュポン分解</div>
                   <p className="text-xs text-muted-foreground leading-relaxed">
                     自己資本を使って何%稼げているか。借金頼みでない真の高収益性を解剖。
@@ -235,7 +234,7 @@ export const ProMetricsGuide = ({
                 </div>
 
                 <div className="rounded-lg border border-border/70 bg-muted/20 p-3 space-y-1">
-                  <div className="text-xs font-bold text-purple-600 dark:text-purple-400">4. 需給と上値圧力</div>
+                  <div className="text-xs font-bold text-primary">4. 需給と上値圧力</div>
                   <div className="text-sm font-bold text-foreground">信用倍率 / 貸借比率</div>
                   <p className="text-xs text-muted-foreground leading-relaxed">
                     信用買い残が多い銘柄は戻り売りが重い。1倍割れの踏み上げ余地を確認。
@@ -526,7 +525,7 @@ export const ProMetricsGuide = ({
           <div className="space-y-5 animate-in fade-in-50 duration-200">
             <section className="rounded-xl border border-border/80 bg-card p-4 sm:p-5 shadow-xs space-y-5">
               <div className="flex items-center gap-2 border-b border-border/60 pb-2.5">
-                <Calculator className="h-4 w-4 text-header-accent" />
+                <Calculator className="h-4 w-4 text-foreground" />
                 <h2 className="text-sm font-bold text-foreground sm:text-base">
                   投資指標の簡易計算機
                 </h2>

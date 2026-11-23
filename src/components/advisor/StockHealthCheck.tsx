@@ -235,7 +235,7 @@ export const StockHealthCheck = ({
       <section className="rounded border border-border bg-card">
         <div className="flex flex-col gap-1 border-b border-border bg-table-header-bg px-3 py-2 md:flex-row md:items-center md:justify-between rounded-t">
           <div className="flex items-center gap-2">
-            <Activity className="h-4 w-4 text-header-accent" />
+            <Activity className="h-4 w-4 text-foreground" />
             <h2 className="text-xs sm:text-sm font-bold text-foreground">銘柄カルテ診断</h2>
             <span className="rounded bg-primary px-2 py-0.5 text-xxs font-bold text-primary-foreground shrink-0">
               5軸総合診断
@@ -353,7 +353,7 @@ export const StockHealthCheck = ({
                   <button
                     type="button"
                     onClick={() => onOpenMetricsGuide("overview")}
-                    className="inline-flex items-center gap-1 sm:gap-1.5 rounded-md border border-amber-500/40 bg-amber-500/10 px-1.5 sm:px-2 py-0.5 text-xxs font-bold text-amber-700 dark:text-amber-300 hover:bg-amber-500/20 transition-colors"
+                    className="inline-flex items-center gap-1 sm:gap-1.5 rounded-md border border-border bg-background px-2 py-0.5 text-xxs font-bold text-primary hover:bg-muted transition-colors"
                   >
                     <BookOpen className="h-3 w-3" />
                     <span>指標ガイド →</span>
@@ -368,14 +368,14 @@ export const StockHealthCheck = ({
                       <div className="flex items-center justify-between">
                         <span className="text-muted-foreground text-xxs block font-sans">指数現在値</span>
                         {liveStatus === "live" && (
-                          <span className="inline-flex items-center gap-1 rounded bg-emerald-500/15 px-1 py-0.2 text-[9px] font-bold text-emerald-600 dark:text-emerald-400">
-                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                          <span className="inline-flex items-center gap-1 rounded border border-red-600 bg-white px-1.5 py-0.2 text-[10px] font-bold text-red-600">
+                            <span className="h-1.5 w-1.5 rounded-full bg-red-600" />
                             LIVE
                           </span>
                         )}
                       </div>
                       <span className="text-base font-bold text-foreground">¥{report.stock.price.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
-                      <span className={`text-xxs block ${report.stock.change >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
+                      <span className={`text-xxs block font-semibold ${report.stock.change >= 0 ? "text-stock-up" : "text-stock-down"}`}>
                         {report.stock.change >= 0 ? "+" : ""}{report.stock.change.toLocaleString(undefined, { maximumFractionDigits: 2 })}円 ({report.stock.changePercent >= 0 ? "+" : ""}{report.stock.changePercent.toFixed(2)}%)
                       </span>
                     </div>
@@ -391,14 +391,14 @@ export const StockHealthCheck = ({
                     <div className="flex items-center justify-between">
                       <span className="text-muted-foreground text-xxs block font-sans">現在値</span>
                       {liveStatus === "live" && (
-                        <span className="inline-flex items-center gap-1 rounded bg-emerald-500/15 px-1 py-0.2 text-[9px] font-bold text-emerald-600 dark:text-emerald-400">
-                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                        <span className="inline-flex items-center gap-1 rounded border border-red-600 bg-white px-1.5 py-0.2 text-[10px] font-bold text-red-600">
+                          <span className="h-1.5 w-1.5 rounded-full bg-red-600" />
                           LIVE
                         </span>
                       )}
                     </div>
-                    <span className="text-sm font-bold text-foreground">¥{report.stock.price.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
-                    <span className={`text-xxs block ${report.stock.change >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
+                    <span className="text-lg font-black tabular-nums text-foreground">¥{report.stock.price.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+                    <span className={`text-xxs block font-semibold ${report.stock.change >= 0 ? "text-stock-up" : "text-stock-down"}`}>
                       {report.stock.change >= 0 ? "+" : ""}{report.stock.change.toLocaleString(undefined, { maximumFractionDigits: 2 })}円 ({report.stock.changePercent >= 0 ? "+" : ""}{report.stock.changePercent.toFixed(2)}%)
                     </span>
                   </div>
@@ -406,7 +406,7 @@ export const StockHealthCheck = ({
                   {/* 予想PER */}
                   <div className="rounded-md border border-border/60 bg-muted/20 p-1.5 sm:p-2">
                     <span className="text-muted-foreground text-xxs block font-sans">予想PER</span>
-                    <span className="text-sm font-bold text-foreground">{report.metrics.per}</span>
+                    <span className="text-base sm:text-lg font-black tabular-nums text-foreground">{report.metrics.per}</span>
                     <span className="text-xxs text-muted-foreground block truncate">
                       {report.metrics.per !== "―"
                         ? (parseFloat(report.metrics.per) <= 12 ? "割安水準" : parseFloat(report.metrics.per) >= 28 ? "高成長期待" : "適正水準")
@@ -476,16 +476,14 @@ export const StockHealthCheck = ({
           {/* リアルタイム株価チャート（日足・移動平均線・出来高） */}
           <div className="rounded-xl border border-border/80 bg-card p-3 shadow-xs sm:p-5 space-y-2.5 sm:space-y-3">
             <div className="flex items-center justify-between border-b border-border/40 pb-2">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                <LineChart className="h-4 w-4 text-header-accent" />
+              <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                 株価チャート（日足・20日/200日移動平均線・出来高）
               </h3>
               <Link
                 to={`/chart?q=${report.stock.code}`}
-                className="inline-flex items-center gap-1 text-xxs font-bold text-header-accent hover:underline"
+                className="inline-flex items-center gap-1 text-xxs font-bold text-primary hover:underline"
               >
-                <span>銘柄・チャートへ</span>
-                <ArrowUpRight className="h-3 w-3" />
+                <span>銘柄・チャートへ →</span>
               </Link>
             </div>
 
@@ -515,8 +513,7 @@ export const StockHealthCheck = ({
           {/* 具体的売買シナリオ（3段構え戦略） */}
           <div className="rounded-xl border border-border/80 bg-card p-3 shadow-xs sm:p-5 space-y-2.5 sm:space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-border/40 pb-2 gap-1 sm:gap-2">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                <Layers className="h-4 w-4 text-header-accent" />
+              <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                 プロの3段構え売買戦略シナリオ（実践指値目安）
               </h3>
               <span className="text-xxs text-muted-foreground font-mono">
@@ -529,7 +526,7 @@ export const StockHealthCheck = ({
                 <span className="text-xxs font-semibold text-muted-foreground block">
                   ① 打診エントリー水準
                 </span>
-                <span className="text-sm font-bold font-mono text-foreground block">
+                <span className="text-base sm:text-lg font-black font-mono tabular-nums text-foreground block">
                   {report.tradeScenario.entryZone}
                 </span>
                 <span className="text-xxs text-muted-foreground block">
@@ -537,11 +534,11 @@ export const StockHealthCheck = ({
                 </span>
               </div>
 
-              <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 space-y-1">
-                <span className="text-xxs font-semibold text-emerald-600 dark:text-emerald-400 block">
+              <div className="rounded-lg border border-border bg-muted/20 p-3 space-y-1">
+                <span className="text-xxs font-semibold text-foreground block">
                   ② 本命押し目水準
                 </span>
-                <span className="text-sm font-bold font-mono text-emerald-600 dark:text-emerald-400 block">
+                <span className="text-base sm:text-lg font-black font-mono tabular-nums text-primary block">
                   {report.tradeScenario.deepEntryZone}
                 </span>
                 <span className="text-xxs text-muted-foreground block">
@@ -549,11 +546,11 @@ export const StockHealthCheck = ({
                 </span>
               </div>
 
-              <div className="rounded-lg border border-rose-500/30 bg-rose-500/5 p-3 space-y-1">
-                <span className="text-xxs font-semibold text-rose-600 dark:text-rose-400 block">
+              <div className="rounded-lg border border-border border-t-2 border-t-stock-down bg-background p-3 space-y-1">
+                <span className="text-xxs font-semibold text-stock-down block">
                   ③ 撤退・損切りライン
                 </span>
-                <span className="text-sm font-bold font-mono text-rose-600 dark:text-rose-400 block">
+                <span className="text-base sm:text-lg font-black font-mono tabular-nums text-stock-down block">
                   ¥{report.tradeScenario.supportPrice.toLocaleString()} 割れ
                 </span>
                 <span className="text-xxs text-muted-foreground block">
@@ -561,11 +558,11 @@ export const StockHealthCheck = ({
                 </span>
               </div>
 
-              <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-3 space-y-1">
-                <span className="text-xxs font-semibold text-blue-600 dark:text-blue-400 block">
+              <div className="rounded-lg border border-border border-t-2 border-t-primary/70 bg-background p-3 space-y-1">
+                <span className="text-xxs font-semibold text-primary block">
                   ④ 第1利確ターゲット
                 </span>
-                <span className="text-sm font-bold font-mono text-blue-600 dark:text-blue-400 block">
+                <span className="text-base sm:text-lg font-black font-mono tabular-nums text-foreground block">
                   ¥{report.tradeScenario.targetPrice1.toLocaleString()}
                 </span>
                 <span className="text-xxs text-muted-foreground block">
@@ -573,11 +570,11 @@ export const StockHealthCheck = ({
                 </span>
               </div>
 
-              <div className="rounded-lg border border-indigo-500/30 bg-indigo-500/5 p-3 space-y-1">
-                <span className="text-xxs font-semibold text-indigo-600 dark:text-indigo-400 block">
+              <div className="rounded-lg border border-border border-t-2 border-t-primary bg-background p-3 space-y-1">
+                <span className="text-xxs font-semibold text-primary block">
                   ⑤ 第2利確ターゲット
                 </span>
-                <span className="text-sm font-bold font-mono text-indigo-600 dark:text-indigo-400 block">
+                <span className="text-base sm:text-lg font-black font-mono tabular-nums text-foreground block">
                   ¥{report.tradeScenario.targetPrice2.toLocaleString()}
                 </span>
                 <span className="text-xxs text-muted-foreground block">
@@ -592,8 +589,7 @@ export const StockHealthCheck = ({
             {/* 5軸レーダーチャート */}
             <div className="rounded-xl border border-border/80 bg-card p-4 shadow-xs lg:col-span-5 flex flex-col justify-between">
               <div>
-                <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                  <BarChart2 className="h-4 w-4 text-header-accent" />
+                <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                   5軸ファンダメンタル・需給レーダー
                 </h3>
               </div>
@@ -604,15 +600,15 @@ export const StockHealthCheck = ({
                     <PolarGrid stroke="#888888" strokeOpacity={0.25} />
                     <PolarAngleAxis
                       dataKey="category"
-                      tick={{ fill: "currentColor", fontSize: 9.5, fontWeight: 500 }}
+                      tick={{ fill: "currentColor", fontSize: 10.5, fontWeight: 500 }}
                     />
                     <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
                     <Radar
                       name="評価スコア"
                       dataKey="score"
-                      stroke="#10b981"
-                      fill="#10b981"
-                      fillOpacity={0.3}
+                      stroke="#1d4ed8"
+                      fill="#2563eb"
+                      fillOpacity={0.24}
                     />
                     <Tooltip
                       formatter={(val: number) => [`${val}点`, "評価"]}
@@ -633,7 +629,7 @@ export const StockHealthCheck = ({
                   <div key={m.category} className="space-y-0.5">
                     <div className="flex justify-between font-semibold">
                       <span className="text-foreground">{m.category}</span>
-                      <span className="font-mono text-header-accent">{m.score}点</span>
+                      <span className="font-mono text-sm font-black tabular-nums text-primary">{m.score}点</span>
                     </div>
                     <p className="text-muted-foreground text-xxs leading-tight">
                       {m.reason}
@@ -647,13 +643,13 @@ export const StockHealthCheck = ({
             <div className="rounded-xl border border-border/80 bg-card p-4 shadow-xs lg:col-span-7 flex flex-col justify-between space-y-4">
               {/* カタリスト（上昇起爆剤） */}
               <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 space-y-1.5">
-                <span className="font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1.5 text-xs">
-                  <Zap className="h-3.5 w-3.5" /> 今後の上昇トリガー（カタリスト）
+                <span className="font-bold text-amber-800 dark:text-amber-300 block text-xs">
+                  今後の上昇トリガー（カタリスト）
                 </span>
                 <ul className="space-y-1 text-xs text-foreground/90 leading-relaxed">
                   {report.catalysts.map((cat, i) => (
                     <li key={i} className="flex items-start gap-1.5">
-                      <span className="text-amber-500 font-bold">•</span>
+                      <span className="text-amber-600 font-bold">•</span>
                       <span>{cat}</span>
                     </li>
                   ))}
@@ -663,13 +659,13 @@ export const StockHealthCheck = ({
               {/* 強みとリスク */}
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 text-xs">
                 <div className="space-y-1.5">
-                  <span className="font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 text-xs">
-                    <CheckCircle2 className="h-3.5 w-3.5" /> 買い材料・強み
+                  <span className="font-bold text-foreground block text-xs">
+                    買い材料・強み
                   </span>
                   <ul className="space-y-1 text-muted-foreground text-xs leading-relaxed">
                     {report.strengths.map((str, i) => (
                       <li key={i} className="flex items-start gap-1.5">
-                        <span className="text-emerald-500">•</span>
+                        <span className="text-primary font-bold">•</span>
                         <span>{str}</span>
                       </li>
                     ))}
@@ -677,13 +673,13 @@ export const StockHealthCheck = ({
                 </div>
 
                 <div className="space-y-1.5">
-                  <span className="font-bold text-rose-600 dark:text-rose-400 flex items-center gap-1 text-xs">
-                    <ShieldAlert className="h-3.5 w-3.5" /> 警戒リスク・下落要因
+                  <span className="font-bold text-foreground block text-xs">
+                    警戒リスク・下落要因
                   </span>
                   <ul className="space-y-1 text-muted-foreground text-xs leading-relaxed">
                     {report.risks.map((risk, i) => (
                       <li key={i} className="flex items-start gap-1.5">
-                        <span className="text-rose-500">•</span>
+                        <span className="text-stock-down font-bold">•</span>
                         <span>{risk}</span>
                       </li>
                     ))}
@@ -706,8 +702,7 @@ export const StockHealthCheck = ({
               {/* 直近の関連ニュース・適時開示 */}
               <div className="rounded-lg border border-border/60 bg-muted/20 p-3 space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="font-bold text-foreground flex items-center gap-1.5 text-xs">
-                    <Newspaper className="h-3.5 w-3.5 text-header-accent" />
+                  <span className="font-bold text-foreground text-xs">
                     直近の関連ニュース・市場の材料
                   </span>
                   {isLoadingNews && (

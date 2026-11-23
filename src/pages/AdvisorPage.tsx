@@ -121,7 +121,6 @@ const AdvisorPage = () => {
         {/* ページタイトル & タブナビゲーション（背景なし） */}
         <div className="flex flex-col gap-2 py-1 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-2 min-w-0">
-            <Cpu className="h-4 w-4 shrink-0 text-foreground" />
             <h1 className="text-xs sm:text-sm font-bold text-foreground whitespace-nowrap">
               銘柄診断 & 投資シミュレーター
             </h1>
@@ -134,7 +133,6 @@ const AdvisorPage = () => {
           <div className="flex items-center">
             <div className="flex max-w-full rounded-md border border-border/70 bg-card p-0.5 text-xs font-semibold whitespace-nowrap shadow-2xs">
               {tabs.map((tab) => {
-                const Icon = tab.icon;
                 const isActive = activeTab === tab.id;
 
                 return (
@@ -142,22 +140,17 @@ const AdvisorPage = () => {
                     key={tab.id}
                     type="button"
                     onClick={() => handleTabChange(tab.id)}
-                    className={`relative flex shrink-0 items-center gap-1.5 rounded px-2.5 py-1 text-xs transition-colors ${
+                    className={`relative flex shrink-0 items-center rounded px-3 py-1 text-xs transition-colors ${
                       isActive
                         ? "bg-muted text-foreground font-bold shadow-2xs"
                         : "text-muted-foreground hover:text-foreground hover:bg-muted/40 font-medium"
                     }`}
                   >
-                    <Icon
-                      className={`h-3.5 w-3.5 transition-colors ${
-                        isActive ? "text-header-accent" : "text-muted-foreground/70"
-                      }`}
-                    />
                     <span>{tab.label}</span>
                     {isActive && (
                       <span
                         aria-hidden="true"
-                        className="absolute bottom-0 left-2 right-2 h-0.5 rounded-full bg-header-accent"
+                        className="absolute bottom-0 left-2 right-2 h-0.5 rounded-full bg-primary"
                       />
                     )}
                   </button>

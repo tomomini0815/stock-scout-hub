@@ -508,12 +508,12 @@ const ClampedDriverText = ({ text, lines = 2 }: { text?: string; lines?: 2 | 3 }
     <>
       <p
         ref={textRef}
-        className={`${lines === 3 ? "line-clamp-3" : "line-clamp-2"} text-[10px] sm:text-xxs leading-snug sm:leading-relaxed text-foreground`}
+        className={`${lines === 3 ? "line-clamp-3" : "line-clamp-2"} text-xs leading-relaxed text-foreground`}
       >
         {text}
       </p>
       {isClamped && (
-        <div className="pointer-events-none absolute left-2 right-2 top-full z-30 mt-1 hidden rounded border border-slate-300 bg-slate-100 px-2 py-1.5 text-xxs leading-relaxed text-slate-800 shadow-lg group-hover:block group-focus-within:block">
+        <div className="pointer-events-none absolute left-2 right-2 top-full z-30 mt-1 hidden rounded border border-slate-300 bg-slate-100 px-2.5 py-2 text-xs leading-relaxed text-slate-900 shadow-lg group-hover:block group-focus-within:block">
           {text}
         </div>
       )}
@@ -770,17 +770,17 @@ const MarketOverview = ({ indices, detailed = false }: MarketOverviewProps) => {
                 i % 2 === 0 ? "" : ""
               }`}
             >
-              <div className="mb-0.5 sm:mb-1 text-xxs font-medium text-muted-foreground">
+              <div className="mb-0.5 sm:mb-1 text-xs font-semibold text-muted-foreground">
                 {index.name}
               </div>
-              <div className="mb-0.5 text-xs sm:text-sm font-bold tabular-nums text-foreground">
+              <div className="mb-0.5 text-sm sm:text-base font-bold tabular-nums text-foreground">
                 {index.value.toLocaleString(undefined, {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
                 })}
               </div>
               <div
-                className={`flex items-center gap-1 text-[11px] sm:text-xxs font-semibold tabular-nums ${
+                className={`flex items-center gap-1 text-xs font-semibold tabular-nums ${
                   isUp
                     ? "text-stock-up"
                     : isDown
@@ -808,36 +808,36 @@ const MarketOverview = ({ indices, detailed = false }: MarketOverviewProps) => {
                 {detailed ? (
                   <>
                     <div className="mb-1 flex flex-wrap items-center gap-1">
-                      <span className={`inline-flex items-center gap-0.5 rounded px-1 py-0.2 sm:px-1.5 sm:py-0.5 text-[9px] sm:text-[10px] font-semibold ${
+                      <span className={`inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-xs font-semibold ${
                         isUp
                           ? "bg-red-600 text-white"
                           : isDown
                           ? "bg-blue-600 text-white"
                           : "bg-slate-600 text-white"
                       }`}>
-                        {urgentMove && <AlertTriangle className="h-2.5 w-2.5 sm:h-3 sm:w-3" />}
+                        {urgentMove && <AlertTriangle className="h-3 w-3" />}
                         {getMarketTone(index.changePercent)}
                       </span>
-                      <span className="text-[9px] sm:text-[10px] font-bold text-muted-foreground">{getMoveLabel(index.changePercent)}</span>
+                      <span className="text-xs font-bold text-muted-foreground">{getMoveLabel(index.changePercent)}</span>
                     </div>
                     <div className="mb-1 flex flex-wrap gap-1">
                       {getIndexFocusTags(index).map((tag) => (
-                        <span key={tag} className="rounded border border-border bg-background px-1 py-0.2 sm:px-1.5 sm:py-0.5 text-[9px] sm:text-[10px] font-bold text-primary">
+                        <span key={tag} className="rounded border border-border bg-background px-1.5 py-0.5 text-xs font-bold text-primary">
                           {tag}
                         </span>
                       ))}
                     </div>
                     <ClampedDriverText text={getIndexMarketBrief(index)} lines={2} />
                     {driverText && (
-                      <div className="mt-1 line-clamp-2 border-t border-border/70 pt-1 text-[9px] sm:text-[10px] leading-snug sm:leading-relaxed text-muted-foreground">
+                      <div className="mt-1 line-clamp-2 border-t border-border/70 pt-1 text-xs leading-relaxed text-muted-foreground">
                         <span className="font-bold text-foreground">材料:</span> {formatDriverMaterial(driverText)}
                       </div>
                     )}
                   </>
                 ) : (
                   <>
-                    <div className="mb-0.5 flex items-center gap-1 text-[10px] sm:text-xxs font-bold text-muted-foreground">
-                      {urgentMove && <AlertTriangle className="h-2.5 w-2.5 text-amber-500" />}
+                    <div className="mb-0.5 flex items-center gap-1 text-xs font-bold text-muted-foreground">
+                      {urgentMove && <AlertTriangle className="h-3 w-3 text-amber-500" />}
                       {getMoveLabel(index.changePercent)}
                     </div>
                     <ClampedDriverText text={driverText} />

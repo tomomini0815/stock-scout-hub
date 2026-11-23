@@ -11,9 +11,16 @@ const MARKET_MAX_REFETCH_MS = 10 * 60 * 1000;
 
 interface MarketDataPayload {
   indices?: MarketIndex[];
+  macroAssets?: MarketIndex[];
   updatedAt?: string;
   source?: "live" | "cache" | "fallback";
 }
+
+export const defaultMacroAssets: MarketIndex[] = [
+  { name: "米国債(TLT)", value: 92.4, change: -0.32, changePercent: -0.35 },
+  { name: "米ドル(DXY)", value: 104.25, change: -0.18, changePercent: -0.17 },
+  { name: "原油(WTI)", value: 71.8, change: 0.45, changePercent: 0.63 },
+];
 
 const isGitHubPages = typeof window !== "undefined" && window.location.hostname.includes("github.io");
 
@@ -35,9 +42,11 @@ const fetchLiveMarketData = async (): Promise<Required<MarketDataPayload>> => {
   const payload = (await response.json()) as MarketDataPayload;
   const indices = payload.indices?.filter(isValidIndex) ?? [];
   if (indices.length < 2) throw new Error("market data unavailable");
+  const macroAssets = payload.macroAssets?.filter(isValidIndex) ?? [];
 
   return {
     indices,
+    macroAssets: macroAssets.length ? macroAssets : defaultMacroAssets,
     updatedAt: payload.updatedAt ?? new Date().toISOString(),
     source: payload.source ?? "live",
   };
@@ -47,9 +56,17 @@ const loadCachedMarketData = () => {
   try {
     const raw = localStorage.getItem(MARKET_CACHE_KEY);
     if (!raw) return undefined;
-    const parsed = JSON.parse(raw) as Required<MarketDataPayload>;
+    const parsed = JSON.parse(raw) as MarketDataPayload;
     const indices = parsed.indices?.filter(isValidIndex) ?? [];
-    return indices.length ? { ...parsed, indices, source: "cache" as const } : undefined;
+    const macroAssets = parsed.macroAssets?.filter(isValidIndex) ?? [];
+    return indices.length
+      ? {
+          indices,
+          macroAssets: macroAssets.length ? macroAssets : defaultMacroAssets,
+          updatedAt: parsed.updatedAt ?? "",
+          source: "cache" as const,
+        }
+      : undefined;
   } catch {
     return undefined;
   }
@@ -58,6 +75,7 @@ const loadCachedMarketData = () => {
 export const useLiveMarketData = (fallbackIndices: MarketIndex[]) => {
   const initialMarketData = loadCachedMarketData() ?? {
     indices: fallbackIndices,
+    macroAssets: defaultMacroAssets,
     updatedAt: "",
     source: "fallback" as const,
   };
@@ -109,14 +127,19 @@ export const useLiveMarketData = (fallbackIndices: MarketIndex[]) => {
   }, [query.data]);
 
   const displayIndices = query.data?.indices?.length ? query.data.indices : fallbackIndices;
+  const displayMacroAssets = query.data?.macroAssets?.length
+    ? query.data.macroAssets
+    : defaultMacroAssets;
   const source = query.data?.source ?? "fallback";
 
   return {
     indices: displayIndices,
+    macroAssets: displayMacroAssets,
     status: source === "live" ? "live" : source === "cache" ? "cached" : "fallback",
     updatedAt: query.data?.updatedAt,
   } satisfies {
     indices: MarketIndex[];
+    macroAssets: MarketIndex[];
     status: LiveMarketStatus;
     updatedAt?: string;
   };

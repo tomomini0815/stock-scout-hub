@@ -28,7 +28,7 @@ type ArticleSummaryState = {
   summary?: string;
 };
 
-const TOP_NEWS_CACHE_KEY = "stock-scout-top-news-columns-v5";
+const TOP_NEWS_CACHE_KEY = "stock-scout-top-news-columns-v7";
 const TOP_NEWS_CACHE_MS = 1000 * 60 * 45;
 const TOP_NEWS_SOURCE_TIMEOUT_MS = 6500;
 const COLUMN_LIMIT = 6;
@@ -124,14 +124,13 @@ const translateEnglishNewsTitle = (rawTitle: string) => {
   return "海外発の市場ニュース、日本株・為替・金利への波及を確認";
 };
 
-const translateArticleSummary = (summary: string, item: NewsItem) => {
+const translateArticleSummary = (summary: string, _item: NewsItem) => {
   const cleaned = summary.replace(/\s+/g, " ").trim();
   if (!cleaned) return "";
-  if (!isMostlyEnglish(cleaned)) return cleaned;
-  if (/skip to content|browser does not support javascript|site policy|bookmark|copy link/i.test(cleaned)) {
-    return buildNewsSummary(item.title, item.category, item.source);
+  if (/skip to content|browser does not support javascript|site policy|bookmark|copy link|enable javascript|access denied|just a moment/i.test(cleaned)) {
+    return "";
   }
-  return buildNewsSummary(item.title, item.category, item.source);
+  return cleaned;
 };
 
 const mapRssNews = (xmlText: string, provider: string, fallbackSource: string, idOffset = 0) => {
@@ -141,8 +140,19 @@ const mapRssNews = (xmlText: string, provider: string, fallbackSource: string, i
     const source = item.querySelector("source")?.textContent ?? fallbackSource;
     const url = item.querySelector("link")?.textContent ?? "";
     const pubDate = item.querySelector("pubDate")?.textContent ?? "";
+    const rawDescription = item.querySelector("description")?.textContent ?? "";
+    const cleanedDesc = rawDescription
+      .replace(/<[^>]+>/g, " ")
+      .replace(/&nbsp;|&amp;|&quot;|&#39;|&lt;|&gt;/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
     const title = translateEnglishNewsTitle(rawTitle.replace(/\s+-\s+[^-]+$/, "").trim());
     const formatted = formatDateTime(pubDate);
+    // RSSのdescriptionに見出し以外の具体的なリード文が含まれている場合は初期要約として活用
+    const hasUsefulDesc =
+      cleanedDesc.length >= 35 &&
+      !cleanedDesc.startsWith(title.slice(0, 18)) &&
+      !/Google ニュース|Yahoo!ニュースは/.test(cleanedDesc);
 
     return {
       id: idOffset + index + 1,
@@ -153,7 +163,7 @@ const mapRssNews = (xmlText: string, provider: string, fallbackSource: string, i
       source,
       provider,
       url,
-      summary: buildNewsSummary(title, inferCategory(title), source),
+      summary: hasUsefulDesc ? cleanedDesc : "",
       isHot: index < 2,
       isNew: index < 1,
     } satisfies NewsItem;
@@ -176,7 +186,7 @@ const mapGdeltNews = (articles: GdeltArticle[]) =>
       source,
       provider: "GDELT",
       url: article.url ?? "",
-      summary: buildNewsSummary(title, inferCategory(title), source),
+      summary: "",
       isHot: index < 2,
       isNew: index < 1,
     } satisfies NewsItem;
@@ -401,12 +411,15 @@ const withTimeout = async <T,>(promise: Promise<T>, timeoutMs = TOP_NEWS_SOURCE_
 
 const categoryColors: Record<string, string> = {
   市況: "bg-primary text-primary-foreground",
-  決算: "bg-stock-up text-primary-foreground",
-  企業: "bg-muted text-muted-foreground",
-  "M&A": "bg-header-accent text-foreground",
-  金融: "bg-stock-down text-primary-foreground",
-  医薬品: "bg-muted text-foreground",
-  半導体: "bg-stock-up-bg text-stock-up",
+  半導体: "bg-rose-600 text-white",
+  AI: "bg-amber-400 text-slate-950",
+  金融: "bg-blue-700 text-white",
+  企業: "bg-emerald-700 text-white",
+  個別株: "bg-emerald-700 text-white",
+  決算: "bg-rose-600 text-white",
+  投資戦略: "bg-violet-700 text-white",
+  "M&A": "bg-amber-400 text-slate-950",
+  医薬品: "bg-slate-700 text-white",
 };
 
 const NewsColumn = ({
@@ -456,7 +469,11 @@ const NewsColumn = ({
       )}
       {column.items.map((item) => {
         const articleState = item.url ? articleSummaries[item.url] : undefined;
-        const visibleSummary = articleState?.summary ?? "要約を取得できませんでした。";
+        const fallbackSummary = item.summary?.trim() || "";
+        const visibleSummary =
+          articleState?.summary ||
+          fallbackSummary ||
+          "記事本文を取得できませんでした（リンク先で全文を確認できます）。";
 
         return (
           <a
@@ -472,8 +489,8 @@ const NewsColumn = ({
                 {item.time || "--:--"}
               </span>
               <span
-                className={`shrink-0 rounded px-1 py-0 text-xxs font-bold ${
-                  categoryColors[item.category] || "bg-muted text-muted-foreground"
+                className={`shrink-0 rounded px-1.5 py-0.5 text-xxs font-bold ${
+                  categoryColors[item.category] || "bg-slate-700 text-white"
                 }`}
               >
                 {item.category}
@@ -498,10 +515,14 @@ const NewsColumn = ({
             <div className="mt-1 text-xs font-medium leading-relaxed text-slate-600">
               {articleState?.status === "loading" ? (
                 <span className="text-slate-500">記事本文を取得して要約しています。</span>
-              ) : articleState?.status === "error" || !articleState ? (
-                <span className="text-slate-500">要約を取得できませんでした。</span>
+              ) : articleState?.status === "ready" ? (
+                articleState.summary
+              ) : fallbackSummary ? (
+                fallbackSummary
               ) : (
-                visibleSummary
+                <span className="text-slate-500">
+                  記事本文を取得できませんでした（リンク先で全文を確認できます）。
+                </span>
               )}
             </div>
           </a>
@@ -649,7 +670,7 @@ const NewsFeed = ({ news: incomingNews }: NewsFeedProps) => {
 
     targets.forEach((item) => {
       const controller = new AbortController();
-      const timeout = window.setTimeout(() => controller.abort(), 5500);
+      const timeout = window.setTimeout(() => controller.abort(), 9500);
       fetch(`/api/article-summary?url=${encodeURIComponent(item.url as string)}`, {
         signal: controller.signal,
       })

@@ -811,6 +811,7 @@ const ChartPage = () => {
               chartApiSymbol={`${selected?.code || ""}.T`}
               currentPrice={selected?.price || 0}
               currentPriceUpdatedAt={liveChartUpdatedAt}
+              hideHealthCheckLink
             />
 
             <div className="mt-3 grid grid-cols-3 gap-2 md:grid-cols-5 md:gap-3">
@@ -829,7 +830,7 @@ const ChartPage = () => {
             </div>
 
             <div ref={detailSectionRef} className="mt-3 scroll-mt-24">
-              <StockDetailPanel stock={selected || featuredStock} />
+              <StockDetailPanel stock={selected || featuredStock} hideHealthCheckLink />
             </div>
 
             <div className="mt-3">

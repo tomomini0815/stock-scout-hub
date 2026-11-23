@@ -17,6 +17,12 @@ export const tradingViewQuotes = [
   { name: "BTC/USDT", symbol: "BINANCE:BTCUSDT" },
 ];
 
+export const tradingViewMacroQuotes = [
+  { name: "米国債(TLT)", symbol: "NASDAQ:TLT", yahooSymbol: "TLT" },
+  { name: "米ドル(DXY)", symbol: "TVC:DXY", yahooSymbol: "DX-Y.NYB" },
+  { name: "原油(WTI)", symbol: "NYMEX:CL1!", yahooSymbol: "CL=F" },
+];
+
 export const marketFallbackIndices = [
   { name: "日経平均", value: 39098.68, change: 435.62, changePercent: 1.13 },
   { name: "TOPIX", value: 2768.54, change: 28.17, changePercent: 1.03 },
@@ -26,6 +32,12 @@ export const marketFallbackIndices = [
   { name: "USD/JPY", value: 151.82, change: -0.34, changePercent: -0.22 },
   { name: "GOLD", value: 2325.4, change: 0, changePercent: 0 },
   { name: "BTC/USDT", value: 65000, change: 0, changePercent: 0 },
+];
+
+export const macroFallbackAssets = [
+  { name: "米国債(TLT)", value: 92.4, change: -0.32, changePercent: -0.35 },
+  { name: "米ドル(DXY)", value: 104.25, change: -0.18, changePercent: -0.17 },
+  { name: "原油(WTI)", value: 71.8, change: 0.45, changePercent: 0.63 },
 ];
 
 const marketDisplayOrder = marketFallbackIndices.map((item) => item.name);
@@ -278,7 +290,7 @@ export const fetchTradingViewMarketIndices = async () => {
           tickers: tradingViewQuotes.map((quote) => quote.symbol),
           query: { types: [] },
         },
-        columns: ["close", "change", "change_abs"],
+        columns: ["close", "change", "change_abs", "Perf.W", "Perf.1M"],
       }),
     }
   );
@@ -295,7 +307,7 @@ export const fetchTradingViewMarketIndices = async () => {
   return rows
     .map((row) => {
       const name = nameBySymbol.get(row?.s);
-      const [value, changePercent, change] = row?.d ?? [];
+      const [value, changePercent, change, perfW, perf1M] = row?.d ?? [];
       return name &&
         [value, changePercent, change].every((item) => Number.isFinite(Number(item)))
         ? {
@@ -303,10 +315,66 @@ export const fetchTradingViewMarketIndices = async () => {
             value: Number(value),
             change: Number(change),
             changePercent: Number(changePercent),
+            ...(Number.isFinite(Number(perfW)) ? { changePercent1W: Number(perfW) } : {}),
+            ...(Number.isFinite(Number(perf1M)) ? { changePercent1M: Number(perf1M) } : {}),
           }
         : null;
     })
     .filter(Boolean);
+};
+
+export const fetchTradingViewMacroAssets = async () => {
+  const tvUrl = "https://scanner.tradingview.com/global/scan";
+  if (isCircuitOpen(tvUrl)) return [];
+  const response = await fetchWithTimeout(
+    tvUrl,
+    7000,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        symbols: {
+          tickers: tradingViewMacroQuotes.map((quote) => quote.symbol),
+          query: { types: [] },
+        },
+        columns: ["close", "change", "change_abs", "Perf.W", "Perf.1M"],
+      }),
+    }
+  );
+  if (!response.ok) {
+    if (response.status === 403) tripCircuit(tvUrl);
+    return [];
+  }
+  resolveCircuit(tvUrl);
+
+  const payload = await response.json();
+  const rows = Array.isArray(payload?.data) ? payload.data : [];
+  const nameBySymbol = new Map(tradingViewMacroQuotes.map((quote) => [quote.symbol, quote.name]));
+
+  return rows
+    .map((row) => {
+      const name = nameBySymbol.get(row?.s);
+      const [value, changePercent, change, perfW, perf1M] = row?.d ?? [];
+      return name &&
+        [value, changePercent, change].every((item) => Number.isFinite(Number(item)))
+        ? {
+            name,
+            value: Number(value),
+            change: Number(change),
+            changePercent: Number(changePercent),
+            ...(Number.isFinite(Number(perfW)) ? { changePercent1W: Number(perfW) } : {}),
+            ...(Number.isFinite(Number(perf1M)) ? { changePercent1M: Number(perf1M) } : {}),
+          }
+        : null;
+    })
+    .filter(Boolean);
+};
+
+export const mergeMacroAssets = (liveAssets = []) => {
+  const byName = new Map(liveAssets.map((item) => [item.name, item]));
+  return macroFallbackAssets.map((fallback) => byName.get(fallback.name) ?? fallback);
 };
 
 const knownStockPrices = {

@@ -8,6 +8,7 @@ import { calculateStockMetrics, type StockDetailedMetrics } from "@/lib/stockMet
 
 interface StockDetailPanelProps {
   stock: StockData;
+  hideHealthCheckLink?: boolean;
 }
 
 interface StockMetrics {
@@ -484,7 +485,7 @@ const getToneBadgeClass = (tone: ReturnType<typeof scoreMetric>["tone"]) => {
   return "border-slate-200 bg-slate-50 text-slate-700";
 };
 
-const StockDetailPanel = ({ stock }: StockDetailPanelProps) => {
+const StockDetailPanel = ({ stock, hideHealthCheckLink = false }: StockDetailPanelProps) => {
   const {
     stock: displayStock,
     status,
@@ -694,14 +695,16 @@ const StockDetailPanel = ({ stock }: StockDetailPanelProps) => {
             <span className="text-xxs text-muted-foreground">{displayStock.market}</span>
           </div>
           <div className="flex items-center gap-2">
-            <Link
-              to={`/advisor?tab=health&code=${encodeURIComponent(displayStock.code)}`}
-              className="inline-flex items-center gap-1 rounded border border-border bg-card px-2 py-1 text-xxs font-bold text-foreground transition-colors hover:border-primary hover:bg-muted"
-              title={`${displayStock.code} ${displayStock.name} の銘柄カルテを開く`}
-            >
-              <Activity className="h-3 w-3 text-blue-500" />
-              <span>銘柄カルテを開く</span>
-            </Link>
+            {!hideHealthCheckLink && (
+              <Link
+                to={`/advisor?tab=health&code=${encodeURIComponent(displayStock.code)}`}
+                className="inline-flex items-center gap-1 rounded border border-border bg-card px-2 py-1 text-xxs font-bold text-foreground transition-colors hover:border-primary hover:bg-muted"
+                title={`${displayStock.code} ${displayStock.name} の銘柄カルテを開く`}
+              >
+                <Activity className="h-3 w-3 text-blue-500" />
+                <span>銘柄カルテを開く</span>
+              </Link>
+            )}
             <div className="flex flex-col items-end gap-1 text-xxs font-semibold text-muted-foreground">
               <span className="rounded bg-muted px-1.5 py-0.5 text-muted-foreground">
                 {updatedLabel ? `更新 ${updatedLabel}` : status === "loading" ? "取得中" : "更新確認中"}

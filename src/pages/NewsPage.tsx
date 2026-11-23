@@ -7,7 +7,7 @@ import { normalizeArticleSummaryToJapanese, translateEnglishNewsTitle } from "@/
 import { Newspaper, Flame, Sparkles, ExternalLink } from "lucide-react";
 
 const categories = ["すべて", "市況", "半導体", "AI", "金融", "個別株", "投資戦略"];
-const NEWS_CACHE_KEY = "stock-scout-live-news-v1";
+const NEWS_CACHE_KEY = "stock-scout-live-news-v2";
 const NEWS_CACHE_MS = 30 * 24 * 60 * 60 * 1000;
 type ArticleSummaryState =
   | { status: "loading"; summary?: string }
@@ -148,7 +148,7 @@ const mapGdeltArticles = (articles: GdeltArticle[]): NewsItem[] => {
         source,
         provider: "GDELT",
         url: article.url,
-        summary: buildSummary(title, category, source),
+        summary: "",
         isHot: index < 3,
         isNew: index < 2,
       };
@@ -164,9 +164,19 @@ const mapRssNews = (xmlText: string, provider: string, fallbackSource: string, l
     const source = item.querySelector("source")?.textContent ?? fallbackSource;
     const url = item.querySelector("link")?.textContent ?? "";
     const pubDate = item.querySelector("pubDate")?.textContent ?? "";
+    const rawDescription = item.querySelector("description")?.textContent ?? "";
+    const cleanedDesc = rawDescription
+      .replace(/<[^>]+>/g, " ")
+      .replace(/&nbsp;|&amp;|&quot;|&#39;|&lt;|&gt;/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
     const formatted = formatDateTime(pubDate);
     const title = translateEnglishNewsTitle(rawTitle.replace(/\s+-\s+[^-]+$/, "").trim());
     const category = inferCategory(title);
+    const hasUsefulDesc =
+      cleanedDesc.length >= 35 &&
+      !cleanedDesc.startsWith(title.slice(0, 18)) &&
+      !/Google ニュース|Yahoo!ニュースは/.test(cleanedDesc);
 
     return {
       id: index + 1,
@@ -177,7 +187,7 @@ const mapRssNews = (xmlText: string, provider: string, fallbackSource: string, l
       source,
       provider,
       url,
-      summary: buildSummary(title, category, source),
+      summary: hasUsefulDesc ? cleanedDesc : "",
       isHot: index < 3,
       isNew: index < 2,
     };
@@ -509,7 +519,7 @@ const NewsPage = () => {
   );
 
   useEffect(() => {
-    const targets = filtered.slice(0, 20).filter((item) => item.url && !articleSummaries[item.url]).slice(0, 8);
+    const targets = filtered.slice(0, 40).filter((item) => item.url && !articleSummaries[item.url]).slice(0, 8);
     if (!targets.length) return;
 
     setArticleSummaries((previous) => ({
@@ -654,9 +664,9 @@ const NewsPage = () => {
                             ? "記事本文を取得して要約しています。"
                             : articleState?.status === "ready"
                               ? articleState.summary
-                              : looksMojibake(item.summary ?? "")
-                                ? buildSummary(item.title, item.category, item.source ?? "")
-                                : item.summary}
+                              : item.summary && !looksMojibake(item.summary)
+                                ? item.summary
+                                : "記事本文を取得できませんでした（リンク先で全文を確認できます）。"}
                         </p>
                         <div className="mt-1 flex items-end justify-between gap-2 text-xxs font-semibold">
                           <div className="flex min-w-0 flex-wrap gap-1">

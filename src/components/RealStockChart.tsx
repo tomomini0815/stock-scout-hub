@@ -11,6 +11,8 @@ interface RealStockChartProps {
   currentPrice?: number;
   currentPriceLabel?: string;
   currentPriceUpdatedAt?: string;
+  hideHealthCheckLink?: boolean;
+  irUrl?: string;
 }
 
 type ChartState =
@@ -159,6 +161,8 @@ const RealStockChart = ({
   currentPrice,
   currentPriceLabel = "現在値",
   currentPriceUpdatedAt,
+  hideHealthCheckLink = false,
+  irUrl,
 }: RealStockChartProps) => {
   const cacheKey = `stock-chart-cache-v5-${chartApiSymbol}`;
 
@@ -380,30 +384,47 @@ const RealStockChart = ({
   const isUp = change >= 0;
   return (
     <div className="mb-3 overflow-hidden rounded border border-border bg-background">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-2 py-1.5">
-        <div className="flex items-center gap-1.5 text-xs font-bold text-foreground">
-          <BarChart3 className="h-3.5 w-3.5 text-primary" />
-          実チャート
-          <span className="font-mono text-xxs text-muted-foreground">{chartSymbol}</span>
+      <div className="space-y-1 border-b border-border px-2 py-1.5">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-1.5 whitespace-nowrap text-xs font-bold text-foreground">
+            <BarChart3 className="h-3.5 w-3.5 shrink-0 text-primary" />
+            <span>実チャート</span>
+            <span className="truncate font-mono text-xxs text-muted-foreground">{chartSymbol}</span>
+          </div>
+          <div className="flex shrink-0 items-center gap-2 whitespace-nowrap text-xxs">
+            <a
+              href={`https://finance.yahoo.com/quote/${chartApiSymbol}/chart`}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex shrink-0 items-center gap-0.5 whitespace-nowrap font-semibold text-primary hover:underline"
+            >
+              <span>詳細</span>
+              <ExternalLink className="h-3 w-3 shrink-0" />
+            </a>
+            {irUrl && (
+              <a
+                href={irUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex shrink-0 items-center gap-0.5 whitespace-nowrap font-semibold text-primary hover:underline"
+              >
+                <span>IR</span>
+                <ExternalLink className="h-3 w-3 shrink-0" />
+              </a>
+            )}
+          </div>
         </div>
-        <div className="flex items-center gap-2 text-xxs text-muted-foreground">
-          {chartStatus === "ready" ? "Yahoo Finance日足・表示約1年" : chartStatus === "loading" ? "取得中" : "取得失敗"}
-          <a
-            href={`https://finance.yahoo.com/quote/${chartApiSymbol}/chart`}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-1 font-semibold text-primary hover:underline"
-          >
-            詳細
-            <ExternalLink className="h-3 w-3" />
-          </a>
-          {code && (
+        <div className="flex items-center justify-between gap-2 text-xxs text-muted-foreground">
+          <span className="min-w-0 leading-tight">
+            {chartStatus === "ready" ? "Yahoo Finance日足・表示約1年" : chartStatus === "loading" ? "取得中" : "取得失敗"}
+          </span>
+          {code && !hideHealthCheckLink && (
             <Link
               to={`/advisor?tab=health&code=${encodeURIComponent(code)}`}
-              className="inline-flex items-center gap-1 rounded border border-border bg-card px-2 py-0.5 font-bold text-foreground hover:bg-muted hover:border-primary transition-colors"
+              className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded border border-border bg-card px-1.5 py-0.5 font-bold leading-none text-foreground transition-colors hover:border-primary hover:bg-muted"
               title={`${code} ${name} の銘柄カルテを開く`}
             >
-              <Activity className="h-3 w-3 text-blue-500" />
+              <Activity className="h-3 w-3 shrink-0 text-blue-500" />
               <span>銘柄カルテ</span>
             </Link>
           )}
@@ -418,14 +439,6 @@ const RealStockChart = ({
                 <span className="text-xs font-bold text-foreground">
                   {code} {name}
                 </span>
-                {code && (
-                  <Link
-                    to={`/advisor?tab=health&code=${encodeURIComponent(code)}`}
-                    className="inline-flex items-center gap-1 rounded bg-muted/70 px-1.5 py-0.5 text-xxs font-semibold text-muted-foreground hover:bg-primary hover:text-primary-foreground transition-colors"
-                  >
-                    カルテ診断
-                  </Link>
-                )}
               </div>
               <div className="text-xxs text-muted-foreground">
                 {chartStatus === "ready" ? "外部データ取得済み" : "直近日足OHLC"}・20SMA/200SMA

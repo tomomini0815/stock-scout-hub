@@ -1,18 +1,25 @@
 import {
-  fetchWithTimeout,
+  fetchTradingViewMacroAssets,
   fetchTradingViewMarketIndices,
+  fetchWithTimeout,
   googleQuotes,
+  macroFallbackAssets,
   marketFallbackIndices,
+  mergeMacroAssets,
   mergeMarketIndices,
   parseGoogleQuote,
   parseUsdJpy,
   parseYahooMarketAsset,
   sendJson,
+  tradingViewMacroQuotes,
 } from "./_shared/market.js";
 
 export default async function handler(_req, res) {
   try {
-    const tradingViewIndices = await fetchTradingViewMarketIndices();
+    const [tradingViewIndices, tradingViewMacro] = await Promise.all([
+      fetchTradingViewMarketIndices(),
+      fetchTradingViewMacroAssets(),
+    ]);
     const results = tradingViewIndices.length
       ? []
       : await Promise.allSettled([
@@ -32,19 +39,36 @@ export default async function handler(_req, res) {
           parseYahooMarketAsset("BTC/USDT", "BTC-USD"),
         ]);
 
+    const macroFallbackResults =
+      tradingViewMacro.length >= tradingViewMacroQuotes.length
+        ? []
+        : await Promise.allSettled(
+            tradingViewMacroQuotes.map((quote) =>
+              parseYahooMarketAsset(quote.name, quote.yahooSymbol)
+            )
+          );
+
     const fallbackIndices = results
       .map((result) => (result.status === "fulfilled" ? result.value : null))
       .filter(Boolean);
     const indices = tradingViewIndices.length ? tradingViewIndices : fallbackIndices;
+    const macroLive = [
+      ...macroFallbackResults
+        .map((result) => (result.status === "fulfilled" ? result.value : null))
+        .filter(Boolean),
+      ...tradingViewMacro,
+    ];
 
     sendJson(res, {
       indices: mergeMarketIndices(indices),
+      macroAssets: mergeMacroAssets(macroLive),
       updatedAt: new Date().toISOString(),
       source: indices.length ? "live" : "fallback",
     });
   } catch {
     sendJson(res, {
       indices: marketFallbackIndices,
+      macroAssets: macroFallbackAssets,
       updatedAt: new Date().toISOString(),
       source: "fallback",
     });

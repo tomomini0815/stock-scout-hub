@@ -22,7 +22,7 @@
     --secondary-foreground: 220 20% 10%;
 
     --muted: 220 10% 94%;
-    --muted-foreground: 220 10% 46%;
+    --muted-foreground: 220 15% 34%;
 
     --accent: 220 60% 20%;
     --accent-foreground: 0 0% 100%;
@@ -30,30 +30,30 @@
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 15% 88%;
-    --input: 220 15% 88%;
+    --border: 220 16% 82%;
+    --input: 220 16% 82%;
     --ring: 220 60% 20%;
 
     --radius: 0.25rem;
 
     /* Stock-specific tokens */
-    --stock-up: 0 80% 50%;
+    --stock-up: 0 80% 46%;
     --stock-up-bg: 0 80% 96%;
-    --stock-down: 220 80% 50%;
+    --stock-down: 220 80% 46%;
     --stock-down-bg: 220 80% 96%;
-    --stock-unchanged: 220 10% 46%;
+    --stock-unchanged: 220 12% 38%;
 
     --header-bg: 220 50% 15%;
     --header-foreground: 0 0% 100%;
     --header-accent: 45 100% 55%;
 
     --nav-bg: 220 40% 22%;
-    --nav-foreground: 0 0% 95%;
+    --nav-foreground: 0 0% 96%;
     --nav-hover: 220 40% 30%;
 
-    --table-header-bg: 220 20% 88%;
+    --table-header-bg: 220 22% 91%;
     --table-stripe: 220 15% 97%;
-    --table-border: 220 15% 88%;
+    --table-border: 220 16% 82%;
 
     --chart-bg: 0 0% 100%;
     --chart-grid: 220 10% 90%;
@@ -85,13 +85,13 @@
     --secondary: 220 15% 18%;
     --secondary-foreground: 0 0% 95%;
     --muted: 220 15% 18%;
-    --muted-foreground: 220 10% 60%;
+    --muted-foreground: 220 14% 72%;
     --accent: 220 60% 55%;
     --accent-foreground: 0 0% 100%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 100%;
-    --border: 220 15% 22%;
-    --input: 220 15% 22%;
+    --border: 220 15% 28%;
+    --input: 220 15% 28%;
     --ring: 220 60% 55%;
     --stock-up: 0 80% 55%;
     --stock-up-bg: 0 80% 15%;
@@ -133,6 +133,8 @@
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
     font-family: 'Noto Sans JP', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
 
   #root {
@@ -181,4 +183,63 @@
       animation-duration: 20s;
     }
   }
+}
+
+@keyframes cup-wave-front {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes cup-wave-back {
+  0% {
+    transform: translateX(-50%);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+@keyframes cup-bubble-rise {
+  0% {
+    transform: translateY(0) scale(0.8);
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.7;
+  }
+  80% {
+    opacity: 0.45;
+  }
+  100% {
+    transform: translateY(-44px) scale(1.1);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .cup-wave-front {
+    animation: cup-wave-front 5.2s linear infinite;
+  }
+  .cup-wave-back {
+    animation: cup-wave-back 7.4s linear infinite;
+  }
+  .cup-bubble {
+    animation: cup-bubble-rise 3.6s ease-in infinite;
+  }
+  .cup-bubble-delay-1 {
+    animation-delay: 1.1s;
+  }
+  .cup-bubble-delay-2 {
+    animation-delay: 2.2s;
+  }
+}
+
+.cup-motion-paused .cup-wave-front,
+.cup-motion-paused .cup-wave-back,
+.cup-motion-paused .cup-bubble {
+  animation-play-state: paused;
 }

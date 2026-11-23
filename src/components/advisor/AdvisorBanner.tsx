@@ -35,7 +35,7 @@ export const AdvisorBanner = () => {
             to="/advisor?tab=wizard"
             className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border border-border/80 bg-background/80 px-3.5 py-2 text-xs font-semibold text-foreground transition-colors hover:bg-muted"
           >
-            <Compass className="h-3.5 w-3.5 text-header-accent" />
+            <Compass className="h-3.5 w-3.5 text-foreground" />
             <span className="whitespace-nowrap">3分スタイル診断</span>
           </Link>
           <Link

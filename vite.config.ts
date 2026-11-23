@@ -22,6 +22,12 @@ const tradingViewQuotes = [
   { name: "BTC/USDT", symbol: "BINANCE:BTCUSDT" },
 ];
 
+const tradingViewMacroQuotes = [
+  { name: "米国債(TLT)", symbol: "NASDAQ:TLT", yahooSymbol: "TLT" },
+  { name: "米ドル(DXY)", symbol: "TVC:DXY", yahooSymbol: "DX-Y.NYB" },
+  { name: "原油(WTI)", symbol: "NYMEX:CL1!", yahooSymbol: "CL=F" },
+];
+
 const marketFallbackIndices = [
   { name: "日経平均", value: 39098.68, change: 435.62, changePercent: 1.13 },
   { name: "TOPIX", value: 2768.54, change: 28.17, changePercent: 1.03 },
@@ -33,9 +39,16 @@ const marketFallbackIndices = [
   { name: "BTC/USDT", value: 65000, change: 0, changePercent: 0 },
 ];
 
+const macroFallbackAssets = [
+  { name: "米国債(TLT)", value: 92.4, change: -0.32, changePercent: -0.35 },
+  { name: "米ドル(DXY)", value: 104.25, change: -0.18, changePercent: -0.17 },
+  { name: "原油(WTI)", value: 71.8, change: 0.45, changePercent: 0.63 },
+];
+
 const marketDisplayOrder = marketFallbackIndices.map((item) => item.name);
 let marketDataCache = {
   indices: marketFallbackIndices,
+  macroAssets: macroFallbackAssets,
   updatedAt: new Date().toISOString(),
   source: "fallback",
 };
@@ -120,22 +133,58 @@ const summarizeArticleText = (text: string) => {
   return summary.length > 260 ? `${summary.slice(0, 260)}...` : summary;
 };
 
+const GENERIC_META_PATTERN =
+  /Yahoo!ニュースは|最新のニュースをお届け|速報ニュース|公式ページ|ニュースサイト|経済ニュースを配信|記事一覧|Google ニュースが世界中のニュース提供元|Google ニュース|Google News/;
+
 const extractArticleSummaryFromHtml = (html: string) => {
-  const metaDescription = getMetaContent(html, ["description", "og:description", "twitter:description"]);
-  if (metaDescription) return summarizeArticleText(metaDescription);
+  // 1. JSON-LD の articleBody を最優先
+  const ldScripts = html.match(/<script[^>]+application\/ld\+json[^>]*>([\s\S]*?)<\/script>/gi) ?? [];
+  for (const script of ldScripts) {
+    const bodyMatch = script.match(/"articleBody"\s*:\s*"((?:[^"\\]|\\.)+)"/);
+    if (bodyMatch?.[1] && bodyMatch[1].length >= 40) {
+      try {
+        const parsed = JSON.parse(`"${bodyMatch[1]}"`);
+        const summary = summarizeArticleText(stripHtml(parsed));
+        if (summary.length >= 30) return summary;
+      } catch {
+        // fallback below
+      }
+    }
+  }
 
-  const jsonLdDescription = html.match(/"description"\s*:\s*"([^"]{40,})"/i)?.[1];
-  if (jsonLdDescription) return summarizeArticleText(decodeHtmlEntities(jsonLdDescription.replace(/\\"/g, '"')));
-
+  // 2. <article> または本文 <p> 段落から直接抽出
   const cleanedHtml = html
     .replace(/<script[\s\S]*?<\/script>/gi, " ")
     .replace(/<style[\s\S]*?<\/style>/gi, " ")
-    .replace(/<noscript[\s\S]*?<\/noscript>/gi, " ");
-  const paragraphs = [...cleanedHtml.matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/gi)]
+    .replace(/<noscript[\s\S]*?<\/noscript>/gi, " ")
+    .replace(/<header[\s\S]*?<\/header>/gi, " ")
+    .replace(/<footer[\s\S]*?<\/footer>/gi, " ")
+    .replace(/<nav[\s\S]*?<\/nav>/gi, " ");
+  const articleBlocks = cleanedHtml.match(/<article[\s\S]*?<\/article>/gi) ?? [];
+  const targetHtml = articleBlocks.length ? articleBlocks.join(" ") : cleanedHtml;
+  const paragraphs = [...targetHtml.matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/gi)]
     .map((match) => stripHtml(match[1]))
-    .filter((text) => text.length >= 35 && !/関連記事|続きを読む|ログイン|シェア/.test(text));
+    .filter(
+      (text) =>
+        text.length >= 26 &&
+        !/^(写真|画像|Copyright|©|関連記事|続きを読む|ログイン|会員登録|コメント|シェア|Yahoo!ニュース)/i.test(
+          text
+        ) &&
+        !GENERIC_META_PATTERN.test(text)
+    );
 
-  return summarizeArticleText(paragraphs.slice(0, 4).join(" "));
+  if (paragraphs.length) {
+    const bodySummary = summarizeArticleText(paragraphs.slice(0, 5).join(" "));
+    if (bodySummary.length >= 30) return bodySummary;
+  }
+
+  // 3. フォールバックとして記事固有の meta description（サイト共通定型文は除外）
+  const metaDescription = getMetaContent(html, ["og:description", "description", "twitter:description"]);
+  if (metaDescription && !GENERIC_META_PATTERN.test(metaDescription)) {
+    return summarizeArticleText(metaDescription);
+  }
+
+  return "";
 };
 
 const isBlockedArticleHost = (hostname: string) => {
@@ -287,7 +336,7 @@ const fetchTradingViewMarketIndices = async () => {
           tickers: tradingViewQuotes.map((quote) => quote.symbol),
           query: { types: [] },
         },
-        columns: ["close", "change", "change_abs"],
+        columns: ["close", "change", "change_abs", "Perf.W", "Perf.1M"],
       }),
     }
   );
@@ -300,7 +349,7 @@ const fetchTradingViewMarketIndices = async () => {
   return rows
     .map((row) => {
       const name = nameBySymbol.get(row?.s);
-      const [value, changePercent, change] = row?.d ?? [];
+      const [value, changePercent, change, perfW, perf1M] = row?.d ?? [];
       return name &&
         [value, changePercent, change].every((item) => Number.isFinite(Number(item)))
         ? {
@@ -308,6 +357,8 @@ const fetchTradingViewMarketIndices = async () => {
             value: Number(value),
             change: Number(change),
             changePercent: Number(changePercent),
+            ...(Number.isFinite(Number(perfW)) ? { changePercent1W: Number(perfW) } : {}),
+            ...(Number.isFinite(Number(perf1M)) ? { changePercent1M: Number(perf1M) } : {}),
           }
         : null;
     })
@@ -637,12 +688,66 @@ const fetchYahooMetrics = async (symbol: string) => {
   return parseQuoteMetrics(await quoteResponse.json(), symbol);
 };
 
+const fetchTradingViewMacroAssets = async () => {
+  const response = await fetchWithTimeout(
+    "https://scanner.tradingview.com/global/scan",
+    7000,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        symbols: {
+          tickers: tradingViewMacroQuotes.map((quote) => quote.symbol),
+          query: { types: [] },
+        },
+        columns: ["close", "change", "change_abs", "Perf.W", "Perf.1M"],
+      }),
+    }
+  );
+  if (!response.ok) return [];
+
+  const payload = await response.json();
+  const rows = Array.isArray(payload?.data) ? payload.data : [];
+  const nameBySymbol = new Map(tradingViewMacroQuotes.map((quote) => [quote.symbol, quote.name]));
+
+  return rows
+    .map((row) => {
+      const name = nameBySymbol.get(row?.s);
+      const [value, changePercent, change, perfW, perf1M] = row?.d ?? [];
+      return name &&
+        [value, changePercent, change].every((item) => Number.isFinite(Number(item)))
+        ? {
+            name,
+            value: Number(value),
+            change: Number(change),
+            changePercent: Number(changePercent),
+            ...(Number.isFinite(Number(perfW)) ? { changePercent1W: Number(perfW) } : {}),
+            ...(Number.isFinite(Number(perf1M)) ? { changePercent1M: Number(perf1M) } : {}),
+          }
+        : null;
+    })
+    .filter(Boolean);
+};
+
+const mergeMacroAssets = (liveAssets = []) => {
+  const previousByName = new Map((marketDataCache.macroAssets ?? []).map((item) => [item.name, item]));
+  const liveByName = new Map(liveAssets.map((item) => [item.name, item]));
+  return macroFallbackAssets.map(
+    (fallback) => liveByName.get(fallback.name) ?? previousByName.get(fallback.name) ?? fallback
+  );
+};
+
 const marketDataPlugin = () => ({
   name: "market-data-api",
   configureServer(server) {
     server.middlewares.use("/api/market-data", async (_req, res) => {
       try {
-        const tradingViewIndices = await fetchTradingViewMarketIndices();
+        const [tradingViewIndices, tradingViewMacro] = await Promise.all([
+          fetchTradingViewMarketIndices(),
+          fetchTradingViewMacroAssets(),
+        ]);
         const results = tradingViewIndices.length
           ? []
           : await Promise.allSettled([
@@ -663,16 +768,33 @@ const marketDataPlugin = () => ({
               parseYahooMarketAsset("BTC/USDT", "BTC-USD"),
             ]);
 
+        const macroFallbackResults =
+          tradingViewMacro.length >= tradingViewMacroQuotes.length
+            ? []
+            : await Promise.allSettled(
+                tradingViewMacroQuotes.map((quote) =>
+                  parseYahooMarketAsset(quote.name, quote.yahooSymbol)
+                )
+              );
+
         const fallbackIndices = results
           .map((result) => (result.status === "fulfilled" ? result.value : null))
           .filter(Boolean);
         const indices = tradingViewIndices.length ? tradingViewIndices : fallbackIndices;
+        const macroLive = [
+          ...macroFallbackResults
+            .map((result) => (result.status === "fulfilled" ? result.value : null))
+            .filter(Boolean),
+          ...tradingViewMacro,
+        ];
         const mergedIndices = mergeMarketIndices(indices);
+        const mergedMacro = mergeMacroAssets(macroLive);
         const source = indices.length === marketDisplayOrder.length ? "live" : indices.length ? "cache" : marketDataCache.source;
         const updatedAt = new Date().toISOString();
 
         marketDataCache = {
           indices: mergedIndices,
+          macroAssets: mergedMacro,
           updatedAt,
           source,
         };
@@ -827,58 +949,56 @@ const smartMoneyPlugin = () => ({
 const newsSourcePlugin = () => ({
   name: "news-source-api",
   configureServer(server) {
-    server.middlewares.use("/api/google-news", async (req, res) => {
+    const handleGoogleNews = async (requestUrl: URL, res) => {
       try {
-        const requestUrl = new URL(req.url ?? "", "http://localhost");
         const targetUrl = new URL("https://news.google.com/rss/search");
-
         for (const [key, value] of requestUrl.searchParams.entries()) {
-          targetUrl.searchParams.set(key, value);
+          if (key !== "source") targetUrl.searchParams.set(key, value);
         }
-
         if (!targetUrl.searchParams.has("hl")) targetUrl.searchParams.set("hl", "ja");
         if (!targetUrl.searchParams.has("gl")) targetUrl.searchParams.set("gl", "JP");
         if (!targetUrl.searchParams.has("ceid")) targetUrl.searchParams.set("ceid", "JP:ja");
 
         const response = await fetchWithTimeout(targetUrl.toString(), 5500, {
           headers: {
-            "User-Agent": "stock-scout-hub/1.0",
+            "User-Agent":
+              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
           },
         });
         if (!response.ok) {
           sendJson(res, { items: [], error: `HTTP ${response.status}` }, 502);
           return;
         }
-
         sendText(res, await response.text(), "application/rss+xml; charset=utf-8");
       } catch {
         sendJson(res, { items: [], error: "google news unavailable" }, 502);
       }
-    });
+    };
 
-    server.middlewares.use("/api/yahoo-business-rss", async (_req, res) => {
+    const handleYahooRss = async (res) => {
       try {
-        const response = await fetchWithTimeout("https://news.yahoo.co.jp/rss/topics/business.xml", 5500);
+        const response = await fetchWithTimeout("https://news.yahoo.co.jp/rss/topics/business.xml", 5500, {
+          headers: {
+            "User-Agent":
+              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+          },
+        });
         if (!response.ok) {
           sendJson(res, { items: [], error: `HTTP ${response.status}` }, 502);
           return;
         }
-
         sendText(res, await response.text(), "application/rss+xml; charset=utf-8");
       } catch {
         sendJson(res, { items: [], error: "yahoo business rss unavailable" }, 502);
       }
-    });
+    };
 
-    server.middlewares.use("/api/gdelt", async (req, res) => {
+    const handleGdelt = async (requestUrl: URL, res) => {
       try {
-        const requestUrl = new URL(req.url ?? "", "http://localhost");
         const targetUrl = new URL("https://api.gdeltproject.org/api/v2/doc/doc");
-
         for (const [key, value] of requestUrl.searchParams.entries()) {
-          targetUrl.searchParams.set(key, value);
+          if (key !== "source") targetUrl.searchParams.set(key, value);
         }
-
         if (!targetUrl.searchParams.has("mode")) targetUrl.searchParams.set("mode", "artlist");
         if (!targetUrl.searchParams.has("format")) targetUrl.searchParams.set("format", "json");
         if (!targetUrl.searchParams.has("sort")) targetUrl.searchParams.set("sort", "hybrid");
@@ -893,6 +1013,177 @@ const newsSourcePlugin = () => ({
       } catch {
         sendJson(res, { articles: [], error: "gdelt unavailable" }, 502);
       }
+    };
+
+    const handleTdnet = async (requestUrl: URL, res) => {
+      try {
+        const date = requestUrl.searchParams.get("date") ?? new Intl.DateTimeFormat("sv-SE", {
+          timeZone: "Asia/Tokyo",
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+        }).format(new Date()).replaceAll("-", "");
+        const response = await fetchWithTimeout(`https://www.release.tdnet.info/inbs/I_list_001_${date}.html`, 7000);
+        if (!response.ok) {
+          sendJson(res, { items: [], error: `HTTP ${response.status}` }, 502);
+          return;
+        }
+        sendText(res, await response.text(), "text/html; charset=utf-8");
+      } catch {
+        sendJson(res, { items: [], error: "tdnet list unavailable" }, 502);
+      }
+    };
+
+    const handleTradingViewNews = async (res) => {
+      try {
+        const endpoints = [
+          "https://news-mediator.tradingview.com/news-flow/v2/news?filter=lang:ja&client=overview&streaming=false",
+          "https://news-mediator.tradingview.com/news-flow/v2/news?filter=lang:ja&filter=market:stock&client=overview&streaming=false",
+          "https://news-mediator.tradingview.com/news-flow/v2/news?filter=lang:ja&filter=market:crypto&client=overview&streaming=false",
+        ];
+        const results = await Promise.allSettled(
+          endpoints.map(async (url) => {
+            const response = await fetchWithTimeout(url, 6000, {
+              headers: {
+                "User-Agent":
+                  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+              },
+            });
+            if (!response.ok) return [];
+            const payload = await response.json();
+            return Array.isArray(payload?.items) ? payload.items : [];
+          })
+        );
+        const seen = new Set<string>();
+        const items = results
+          .flatMap((result) => (result.status === "fulfilled" ? result.value : []))
+          .filter((item) => {
+            if (!item?.id || !item?.title || seen.has(item.id)) return false;
+            seen.add(item.id);
+            return true;
+          })
+          .sort((a, b) => Number(b.published ?? 0) - Number(a.published ?? 0))
+          .slice(0, 60)
+          .map((item) => ({
+            id: item.id,
+            title: String(item.title).replace(/\u3000/g, " ").trim(),
+            published: Number(item.published ?? 0),
+            provider: item.provider?.name || "TradingView",
+            storyPath: item.storyPath || "",
+            isFree: !item.paywall,
+            symbols: Array.isArray(item.relatedSymbols)
+              ? item.relatedSymbols.map((s) => s?.symbol).filter(Boolean).slice(0, 4)
+              : [],
+          }));
+
+        sendJson(res, { items, updatedAt: new Date().toISOString() });
+      } catch {
+        sendJson(res, { items: [], error: "tradingview news unavailable" }, 502);
+      }
+    };
+
+    // 統合エンドポイント: /api/news-feeds?source=google|yahoo|gdelt|tdnet|tradingview
+    server.middlewares.use("/api/news-feeds", async (req, res) => {
+      const requestUrl = new URL(req.url ?? "", "http://localhost");
+      const source = requestUrl.searchParams.get("source") ?? "google";
+      if (source === "yahoo") return handleYahooRss(res);
+      if (source === "gdelt") return handleGdelt(requestUrl, res);
+      if (source === "tdnet") return handleTdnet(requestUrl, res);
+      if (source === "tradingview") return handleTradingViewNews(res);
+      return handleGoogleNews(requestUrl, res);
+    });
+
+    // 統合エンドポイント: /api/news-premium?source=newsapi|finnhub|marketaux
+    server.middlewares.use("/api/news-premium", async (req, res) => {
+      const requestUrl = new URL(req.url ?? "", "http://localhost");
+      const source = requestUrl.searchParams.get("source") ?? "newsapi";
+
+      if (source === "finnhub") {
+        const apiKey = getEnvKey("FINNHUB_API_KEY", "VITE_FINNHUB_API_KEY");
+        if (!apiKey) {
+          sendJson(res, { articles: [], sourceStatus: "missing-key" });
+          return;
+        }
+        try {
+          const response = await fetchWithTimeout(
+            `https://finnhub.io/api/v1/news?category=general&token=${encodeURIComponent(apiKey)}`,
+            7000
+          );
+          const payload = await response.json().catch(() => []);
+          if (!response.ok) {
+            sendOptionalSourceError(res, "articles", response.status);
+            return;
+          }
+          sendJson(res, { articles: Array.isArray(payload) ? payload : [], sourceStatus: "live" });
+        } catch {
+          sendOptionalSourceError(res, "articles");
+        }
+        return;
+      }
+
+      if (source === "marketaux") {
+        const apiKey = getEnvKey("MARKETAUX_API_KEY", "VITE_MARKETAUX_API_KEY");
+        if (!apiKey) {
+          sendJson(res, { data: [], sourceStatus: "missing-key" });
+          return;
+        }
+        try {
+          const search = requestUrl.searchParams.get("search") ?? "Japan stocks Nikkei semiconductor AI yen";
+          const url = new URL("https://api.marketaux.com/v1/news/all");
+          url.searchParams.set("api_token", apiKey);
+          url.searchParams.set("language", "ja,en");
+          url.searchParams.set("countries", "jp,us");
+          url.searchParams.set("filter_entities", "true");
+          url.searchParams.set("limit", requestUrl.searchParams.get("limit") ?? "30");
+          url.searchParams.set("search", search);
+          const response = await fetchWithTimeout(url.toString(), 7000);
+          const payload = await response.json().catch(() => ({}));
+          if (!response.ok) {
+            sendOptionalSourceError(res, "data", response.status, payload?.error?.message);
+            return;
+          }
+          sendJson(res, payload);
+        } catch {
+          sendOptionalSourceError(res, "data");
+        }
+        return;
+      }
+
+      const apiKey = getEnvKey("NEWSAPI_KEY", "VITE_NEWSAPI_KEY");
+      if (!apiKey) {
+        sendJson(res, { articles: [], sourceStatus: "missing-key" });
+        return;
+      }
+      try {
+        const query = requestUrl.searchParams.get("q") ?? "Japan stocks OR Nikkei OR Tokyo Stock Exchange";
+        const url = new URL("https://newsapi.org/v2/everything");
+        url.searchParams.set("q", query);
+        url.searchParams.set("language", requestUrl.searchParams.get("language") ?? "ja");
+        url.searchParams.set("sortBy", requestUrl.searchParams.get("sortBy") ?? "publishedAt");
+        url.searchParams.set("pageSize", requestUrl.searchParams.get("pageSize") ?? "30");
+        url.searchParams.set("apiKey", apiKey);
+        const response = await fetchWithTimeout(url.toString(), 7000);
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          sendOptionalSourceError(res, "articles", response.status, payload?.message);
+          return;
+        }
+        sendJson(res, payload);
+      } catch {
+        sendOptionalSourceError(res, "articles");
+      }
+    });
+
+    server.middlewares.use("/api/google-news", async (req, res) => {
+      return handleGoogleNews(new URL(req.url ?? "", "http://localhost"), res);
+    });
+
+    server.middlewares.use("/api/yahoo-business-rss", async (_req, res) => {
+      return handleYahooRss(res);
+    });
+
+    server.middlewares.use("/api/gdelt", async (req, res) => {
+      return handleGdelt(new URL(req.url ?? "", "http://localhost"), res);
     });
 
     server.middlewares.use("/api/article-summary", async (req, res) => {
@@ -906,7 +1197,16 @@ const newsSourcePlugin = () => ({
           return;
         }
 
-        const response = await fetchWithTimeout(articleUrl.toString(), 8000);
+        const fetchHeaders = {
+          "User-Agent":
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+          Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "Accept-Language": "ja,en-US;q=0.9,en;q=0.8",
+        };
+        const response = await fetchWithTimeout(articleUrl.toString(), 8000, {
+          redirect: "follow",
+          headers: fetchHeaders,
+        });
         if (!response.ok) {
           sendJson(res, { summary: "", error: `HTTP ${response.status}` }, 502);
           return;
@@ -918,7 +1218,100 @@ const newsSourcePlugin = () => ({
           return;
         }
 
-        const html = await response.text();
+        let html = await response.text();
+        let resolvedSourceHost = articleUrl.hostname.replace(/^www\./, "");
+
+        // Google News RSS のリダイレクトURLは元記事URLを解決して本文を取得
+        if (articleUrl.hostname === "news.google.com" && articleUrl.pathname.includes("/articles/")) {
+          const sg = html.match(/data-n-a-sg="([^"]+)"/)?.[1];
+          const ts = html.match(/data-n-a-ts="([^"]+)"/)?.[1];
+          const id = html.match(/data-n-a-id="([^"]+)"/)?.[1];
+          if (sg && ts && id) {
+            const payload = [
+              "garturlreq",
+              [
+                ["X", "X", ["X", "X"], null, null, 1, 1, "JP:ja", null, 1, null, null, null, null, null, 0, 1],
+                "X",
+                "X",
+                1,
+                [1, 1, 1],
+                1,
+                1,
+                null,
+                0,
+                0,
+                null,
+                0,
+              ],
+              id,
+              Number(ts),
+              sg,
+            ];
+            const body = new URLSearchParams({
+              "f.req": JSON.stringify([[["Fbv4je", JSON.stringify(payload), null, "generic"]]]),
+            });
+            const batchRes = await fetchWithTimeout(
+              "https://news.google.com/_/DotsSplashUi/data/batchexecute",
+              6000,
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+                  "User-Agent": fetchHeaders["User-Agent"],
+                },
+                body: body.toString(),
+              }
+            ).catch(() => null);
+            if (batchRes?.ok) {
+              const batchText = await batchRes.text();
+              let resolvedUrl = "";
+              for (const line of batchText.split("\n")) {
+                if (!line.includes("garturlres")) continue;
+                try {
+                  const outer = JSON.parse(line);
+                  const innerStr = outer?.[0]?.[2];
+                  if (typeof innerStr === "string") {
+                    const inner = JSON.parse(innerStr);
+                    if (typeof inner?.[1] === "string" && /^https?:\/\//.test(inner[1])) {
+                      resolvedUrl = inner[1];
+                      break;
+                    }
+                  }
+                } catch {
+                  // ignore malformed line
+                }
+              }
+              if (resolvedUrl) {
+                const resolvedParsed = new URL(resolvedUrl);
+                if (!isBlockedArticleHost(resolvedParsed.hostname)) {
+                  const fullRes = await fetchWithTimeout(resolvedUrl, 8000, {
+                    redirect: "follow",
+                    headers: fetchHeaders,
+                  }).catch(() => null);
+                  if (fullRes?.ok) {
+                    html = await fullRes.text();
+                    resolvedSourceHost = resolvedParsed.hostname.replace(/^www\./, "");
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        // Yahoo!ニュースのトピックス(/pickup/)ページは実際の記事本文(/articles/)へ2段辿り
+        if (articleUrl.hostname === "news.yahoo.co.jp" && articleUrl.pathname.startsWith("/pickup/")) {
+          const articleLinkMatch = html.match(/https:\/\/news\.yahoo\.co\.jp\/articles\/[0-9a-f]+/);
+          if (articleLinkMatch?.[0]) {
+            const fullRes = await fetchWithTimeout(articleLinkMatch[0], 8000, {
+              redirect: "follow",
+              headers: fetchHeaders,
+            }).catch(() => null);
+            if (fullRes?.ok) {
+              html = await fullRes.text();
+            }
+          }
+        }
+
         const summary = extractArticleSummaryFromHtml(html);
         if (!summary) {
           sendJson(res, { summary: "", error: "article text unavailable" }, 422);
@@ -927,7 +1320,7 @@ const newsSourcePlugin = () => ({
 
         sendJson(res, {
           summary,
-          source: articleUrl.hostname.replace(/^www\./, ""),
+          source: resolvedSourceHost,
           extractedAt: new Date().toISOString(),
         });
       } catch {
