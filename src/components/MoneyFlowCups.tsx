@@ -392,13 +392,13 @@ const MoneyFlowCups = ({ indices, stocks = [] }: MoneyFlowCupsProps) => {
       className="overflow-hidden rounded-md border border-border bg-card"
     >
       {/* ヘッダー */}
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-table-header-bg px-4 py-2.5">
-        <div className="flex flex-wrap items-center gap-2.5">
+      <div className="flex items-start justify-between gap-2 border-b border-border bg-table-header-bg px-4 py-2">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
           <h2 className="text-base sm:text-lg font-extrabold text-foreground">
             いま資金はどこに集中している？
           </h2>
           <span
-            className={`rounded border px-2.5 py-0.5 text-xs font-bold ${getRegimeBadgeClass(
+            className={`rounded border px-2 py-0.5 text-xxs sm:text-xs font-bold ${getRegimeBadgeClass(
               overview.regimeTone
             )}`}
           >
@@ -406,78 +406,79 @@ const MoneyFlowCups = ({ indices, stocks = [] }: MoneyFlowCupsProps) => {
           </span>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {/* 期間切替タブ（今日 / 1週間 / 1ヶ月） */}
-          <div
-            role="tablist"
-            aria-label="資金フローの期間切替"
-            className="inline-flex rounded border border-border bg-background p-0.5 text-xs font-bold"
-          >
-            {TIMEFRAMES.map((tf) => (
-              <button
-                key={tf}
-                type="button"
-                role="tab"
-                aria-selected={timeframe === tf}
-                onClick={() => setTimeframe(tf)}
-                title={FLOW_TIMEFRAME_META[tf].hint}
-                className={`rounded px-2.5 py-1 transition-colors ${
-                  timeframe === tf
-                    ? "bg-primary text-primary-foreground"
-                    : "text-foreground/75 hover:text-foreground"
-                }`}
-              >
-                {FLOW_TIMEFRAME_META[tf].label}
-              </button>
-            ))}
-          </div>
+        {/* 常に右上端に配置するLIVEバッジ */}
+        <span
+          className={`inline-flex shrink-0 self-start items-center gap-1 whitespace-nowrap rounded px-1.5 py-0.5 text-xxs font-bold ${
+            liveBadgeStatus === "live"
+              ? "border border-red-600 bg-white text-red-600"
+              : "bg-muted text-muted-foreground"
+          }`}
+          title={updatedLabel ? `更新 ${updatedLabel}` : undefined}
+        >
+          {liveBadgeStatus === "live" && <span className="h-1.5 w-1.5 rounded-full bg-red-600" />}
+          {liveBadgeStatus === "live" ? "LIVE" : liveBadgeStatus === "cached" ? "前回値" : "確認中"}
+        </span>
+      </div>
 
-          {/* 視点切替タブ */}
-          <div
-            role="tablist"
-            aria-label="資金フローの視点切替"
-            className="inline-flex rounded border border-border bg-background p-0.5 text-xs font-bold"
-          >
+      {/* 期間・視点切替タブ（常に1行表示） */}
+      <div className="flex flex-nowrap items-center justify-between gap-2 overflow-x-auto no-scrollbar border-b border-border bg-muted/20 px-4 py-1.5">
+        {/* 期間切替タブ（今日 / 1週間 / 1ヶ月） */}
+        <div
+          role="tablist"
+          aria-label="資金フローの期間切替"
+          className="inline-flex shrink-0 flex-nowrap rounded border border-border bg-background p-0.5 text-xxs sm:text-xs font-bold"
+        >
+          {TIMEFRAMES.map((tf) => (
             <button
+              key={tf}
               type="button"
               role="tab"
-              aria-selected={mode === "global"}
-              onClick={() => setMode("global")}
-              className={`rounded px-3 py-1 transition-colors ${
-                mode === "global"
+              aria-selected={timeframe === tf}
+              onClick={() => setTimeframe(tf)}
+              title={FLOW_TIMEFRAME_META[tf].hint}
+              className={`shrink-0 whitespace-nowrap rounded px-2 py-1 transition-colors sm:px-2.5 ${
+                timeframe === tf
                   ? "bg-primary text-primary-foreground"
                   : "text-foreground/75 hover:text-foreground"
               }`}
             >
-              世界の資金フロー
+              {FLOW_TIMEFRAME_META[tf].label}
             </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={mode === "sectors"}
-              onClick={() => setMode("sectors")}
-              className={`rounded px-3 py-1 transition-colors ${
-                mode === "sectors"
-                  ? "bg-primary text-primary-foreground"
-                  : "text-foreground/75 hover:text-foreground"
-              }`}
-            >
-              日本株セクター別
-            </button>
-          </div>
+          ))}
+        </div>
 
-          {/* 主要指数と完全に統一したLIVEバッジ */}
-          <span
-            className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded px-1.5 py-0.5 text-xxs font-bold ${
-              liveBadgeStatus === "live"
-                ? "border border-red-600 bg-white text-red-600"
-                : "bg-muted text-muted-foreground"
+        {/* 視点切替タブ */}
+        <div
+          role="tablist"
+          aria-label="資金フローの視点切替"
+          className="inline-flex shrink-0 flex-nowrap rounded border border-border bg-background p-0.5 text-xxs sm:text-xs font-bold"
+        >
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === "global"}
+            onClick={() => setMode("global")}
+            className={`shrink-0 whitespace-nowrap rounded px-2 py-1 transition-colors sm:px-3 ${
+              mode === "global"
+                ? "bg-primary text-primary-foreground"
+                : "text-foreground/75 hover:text-foreground"
             }`}
-            title={updatedLabel ? `更新 ${updatedLabel}` : undefined}
           >
-            {liveBadgeStatus === "live" && <span className="h-1.5 w-1.5 rounded-full bg-red-600" />}
-            {liveBadgeStatus === "live" ? "LIVE" : liveBadgeStatus === "cached" ? "前回値" : "確認中"}
-          </span>
+            世界の資金フロー
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === "sectors"}
+            onClick={() => setMode("sectors")}
+            className={`shrink-0 whitespace-nowrap rounded px-2 py-1 transition-colors sm:px-3 ${
+              mode === "sectors"
+                ? "bg-primary text-primary-foreground"
+                : "text-foreground/75 hover:text-foreground"
+            }`}
+          >
+            日本株セクター別
+          </button>
         </div>
       </div>
 

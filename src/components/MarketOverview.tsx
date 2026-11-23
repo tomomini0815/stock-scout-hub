@@ -734,7 +734,7 @@ const MarketOverview = ({ indices, detailed = false }: MarketOverviewProps) => {
             <span className="whitespace-nowrap">各チャート表示</span>
           </button>
         </div>
-        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2 text-xxs font-semibold text-muted-foreground">
+        <div className="ml-auto flex shrink-0 items-start gap-1.5 sm:gap-2 text-xxs font-semibold text-muted-foreground">
           {/* 日本株カラー表記案内（超コンパクト） */}
           <span className="inline-flex shrink-0 items-center gap-0.5 whitespace-nowrap rounded border border-border/80 bg-background px-1.5 py-0.5 text-xxs font-bold shadow-2xs" title="当サイトのカラー設定：赤が上昇・買い、青が下降・売りです">
             <span className="whitespace-nowrap text-red-600 dark:text-red-400">赤▲</span>
@@ -745,7 +745,7 @@ const MarketOverview = ({ indices, detailed = false }: MarketOverviewProps) => {
             {driverStatus === "loading" ? "材料取得中" : driverStatus === "live" ? "材料反映" : "推定材料"}
           </span>
           <span
-            className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded px-1.5 py-0.5 font-bold ${
+            className={`inline-flex shrink-0 self-start items-center gap-1 whitespace-nowrap rounded px-1.5 py-0.5 font-bold ${
               status === "live"
                 ? "border border-red-600 bg-white text-red-600"
                 : "bg-muted text-muted-foreground"

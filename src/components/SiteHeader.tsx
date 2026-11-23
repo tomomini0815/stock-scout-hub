@@ -74,7 +74,7 @@ const SiteHeader = ({ activeTab = "トップ" }: SiteHeaderProps) => {
   };
 
   return (
-    <header>
+    <header className="md:sticky md:top-0 md:z-40 md:shadow-sm">
       {/* Top bar */}
       <div className="bg-header-bg text-header-foreground">
         <div className="container mx-auto flex items-center justify-between px-2.5 py-1.5 sm:px-4 sm:py-2">

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
 import MarketTicker from "@/components/MarketTicker";
+import MoneyFlowNewsSection from "@/components/MoneyFlowNewsSection";
 import { marketIndices, type NewsItem } from "@/data/stockData";
 import { normalizeArticleSummaryToJapanese, translateEnglishNewsTitle } from "@/lib/newsTranslation";
 import { Newspaper, Flame, Sparkles, ExternalLink } from "lucide-react";
@@ -551,12 +552,12 @@ const NewsPage = () => {
   }, [articleSummaries, filtered]);
 
   const categoryColors: Record<string, string> = {
-    市況: "bg-primary text-primary-foreground",
-    半導体: "bg-rose-600 text-white",
-    AI: "bg-amber-400 text-slate-950",
-    金融: "bg-blue-700 text-white",
-    個別株: "bg-emerald-700 text-white",
-    投資戦略: "bg-violet-700 text-white",
+    市況: "border border-slate-300 bg-slate-100 text-slate-700",
+    半導体: "border border-rose-200 bg-rose-50 text-rose-700",
+    AI: "border border-amber-200 bg-amber-50 text-amber-800",
+    金融: "border border-blue-200 bg-blue-50 text-blue-700",
+    個別株: "border border-emerald-200 bg-emerald-50 text-emerald-700",
+    投資戦略: "border border-violet-200 bg-violet-50 text-violet-700",
   };
 
   return (
@@ -578,45 +579,31 @@ const NewsPage = () => {
             </span>
           </div>
           <p className="mt-1 text-xxs leading-relaxed text-muted-foreground">
-            GoogleニュースRSS、Yahoo!ニュースRSS、GDELTを並列取得し、追加APIが設定されている場合だけ自動で統合します。
+            GoogleニュースRSS・Yahoo!ニュースRSS・GDELTに加え、主要8資産（日米株・米国債・米ドル・金・原油・暗号資産）の資金フロー関連ニュースも自動取得・統合します。
             {lastUpdated ? ` 最終取得: ${lastUpdated}` : " 更新まで保存済み1カ月分のニュースを表示します。"}
           </p>
-          {sourceSummary.length > 0 && (
-            <div className="mt-2 flex flex-wrap gap-1">
-              {sourceSummary.map((source) => (
-                <span
-                  key={source.provider}
-                  className={`rounded px-2 py-0.5 text-xxs font-semibold ${
-                    source.status === "live"
-                      ? "bg-stock-up/10 text-stock-up"
-                      : source.status === "error"
-                        ? "bg-stock-down/10 text-stock-down"
-                        : "bg-muted text-muted-foreground"
-                  }`}
-                >
-                  {source.provider}: {source.count}件
-                </span>
-              ))}
-            </div>
-          )}
+          <div className="mt-1.5 flex flex-wrap gap-1">
+            <span className="rounded border border-sky-200 bg-sky-50 px-2 py-0.5 text-xxs font-semibold text-sky-700">
+              資金フロー: 8資産連動
+            </span>
+            {sourceSummary.map((source) => (
+              <span
+                key={source.provider}
+                className={`rounded px-2 py-0.5 text-xxs font-semibold ${
+                  source.status === "live"
+                    ? "bg-stock-up/10 text-stock-up"
+                    : source.status === "error"
+                      ? "bg-stock-down/10 text-stock-down"
+                      : "bg-muted text-muted-foreground"
+                }`}
+              >
+                {source.provider}: {source.count}件
+              </span>
+            ))}
+          </div>
         </div>
 
-        {/* Category Filter */}
-        <div className="mb-3 flex gap-1 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
-          {categories.map((cat) => (
-            <button
-              key={cat}
-              onClick={() => setSelectedCategory(cat)}
-              className={`shrink-0 rounded px-3 py-1 text-xs font-semibold transition-colors ${
-                selectedCategory === cat
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground hover:bg-muted/80"
-              }`}
-            >
-              {cat}
-            </button>
-          ))}
-        </div>
+        <MoneyFlowNewsSection />
 
         {/* News List */}
         <div className="rounded border border-border bg-card">
@@ -627,6 +614,37 @@ const NewsPage = () => {
             <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-xxs font-bold text-slate-600">
               記事本文要約
             </span>
+          </div>
+          {/* Category Filter Tabs */}
+          <div className="flex gap-1.5 overflow-x-auto border-b border-border bg-muted/20 px-3 py-1.5 sm:flex-wrap sm:overflow-visible">
+            {categories.map((cat) => {
+              const count =
+                cat === "すべて"
+                  ? liveNews.length
+                  : liveNews.filter((item) => item.category === cat).length;
+              const active = selectedCategory === cat;
+              return (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => setSelectedCategory(cat)}
+                  className={`inline-flex shrink-0 items-center gap-1 rounded border px-2.5 py-1 text-xxs font-bold transition-colors ${
+                    active
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-border bg-background text-foreground/80 hover:bg-muted"
+                  }`}
+                >
+                  <span>{cat}</span>
+                  <span
+                    className={`rounded px-1 text-[10px] ${
+                      active ? "bg-primary-foreground/20 text-primary-foreground" : "bg-muted text-muted-foreground"
+                    }`}
+                  >
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
           </div>
           <div className="divide-y divide-border">
             {filtered.map((item) => {
@@ -645,8 +663,8 @@ const NewsPage = () => {
                           {item.date} {item.time}
                         </span>
                         <span
-                          className={`shrink-0 rounded px-1.5 py-0.5 text-xxs font-bold sm:mt-0.5 sm:px-1 sm:py-0 ${
-                            categoryColors[item.category] || "bg-slate-700 text-white"
+                          className={`shrink-0 rounded px-1.5 py-0.5 text-xxs font-bold sm:mt-0.5 sm:px-1.5 sm:py-0 ${
+                            categoryColors[item.category] || "border border-slate-300 bg-slate-100 text-slate-700"
                           }`}
                         >
                           {item.category}

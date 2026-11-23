@@ -410,16 +410,16 @@ const withTimeout = async <T,>(promise: Promise<T>, timeoutMs = TOP_NEWS_SOURCE_
   });
 
 const categoryColors: Record<string, string> = {
-  市況: "bg-primary text-primary-foreground",
-  半導体: "bg-rose-600 text-white",
-  AI: "bg-amber-400 text-slate-950",
-  金融: "bg-blue-700 text-white",
-  企業: "bg-emerald-700 text-white",
-  個別株: "bg-emerald-700 text-white",
-  決算: "bg-rose-600 text-white",
-  投資戦略: "bg-violet-700 text-white",
-  "M&A": "bg-amber-400 text-slate-950",
-  医薬品: "bg-slate-700 text-white",
+  市況: "border border-slate-300 bg-slate-100 text-slate-700",
+  半導体: "border border-rose-200 bg-rose-50 text-rose-700",
+  AI: "border border-amber-200 bg-amber-50 text-amber-800",
+  金融: "border border-blue-200 bg-blue-50 text-blue-700",
+  企業: "border border-emerald-200 bg-emerald-50 text-emerald-700",
+  個別株: "border border-emerald-200 bg-emerald-50 text-emerald-700",
+  決算: "border border-rose-200 bg-rose-50 text-rose-700",
+  投資戦略: "border border-violet-200 bg-violet-50 text-violet-700",
+  "M&A": "border border-amber-200 bg-amber-50 text-amber-800",
+  医薬品: "border border-slate-300 bg-slate-100 text-slate-700",
 };
 
 const NewsColumn = ({
@@ -490,7 +490,7 @@ const NewsColumn = ({
               </span>
               <span
                 className={`shrink-0 rounded px-1.5 py-0.5 text-xxs font-bold ${
-                  categoryColors[item.category] || "bg-slate-700 text-white"
+                  categoryColors[item.category] || "border border-slate-300 bg-slate-100 text-slate-700"
                 }`}
               >
                 {item.category}

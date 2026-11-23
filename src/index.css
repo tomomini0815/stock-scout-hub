@@ -155,6 +155,29 @@
     scrollbar-width: none;
   }
 
+  /* Always-visible subtle vertical scrollbar (overrides macOS overlay hiding) */
+  .always-scrollbar {
+    overflow-y: scroll;
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--muted-foreground) / 0.45) hsl(var(--muted) / 0.7);
+  }
+  .always-scrollbar::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+    -webkit-appearance: none;
+  }
+  .always-scrollbar::-webkit-scrollbar-track {
+    background: hsl(var(--muted) / 0.75);
+    border-left: 1px solid hsl(var(--border));
+  }
+  .always-scrollbar::-webkit-scrollbar-thumb {
+    background: hsl(var(--muted-foreground) / 0.45);
+    border-radius: 4px;
+  }
+  .always-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.65);
+  }
+
   /* Tabular numbers for financial data */
   .tabular-nums {
     font-variant-numeric: tabular-nums;

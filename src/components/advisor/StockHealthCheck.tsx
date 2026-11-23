@@ -294,53 +294,56 @@ export const StockHealthCheck = ({
         <div className="space-y-3 sm:space-y-4">
           {/* カルテメインヘッダー */}
           <div className="rounded-xl border border-border/80 bg-card p-3 shadow-xs sm:p-5">
-            <div className="flex flex-col justify-between gap-2.5 border-b border-border/60 pb-2.5 sm:gap-4 sm:pb-4 lg:flex-row lg:items-center">
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="rounded bg-muted px-2 py-0.5 font-mono text-xs font-bold text-muted-foreground">
-                    {report.stock.code}
-                  </span>
-                  <span className="text-xs text-muted-foreground font-medium">
-                    {report.stock.market}
-                  </span>
-                </div>
-                <h2 className="mt-1 text-base font-black tracking-tight text-foreground sm:text-2xl">
-                  {report.stock.name}
-                </h2>
-                <p className="mt-1 text-xxs sm:text-xs text-muted-foreground leading-relaxed line-clamp-2 sm:line-clamp-none">
-                  {report.shikihoSummary}
-                </p>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                {isNikkei ? (
-                  <div className="flex items-center gap-2 rounded-lg border border-border/80 bg-background/50 px-3 py-2 text-xs font-bold text-muted-foreground">
-                    <span>主要市場代表指数（東証プライム225）</span>
+            <div className="space-y-2 border-b border-border/60 pb-2.5 sm:space-y-2.5 sm:pb-4">
+              <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="rounded bg-muted px-2 py-0.5 font-mono text-xs font-bold text-muted-foreground">
+                      {report.stock.code}
+                    </span>
+                    <span className="text-xs text-muted-foreground font-medium">
+                      {report.stock.market}
+                    </span>
                   </div>
-                ) : (
-                  <>
-                    {/* 総合スコアとランク */}
-                    <div className="flex items-center gap-2 sm:gap-3 rounded-lg border border-border/80 bg-background/50 px-2.5 py-1.5 sm:px-3.5 sm:py-2">
-                      <div className={`flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-md border text-base sm:text-lg font-black ${getGradeColor(report.overallGrade)}`}>
-                        {report.overallGrade}
-                      </div>
-                      <div>
-                        <div className="text-[10px] sm:text-xxs font-medium text-muted-foreground">総合AIスコア</div>
-                        <div className="flex items-baseline gap-1 font-mono">
-                          <span className="text-lg sm:text-xl font-black text-foreground">{report.overallScore}</span>
-                          <span className="text-xxs text-muted-foreground">/ 100</span>
+                  <h2 className="mt-1 text-base font-black tracking-tight text-foreground sm:text-2xl">
+                    {report.stock.name}
+                  </h2>
+                </div>
+
+                <div className="ml-auto flex flex-wrap items-center justify-end gap-2 sm:gap-3">
+                  {isNikkei ? (
+                    <div className="flex items-center gap-2 rounded-lg border border-border/80 bg-background/50 px-3 py-2 text-xs font-bold text-muted-foreground">
+                      <span>主要市場代表指数（東証プライム225）</span>
+                    </div>
+                  ) : (
+                    <>
+                      {/* 総合スコアとランク */}
+                      <div className="flex items-center gap-2 sm:gap-3 rounded-lg border border-border/80 bg-background/50 px-2.5 py-1.5 sm:px-3.5 sm:py-2">
+                        <div className={`flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-md border text-base sm:text-lg font-black ${getGradeColor(report.overallGrade)}`}>
+                          {report.overallGrade}
+                        </div>
+                        <div>
+                          <div className="text-[10px] sm:text-xxs font-medium text-muted-foreground">総合AIスコア</div>
+                          <div className="flex items-baseline gap-1 font-mono">
+                            <span className="text-lg sm:text-xl font-black text-foreground">{report.overallScore}</span>
+                            <span className="text-xxs text-muted-foreground">/ 100</span>
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    {/* 総合判定 */}
-                    <div className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 sm:px-3 sm:py-2 font-bold text-xs ${getVerdictBadge(report.verdict).bg}`}>
-                      {getVerdictBadge(report.verdict).icon}
-                      <span>{report.verdict}</span>
-                    </div>
-                  </>
-                )}
+                      {/* 総合判定 */}
+                      <div className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 sm:px-3 sm:py-2 font-bold text-xs ${getVerdictBadge(report.verdict).bg}`}>
+                        {getVerdictBadge(report.verdict).icon}
+                        <span>{report.verdict}</span>
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
+
+              <p className="text-xxs sm:text-xs text-muted-foreground leading-relaxed">
+                {report.shikihoSummary}
+              </p>
             </div>
 
             {/* 主要ファンダメンタルズ & 需給指標実数グリッド（正確な実データのみを掲載） */}
@@ -365,10 +368,10 @@ export const StockHealthCheck = ({
                 <div className="space-y-2">
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     <div className="rounded-md border border-border/60 bg-muted/20 p-2 text-xs font-mono">
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-start justify-between gap-1">
                         <span className="text-muted-foreground text-xxs block font-sans">指数現在値</span>
                         {liveStatus === "live" && (
-                          <span className="inline-flex items-center gap-1 rounded border border-red-600 bg-white px-1.5 py-0.2 text-[10px] font-bold text-red-600">
+                          <span className="ml-auto inline-flex shrink-0 self-start items-center gap-1 rounded border border-red-600 bg-white px-1.5 py-0.2 text-[10px] font-bold text-red-600">
                             <span className="h-1.5 w-1.5 rounded-full bg-red-600" />
                             LIVE
                           </span>
@@ -388,10 +391,10 @@ export const StockHealthCheck = ({
                 <div className="grid grid-cols-2 gap-1.5 sm:gap-2 sm:grid-cols-4 lg:grid-cols-7 text-xs font-mono">
                   {/* 現在値 */}
                   <div className="rounded-md border border-border/60 bg-muted/20 p-1.5 sm:p-2">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-start justify-between gap-1">
                       <span className="text-muted-foreground text-xxs block font-sans">現在値</span>
                       {liveStatus === "live" && (
-                        <span className="inline-flex items-center gap-1 rounded border border-red-600 bg-white px-1.5 py-0.2 text-[10px] font-bold text-red-600">
+                        <span className="ml-auto inline-flex shrink-0 self-start items-center gap-1 rounded border border-red-600 bg-white px-1.5 py-0.2 text-[10px] font-bold text-red-600">
                           <span className="h-1.5 w-1.5 rounded-full bg-red-600" />
                           LIVE
                         </span>
@@ -613,11 +616,20 @@ export const StockHealthCheck = ({
                     <Tooltip
                       formatter={(val: number) => [`${val}点`, "評価"]}
                       contentStyle={{
-                        backgroundColor: "rgba(15, 23, 42, 0.95)",
-                        borderColor: "rgba(255, 255, 255, 0.1)",
+                        backgroundColor: "rgba(15, 23, 42, 0.96)",
+                        borderColor: "rgba(148, 163, 184, 0.3)",
                         borderRadius: "8px",
-                        fontSize: "11px",
-                        color: "#fff",
+                        fontSize: "12px",
+                        color: "#f8fafc",
+                      }}
+                      labelStyle={{
+                        color: "#f8fafc",
+                        fontWeight: 700,
+                        marginBottom: "2px",
+                      }}
+                      itemStyle={{
+                        color: "#7dd3fc",
+                        fontWeight: 700,
                       }}
                     />
                   </RadarChart>
