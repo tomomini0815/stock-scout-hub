@@ -428,22 +428,37 @@ const MoneyFlowCups = ({ indices, stocks = [] }: MoneyFlowCupsProps) => {
       aria-label="資金集中マップ（コップで可視化）"
       className="overflow-hidden rounded-md border border-border bg-card"
     >
-      {/* ヘッダー（タイトル＋タブ＋LIVEバッジを右寄せ1行に集約） */}
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-table-header-bg px-3 py-2 sm:px-4">
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <h2 className="whitespace-nowrap text-sm sm:text-base font-extrabold text-foreground">
-            いま資金はどこに集中している？
-          </h2>
+      {/* ヘッダー（モバイル: 1段目タイトル+右上LIVE / 2段目タブ右寄せ、PC: 1行集約） */}
+      <div className="flex flex-col gap-2 border-b border-border bg-table-header-bg px-3 py-2 sm:px-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex min-w-0 items-start justify-between gap-2 lg:contents">
+          <div className="flex min-w-0 flex-wrap items-center gap-1.5 sm:gap-2 lg:order-1">
+            <h2 className="text-sm sm:text-base font-extrabold leading-tight text-foreground">
+              いま資金はどこに集中している？
+            </h2>
+            <span
+              className={`shrink-0 whitespace-nowrap rounded border px-2 py-0.5 text-xxs font-bold ${getRegimeBadgeClass(
+                overview.regimeTone
+              )}`}
+            >
+              {overview.regimeLabel}
+            </span>
+          </div>
+
+          {/* 常に右端に配置するLIVEバッジ */}
           <span
-            className={`whitespace-nowrap rounded border px-2 py-0.5 text-xxs font-bold ${getRegimeBadgeClass(
-              overview.regimeTone
-            )}`}
+            className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded px-1.5 py-0.5 text-xxs font-bold lg:order-3 ${
+              liveBadgeStatus === "live"
+                ? "border border-red-600 bg-white text-red-600"
+                : "bg-muted text-muted-foreground"
+            }`}
+            title={updatedLabel ? `更新 ${updatedLabel}` : undefined}
           >
-            {overview.regimeLabel}
+            {liveBadgeStatus === "live" && <span className="h-1.5 w-1.5 rounded-full bg-red-600" />}
+            {liveBadgeStatus === "live" ? "LIVE" : liveBadgeStatus === "cached" ? "前回値" : "確認中"}
           </span>
         </div>
 
-        <div className="ml-auto flex max-w-full flex-nowrap items-center justify-end gap-1.5 overflow-x-auto no-scrollbar sm:gap-2">
+        <div className="flex flex-nowrap items-center justify-end gap-1.5 sm:gap-2 lg:order-2 lg:ml-auto">
           {/* 期間切替タブ（今日 / 1週間 / 1ヶ月） */}
           <div
             role="tablist"
@@ -486,7 +501,8 @@ const MoneyFlowCups = ({ indices, stocks = [] }: MoneyFlowCupsProps) => {
                   : "text-foreground/75 hover:text-foreground"
               }`}
             >
-              世界の資金フロー
+              <span className="sm:hidden">世界フロー</span>
+              <span className="hidden sm:inline">世界の資金フロー</span>
             </button>
             <button
               type="button"
@@ -499,22 +515,10 @@ const MoneyFlowCups = ({ indices, stocks = [] }: MoneyFlowCupsProps) => {
                   : "text-foreground/75 hover:text-foreground"
               }`}
             >
-              日本株セクター別
+              <span className="sm:hidden">セクター別</span>
+              <span className="hidden sm:inline">日本株セクター別</span>
             </button>
           </div>
-
-          {/* 常に右端に配置するLIVEバッジ */}
-          <span
-            className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded px-1.5 py-0.5 text-xxs font-bold ${
-              liveBadgeStatus === "live"
-                ? "border border-red-600 bg-white text-red-600"
-                : "bg-muted text-muted-foreground"
-            }`}
-            title={updatedLabel ? `更新 ${updatedLabel}` : undefined}
-          >
-            {liveBadgeStatus === "live" && <span className="h-1.5 w-1.5 rounded-full bg-red-600" />}
-            {liveBadgeStatus === "live" ? "LIVE" : liveBadgeStatus === "cached" ? "前回値" : "確認中"}
-          </span>
         </div>
       </div>
 

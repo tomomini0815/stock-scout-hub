@@ -905,7 +905,7 @@ export const RateVoiceAlertControl = ({ indices }: RateVoiceAlertControlProps) =
                   <div className="space-y-1.5 rounded border border-border bg-background p-2 text-[10px]">
                     <label className="flex cursor-pointer items-center justify-between gap-2">
                       <span className="text-foreground/85">
-                        <strong>VOICEVOX 連携（本物のアニメ声）</strong>（PCで無料アプリ VOICEVOX 起動時に自動接続）
+                        <strong>VOICEVOX アニメ音声（PC・スマホ対応）</strong>（本番・スマホはWEB版VOICEVOXで自動再生／PCアプリ起動時はローカル優先）
                       </span>
                       <input
                         type="checkbox"

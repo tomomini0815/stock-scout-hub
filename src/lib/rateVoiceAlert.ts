@@ -136,7 +136,7 @@ export const DEFAULT_VOICE_ALERT_SETTINGS: RateVoiceAlertSettings = {
   includeTime: false,
   customTemplate: DEFAULT_CUSTOM_TEMPLATE,
   voiceCharacter: "normal",
-  useVoicevox: false,
+  useVoicevox: true,
   voicevoxSpeakerId: 1, // 1: ずんだもん（あまあま）
   voiceName: "",
   speechRate: 1.1,
@@ -209,7 +209,10 @@ export const loadVoiceAlertSettings = (): RateVoiceAlertSettings => {
           ? parsed.customTemplate
           : DEFAULT_CUSTOM_TEMPLATE,
       voiceCharacter: parsed.voiceCharacter === "zunda" ? "zunda" : "normal",
-      useVoicevox: Boolean(parsed.useVoicevox),
+      useVoicevox:
+        typeof parsed.useVoicevox === "boolean"
+          ? parsed.useVoicevox
+          : DEFAULT_VOICE_ALERT_SETTINGS.useVoicevox,
       voicevoxSpeakerId:
         typeof parsed.voicevoxSpeakerId === "number" && Number.isFinite(parsed.voicevoxSpeakerId)
           ? parsed.voicevoxSpeakerId
@@ -1194,13 +1197,23 @@ const splitSpeechChunks = (text: string): string[] => {
   return chunks;
 };
 
-const synthesizeVoicevoxBlob = async (
+const isLocalHttpOrigin = (): boolean => {
+  if (typeof window === "undefined") return false;
+  const { protocol, hostname } = window.location;
+  return (
+    protocol === "http:" &&
+    (hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1")
+  );
+};
+
+const synthesizeLocalVoicevoxBlob = async (
   chunk: string,
   rate: number,
   volume: number,
   speaker: number,
   timeoutMs = 15000
 ): Promise<Blob | null> => {
+  if (!isLocalHttpOrigin()) return null;
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -1228,7 +1241,49 @@ const synthesizeVoicevoxBlob = async (
   }
 };
 
-const playBlobAudio = (blob: Blob, volume: number, sessionId: number): Promise<boolean> =>
+const synthesizeServerVoicevoxBlob = async (
+  chunk: string,
+  speaker: number,
+  timeoutMs = 15000
+): Promise<Blob | null> => {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(
+      `/api/tts?speaker=${encodeURIComponent(String(speaker))}&text=${encodeURIComponent(chunk)}`,
+      { signal: controller.signal }
+    );
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    return blob.size > 256 ? blob : null;
+  } catch {
+    return null;
+  } finally {
+    window.clearTimeout(timeout);
+  }
+};
+
+const synthesizeVoicevoxBlob = async (
+  chunk: string,
+  rate: number,
+  volume: number,
+  speaker: number,
+  timeoutMs = 15000
+): Promise<{ blob: Blob; isServerMp3: boolean } | null> => {
+  const localBlob = await synthesizeLocalVoicevoxBlob(chunk, rate, volume, speaker, timeoutMs);
+  if (localBlob) return { blob: localBlob, isServerMp3: false };
+
+  const serverBlob = await synthesizeServerVoicevoxBlob(chunk, speaker, timeoutMs);
+  if (serverBlob) return { blob: serverBlob, isServerMp3: true };
+  return null;
+};
+
+const playBlobAudio = (
+  blob: Blob,
+  volume: number,
+  sessionId: number,
+  playbackRate = 1.0
+): Promise<boolean> =>
   new Promise((resolve) => {
     if (sessionId !== currentVoicevoxSessionId) {
       resolve(false);
@@ -1238,6 +1293,7 @@ const playBlobAudio = (blob: Blob, volume: number, sessionId: number): Promise<b
     const audio = new Audio(url);
     currentVoicevoxAudio = audio;
     audio.volume = Math.min(1, Math.max(0.1, volume));
+    audio.playbackRate = Math.min(1.6, Math.max(0.7, playbackRate));
     const cleanup = (ok: boolean) => {
       URL.revokeObjectURL(url);
       if (currentVoicevoxAudio === audio) {
@@ -1251,9 +1307,9 @@ const playBlobAudio = (blob: Blob, volume: number, sessionId: number): Promise<b
   });
 
 /**
- * ローカル起動中の VOICEVOX (http://127.0.0.1:50021) で音声を再生。
+ * VOICEVOX音声を再生（ローカル起動中は 127.0.0.1:50021 を優先、本番HTTPS・スマホ・未起動時は /api/tts 経由のWEB版VOICEVOXへ自動切替）。
  * 定時読み上げなどの長文は句点単位で分割＋先読み合成し、タイムアウトや待機遅延を防ぐ。
- * 未起動時は false を返し、ブラウザ音声へ自動フォールバックする。
+ * どちらも失敗したときのみ false を返し、ブラウザ音声へ自動フォールバックする。
  */
 const trySpeakWithVoicevox = async (
   text: string,
@@ -1273,30 +1329,29 @@ const trySpeakWithVoicevox = async (
   }
 
   try {
-    // 1文目を合成（未起動時は接続拒否で即座にnullになる）
-    let nextBlobPromise: Promise<Blob | null> | null = synthesizeVoicevoxBlob(
-      chunks[0],
-      rate,
-      volume,
-      speaker,
-      15000
-    );
+    let nextPromise: Promise<{ blob: Blob; isServerMp3: boolean } | null> | null =
+      synthesizeVoicevoxBlob(chunks[0], rate, volume, speaker, 15000);
 
     for (let i = 0; i < chunks.length; i += 1) {
       if (sessionId !== currentVoicevoxSessionId) return true;
-      const blob = await nextBlobPromise;
-      if (!blob) {
+      const result = await nextPromise;
+      if (!result) {
         return i > 0;
       }
       if (sessionId !== currentVoicevoxSessionId) return true;
 
       // 現在の文を再生している間に次の文を先読み合成
-      nextBlobPromise =
+      nextPromise =
         i + 1 < chunks.length
           ? synthesizeVoicevoxBlob(chunks[i + 1], rate, volume, speaker, 15000)
           : null;
 
-      const played = await playBlobAudio(blob, volume, sessionId);
+      const played = await playBlobAudio(
+        result.blob,
+        volume,
+        sessionId,
+        result.isServerMp3 ? rate : 1.0
+      );
       if (!played && i === 0) return false;
     }
     return true;

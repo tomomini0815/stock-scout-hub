@@ -716,13 +716,40 @@ const MarketOverview = ({ indices, detailed = false }: MarketOverviewProps) => {
   }, [displayIndices]);
 
   return (
-    <div className="rounded border border-border bg-card">
-      <div className="flex items-center justify-between gap-1.5 border-b border-border bg-table-header-bg px-2.5 py-1.5 sm:px-3">
-        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-          <h3 className="flex shrink-0 items-center gap-1 text-xs font-bold text-foreground whitespace-nowrap">
+    <div className="overflow-hidden rounded border border-border bg-card">
+      <div className="flex flex-col gap-1.5 border-b border-border bg-table-header-bg px-2.5 py-2 sm:flex-row sm:items-center sm:justify-between sm:gap-2 sm:px-3 sm:py-1.5">
+        <div className="flex min-w-0 items-center justify-between gap-2 sm:contents">
+          <h3 className="flex shrink-0 items-center gap-1 text-xs font-bold text-foreground whitespace-nowrap sm:order-1">
             <Newspaper className="h-3.5 w-3.5 text-primary" />
             {detailed ? "主要指数詳細" : "主要指数"}
           </h3>
+          <div className="flex shrink-0 items-center gap-1.5 text-xxs font-semibold text-muted-foreground sm:order-3 sm:ml-auto sm:gap-2">
+            {/* 日本株カラー表記案内（超コンパクト） */}
+            <span
+              className="inline-flex shrink-0 items-center gap-0.5 whitespace-nowrap rounded border border-border/80 bg-background px-1.5 py-0.5 text-xxs font-bold shadow-2xs"
+              title="当サイトのカラー設定：赤が上昇・買い、青が下降・売りです"
+            >
+              <span className="whitespace-nowrap text-red-600 dark:text-red-400">赤▲</span>
+              <span className="text-muted-foreground/30">/</span>
+              <span className="whitespace-nowrap text-blue-600 dark:text-blue-400">青▼</span>
+            </span>
+            <span className="hidden shrink-0 whitespace-nowrap rounded bg-muted px-1.5 py-0.5 text-muted-foreground sm:inline">
+              {driverStatus === "loading" ? "材料取得中" : driverStatus === "live" ? "材料反映" : "推定材料"}
+            </span>
+            <span
+              className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded px-1.5 py-0.5 font-bold ${
+                status === "live"
+                  ? "border border-red-600 bg-white text-red-600"
+                  : "bg-muted text-muted-foreground"
+              }`}
+              title={updatedLabel ? `更新 ${updatedLabel}` : undefined}
+            >
+              {status === "live" && <span className="h-1.5 w-1.5 rounded-full bg-red-600" />}
+              {status === "live" ? "LIVE" : status === "cached" ? "前回値" : "確認中"}
+            </span>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center justify-end gap-1.5 sm:order-2 sm:justify-start sm:gap-2">
           <button
             type="button"
             onClick={() => {
@@ -748,28 +775,6 @@ const MarketOverview = ({ indices, detailed = false }: MarketOverviewProps) => {
             <span className="whitespace-nowrap">各チャート表示</span>
           </button>
           <RateVoiceAlertControl indices={displayIndices} />
-        </div>
-        <div className="ml-auto flex shrink-0 items-start gap-1.5 sm:gap-2 text-xxs font-semibold text-muted-foreground">
-          {/* 日本株カラー表記案内（超コンパクト） */}
-          <span className="inline-flex shrink-0 items-center gap-0.5 whitespace-nowrap rounded border border-border/80 bg-background px-1.5 py-0.5 text-xxs font-bold shadow-2xs" title="当サイトのカラー設定：赤が上昇・買い、青が下降・売りです">
-            <span className="whitespace-nowrap text-red-600 dark:text-red-400">赤▲</span>
-            <span className="text-muted-foreground/30">/</span>
-            <span className="whitespace-nowrap text-blue-600 dark:text-blue-400">青▼</span>
-          </span>
-          <span className="hidden shrink-0 whitespace-nowrap rounded bg-muted px-1.5 py-0.5 text-muted-foreground sm:inline">
-            {driverStatus === "loading" ? "材料取得中" : driverStatus === "live" ? "材料反映" : "推定材料"}
-          </span>
-          <span
-            className={`inline-flex shrink-0 self-start items-center gap-1 whitespace-nowrap rounded px-1.5 py-0.5 font-bold ${
-              status === "live"
-                ? "border border-red-600 bg-white text-red-600"
-                : "bg-muted text-muted-foreground"
-            }`}
-            title={updatedLabel ? `更新 ${updatedLabel}` : undefined}
-          >
-            {status === "live" && <span className="h-1.5 w-1.5 rounded-full bg-red-600" />}
-            {status === "live" ? "LIVE" : status === "cached" ? "前回値" : "確認中"}
-          </span>
         </div>
       </div>
       <div className="grid grid-cols-2 gap-0 md:grid-cols-4">
@@ -859,7 +864,7 @@ const MarketOverview = ({ indices, detailed = false }: MarketOverviewProps) => {
 
               {/* 現物（サブ1行表示） */}
               {hasFutures && (
-                <div className="mt-0.5 flex items-center gap-1 text-xxs tabular-nums text-muted-foreground">
+                <div className="mt-0.5 flex flex-wrap items-center gap-x-1 text-xxs tabular-nums text-muted-foreground">
                   <span className="font-bold text-foreground/70">
                     {index.name === "NASDAQ" ? "現物(総合)" : "現物"}
                   </span>

@@ -2,6 +2,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { fetchEdinetDocumentArchive, fetchSmartMoneyData } from "./api/_shared/smart-money.js";
+import { synthesizeWebVoicevoxMp3 } from "./api/tts.js";
 
 const googleQuotes = [
   { name: "日経平均", path: "NI225:INDEXNIKKEI", ticker: "NI225", exchange: "INDEXNIKKEI" },
@@ -1516,6 +1517,29 @@ const newsSourcePlugin = () => ({
         sendJson(res, payload);
       } catch {
         sendOptionalSourceError(res, "data");
+      }
+    });
+
+    server.middlewares.use("/api/tts", async (req, res) => {
+      try {
+        const requestUrl = new URL(req.url ?? "", "http://localhost");
+        const text = requestUrl.searchParams.get("text")?.trim() ?? "";
+        const speaker = Number(requestUrl.searchParams.get("speaker") ?? "1");
+        if (!text) {
+          sendJson(res, { error: "text is required" }, 400);
+          return;
+        }
+        const result = await synthesizeWebVoicevoxMp3(text, speaker);
+        if (!result) {
+          sendJson(res, { error: "tts synthesis unavailable" }, 502);
+          return;
+        }
+        res.statusCode = 200;
+        res.setHeader("Content-Type", result.contentType);
+        res.setHeader("Cache-Control", "public, max-age=3600");
+        res.end(result.buffer);
+      } catch {
+        sendJson(res, { error: "tts synthesis failed" }, 502);
       }
     });
   },
