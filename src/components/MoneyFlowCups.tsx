@@ -429,8 +429,8 @@ const MoneyFlowCups = ({ indices, stocks = [] }: MoneyFlowCupsProps) => {
       className="overflow-hidden rounded-md border border-border bg-card"
     >
       {/* ヘッダー（モバイル: 1段目タイトル+右上LIVE / 2段目タブ右寄せ、PC: 1行集約） */}
-      <div className="flex flex-col gap-2 border-b border-border bg-table-header-bg px-3 py-2 sm:px-4 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex min-w-0 items-start justify-between gap-2 lg:contents">
+      <div className="flex flex-col gap-1.5 border-b border-border bg-table-header-bg px-3 py-2 sm:px-3.5 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex min-w-0 items-center justify-between gap-2 lg:contents">
           <div className="flex min-w-0 flex-wrap items-center gap-1.5 sm:gap-2 lg:order-1">
             <h2 className="text-sm sm:text-base font-extrabold leading-tight text-foreground">
               いま資金はどこに集中している？
@@ -522,13 +522,13 @@ const MoneyFlowCups = ({ indices, stocks = [] }: MoneyFlowCupsProps) => {
         </div>
       </div>
 
-      <div className="space-y-4 p-4">
+      <div className="space-y-3.5 p-3.5">
         {/* ひとこと結論 */}
-        <div className="rounded-md border border-border border-l-4 border-l-primary bg-muted/35 px-4 py-3">
-          <p className="text-sm sm:text-base font-extrabold leading-snug text-foreground">
+        <div className="rounded border border-border border-l-4 border-l-primary bg-muted/35 px-3.5 py-2.5">
+          <p className="text-sm font-extrabold leading-snug text-foreground">
             {overview.headline}
           </p>
-          <p className="mt-1 text-xs sm:text-sm leading-relaxed text-foreground/75">
+          <p className="mt-1 text-xs leading-relaxed text-foreground/75">
             水位が高いコップほど資金が集中している領域です。各コップをクリックすると右側の深掘り解説が切り替わります。
           </p>
         </div>
@@ -620,27 +620,27 @@ const MoneyFlowCups = ({ indices, stocks = [] }: MoneyFlowCupsProps) => {
         </div>
 
         {/* 詳しい解説エリア：全体理由 + 選択中のコップ深掘り */}
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
+        <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-12">
           {/* 左：なぜ今こうなっているのか（全体の構造解説） */}
-          <div className="min-w-0 rounded-md border border-border bg-background p-4 lg:col-span-6">
-            <h3 className="mb-3 border-b border-border pb-2 text-sm sm:text-base font-extrabold text-foreground">
+          <div className="min-w-0 rounded border border-border bg-background p-3.5 lg:col-span-6">
+            <h3 className="mb-2.5 border-b border-border pb-1.5 text-sm font-extrabold text-foreground">
               なぜ今この水位になっているのか？（全体の理由解説）
             </h3>
 
-            <p className="mb-4 text-sm leading-7 text-foreground/95">
+            <p className="mb-3 text-[13px] leading-relaxed text-foreground/95">
               {overview.leadSummary}
             </p>
 
-            <div className="divide-y divide-border rounded-md border border-border">
+            <div className="divide-y divide-border rounded border border-border">
               {overview.reasons.map((reason) => (
-                <div key={reason.title} className="px-3.5 py-3">
-                  <div className="text-sm font-extrabold text-foreground">{reason.title}</div>
-                  <p className="mt-1 text-sm leading-7 text-foreground/85">{reason.body}</p>
+                <div key={reason.title} className="px-3 py-2.5">
+                  <div className="text-[13px] font-extrabold leading-snug text-foreground">{reason.title}</div>
+                  <p className="mt-1 text-[13px] leading-relaxed text-foreground/85">{reason.body}</p>
                 </div>
               ))}
             </div>
 
-            <div className="mt-3.5 rounded-md border border-amber-200/90 bg-amber-50/55 px-3.5 py-3 text-sm leading-7 text-foreground/90 dark:border-amber-900/60 dark:bg-amber-950/25">
+            <div className="mt-3 rounded border border-amber-200/90 bg-amber-50/55 px-3 py-2.5 text-[13px] leading-relaxed text-foreground/90 dark:border-amber-900/60 dark:bg-amber-950/25">
               <span className="font-extrabold text-amber-900 dark:text-amber-200">
                 資金ローテーションの着眼点：
               </span>
@@ -648,32 +648,32 @@ const MoneyFlowCups = ({ indices, stocks = [] }: MoneyFlowCupsProps) => {
             </div>
 
             {/* 最新の重要ニュースと資金フローへの影響解説 */}
-            <div className="mt-4 border-t border-border pt-3.5">
-              <div className="mb-2.5 flex items-center justify-between gap-2">
-                <h4 className="text-sm font-extrabold text-foreground">
+            <div className="mt-3.5 border-t border-border pt-3">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <h4 className="text-[13px] font-extrabold text-foreground">
                   いまの騰落原因・重要ニュース（規制・政権・マクロ）
                 </h4>
-                <span className="rounded border border-border bg-muted/60 px-2 py-0.5 text-xs font-semibold text-foreground/75">
+                <span className="shrink-0 rounded border border-border bg-muted/60 px-1.5 py-0.5 text-xxs font-semibold text-foreground/75">
                   {newsStatus === "loading" ? "ニュース取得中" : topNews.length ? `${topNews.length}件反映` : "市況監視中"}
                 </span>
               </div>
 
               {topNews.length > 0 ? (
-                <div className="space-y-2.5">
+                <div className="space-y-2">
                   {topNews.map((item) => (
                     <article
                       key={item.id}
-                      className="rounded-md border border-border bg-card p-3 transition-colors hover:border-foreground/30"
+                      className="rounded border border-border bg-card p-2.5 transition-colors hover:border-foreground/30"
                     >
-                      <div className="mb-1 flex flex-wrap items-center gap-1.5 text-xs">
+                      <div className="mb-1 flex flex-wrap items-center gap-1 text-xxs">
                         <span
-                          className={`rounded border px-2 py-0.5 font-bold ${getDirectionBadgeClass(
+                          className={`rounded border px-1.5 py-0.5 font-bold ${getDirectionBadgeClass(
                             item.direction
                           )}`}
                         >
                           {item.directionLabel}
                         </span>
-                        <span className="rounded border border-sky-200 bg-sky-50 px-2 py-0.5 font-bold text-sky-800 dark:border-sky-900/70 dark:bg-sky-950/40 dark:text-sky-200">
+                        <span className="rounded border border-sky-200 bg-sky-50 px-1.5 py-0.5 font-bold text-sky-800 dark:border-sky-900/70 dark:bg-sky-950/40 dark:text-sky-200">
                           {item.impactTag}
                         </span>
                         {item.matchedCupLabels.map((label) => (
@@ -684,7 +684,7 @@ const MoneyFlowCups = ({ indices, stocks = [] }: MoneyFlowCupsProps) => {
                             {label}
                           </span>
                         ))}
-                        <span className="ml-auto text-xs text-muted-foreground">
+                        <span className="ml-auto text-xxs text-muted-foreground">
                           {item.source}
                           {item.dateLabel ? `・${item.dateLabel}` : ""}
                         </span>
@@ -693,17 +693,17 @@ const MoneyFlowCups = ({ indices, stocks = [] }: MoneyFlowCupsProps) => {
                       <button
                         type="button"
                         onClick={() => openNewsModal(item)}
-                        className="block w-full text-left text-sm font-bold leading-snug text-foreground hover:text-primary"
+                        className="block w-full text-left text-[13px] font-bold leading-snug text-foreground hover:text-primary"
                       >
                         {item.title}
                       </button>
 
-                      <p className="mt-1.5 text-xs sm:text-[13px] leading-relaxed text-foreground/85">
+                      <p className="mt-1 text-xs leading-relaxed text-foreground/85">
                         <span className="font-bold text-primary">解説：</span>
                         {item.impactSummary}
                       </p>
 
-                      <div className="mt-2 flex items-center justify-between gap-2 text-xxs">
+                      <div className="mt-1.5 flex items-center justify-between gap-2 text-xxs">
                         {item.url ? (
                           <a
                             href={item.url}
@@ -729,7 +729,7 @@ const MoneyFlowCups = ({ indices, stocks = [] }: MoneyFlowCupsProps) => {
                   ))}
                 </div>
               ) : (
-                <p className="rounded-md border border-border bg-muted/30 p-3 text-xs leading-relaxed text-muted-foreground">
+                <p className="rounded border border-border bg-muted/30 p-3 text-xs leading-relaxed text-muted-foreground">
                   {newsStatus === "loading"
                     ? "最新の金融・マクロニュースを取得して、各コップの水位と照合しています..."
                     : "現在、主要指数・為替・金利の数値をもとに資金フローを解析しています。最新記事は下部のニュース一覧でも確認できます。"}
@@ -740,17 +740,17 @@ const MoneyFlowCups = ({ indices, stocks = [] }: MoneyFlowCupsProps) => {
 
           {/* 右：選択中のコップを詳しく解説 */}
           {selectedCup && (
-            <div className="min-w-0 rounded-md border border-border bg-background p-4 lg:col-span-6">
-              <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-border pb-2">
-                <h3 className="text-sm sm:text-base font-extrabold text-foreground">
+            <div className="min-w-0 rounded border border-border bg-background p-3.5 lg:col-span-6">
+              <div className="mb-2.5 flex flex-wrap items-center justify-between gap-1.5 border-b border-border pb-1.5">
+                <h3 className="text-sm font-extrabold text-foreground">
                   「{selectedCup.label}」の深掘り解説
                 </h3>
-                <div className="flex items-center gap-2 text-xs font-extrabold tabular-nums">
-                  <span className="rounded border border-sky-200 bg-sky-50 px-2.5 py-1 text-sky-800 dark:border-sky-900/70 dark:bg-sky-950/40 dark:text-sky-200">
+                <div className="flex items-center gap-1.5 text-xs font-extrabold tabular-nums">
+                  <span className="rounded border border-sky-200 bg-sky-50 px-2 py-0.5 text-sky-800 dark:border-sky-900/70 dark:bg-sky-950/40 dark:text-sky-200">
                     水位 {selectedCup.waterLevel}%（{selectedCup.rank}位）
                   </span>
                   <span
-                    className={`rounded border border-border px-2.5 py-1 ${
+                    className={`rounded border border-border px-2 py-0.5 ${
                       selectedCup.changePercent > 0
                         ? "text-stock-up"
                         : selectedCup.changePercent < 0
@@ -763,26 +763,26 @@ const MoneyFlowCups = ({ indices, stocks = [] }: MoneyFlowCupsProps) => {
                 </div>
               </div>
 
-              <div className="space-y-3 text-sm leading-relaxed">
-                <div className="rounded-md border border-border p-3.5">
-                  <div className="mb-1 text-sm font-extrabold text-foreground">
+              <div className="space-y-2.5 text-[13px] leading-relaxed">
+                <div className="rounded border border-border p-3">
+                  <div className="mb-1 text-[13px] font-extrabold leading-snug text-foreground">
                     <span className="mr-1 text-primary">①</span>いまの水位になっている直接の理由
                   </div>
-                  <p className="leading-7 text-foreground/85">{selectedCup.currentReason}</p>
+                  <p className="leading-relaxed text-foreground/85">{selectedCup.currentReason}</p>
                 </div>
 
-                <div className="rounded-md border border-border p-3.5">
-                  <div className="mb-1 text-sm font-extrabold text-foreground">
+                <div className="rounded border border-border p-3">
+                  <div className="mb-1 text-[13px] font-extrabold leading-snug text-foreground">
                     <span className="mr-1 text-primary">②</span>資金が集まりやすい／抜けやすい構造的背景
                   </div>
-                  <p className="leading-7 text-foreground/85">{selectedCup.structuralBackground}</p>
+                  <p className="leading-relaxed text-foreground/85">{selectedCup.structuralBackground}</p>
                 </div>
 
-                <div className="rounded-md border border-border p-3.5">
-                  <div className="mb-1.5 text-sm font-extrabold text-foreground">
+                <div className="rounded border border-border p-3">
+                  <div className="mb-1 text-[13px] font-extrabold leading-snug text-foreground">
                     <span className="mr-1 text-primary">③</span>今後、水位が上下する転換サイン
                   </div>
-                  <ul className="list-disc space-y-1.5 pl-5 text-foreground/85">
+                  <ul className="list-disc space-y-1 pl-4 text-foreground/85">
                     {selectedCup.watchPoints.map((point) => (
                       <li key={point} className="leading-relaxed">
                         {point}
@@ -792,27 +792,27 @@ const MoneyFlowCups = ({ indices, stocks = [] }: MoneyFlowCupsProps) => {
                 </div>
 
                 {/* ④ 選択中コップに関連する最新重要ニュース */}
-                <div className="rounded-md border border-border p-3.5">
+                <div className="rounded border border-border p-3">
                   <div className="mb-2 flex items-center justify-between gap-2">
-                    <div className="text-sm font-extrabold text-foreground">
+                    <div className="text-[13px] font-extrabold leading-snug text-foreground">
                       <span className="mr-1 text-primary">④</span>「{selectedCup.shortLabel}」に関連する最新ニュース
                     </div>
                     <Link
                       to="/news"
-                      className="text-xs font-bold text-primary hover:underline"
+                      className="shrink-0 text-xs font-bold text-primary hover:underline"
                     >
                       ニュース一覧へ →
                     </Link>
                   </div>
                   {selectedCupNews.length > 0 ? (
-                    <div className="space-y-2.5">
+                    <div className="space-y-2">
                       {selectedCupNews.map((item) => (
                         <div
                           key={item.id}
                           className="rounded border border-border/80 bg-muted/25 p-2.5"
                         >
-                          <div className="mb-1 flex flex-wrap items-center justify-between gap-1 text-xs text-muted-foreground">
-                            <div className="flex flex-wrap items-center gap-1.5">
+                          <div className="mb-1 flex flex-wrap items-center justify-between gap-1 text-xxs text-muted-foreground">
+                            <div className="flex flex-wrap items-center gap-1">
                               <span
                                 className={`rounded border px-1.5 py-0.5 font-bold leading-none ${getDirectionBadgeClass(
                                   item.direction
@@ -830,7 +830,7 @@ const MoneyFlowCups = ({ indices, stocks = [] }: MoneyFlowCupsProps) => {
                           <button
                             type="button"
                             onClick={() => openNewsModal(item)}
-                            className="block w-full text-left text-xs sm:text-sm font-bold leading-snug text-foreground hover:text-primary"
+                            className="block w-full text-left text-[13px] font-bold leading-snug text-foreground hover:text-primary"
                           >
                             {item.title}
                           </button>
@@ -874,35 +874,35 @@ const MoneyFlowCups = ({ indices, stocks = [] }: MoneyFlowCupsProps) => {
 
                 {/* セクター別モード時は代表構成銘柄を表示 */}
                 {selectedCup.constituents && selectedCup.constituents.length > 0 && (
-                  <div className="rounded-md border border-border p-3.5">
-                    <div className="mb-2 flex items-center justify-between gap-2">
-                      <span className="text-sm font-extrabold text-foreground">
+                  <div className="rounded border border-border p-3">
+                    <div className="mb-1.5 flex items-center justify-between gap-2">
+                      <span className="text-[13px] font-extrabold text-foreground">
                         代表銘柄の動き（クリックでチャートへ）
                       </span>
                       <Link
                         to="/themes"
-                        className="text-xs font-bold text-primary hover:underline"
+                        className="shrink-0 text-xs font-bold text-primary hover:underline"
                       >
                         テーマ一覧へ →
                       </Link>
                     </div>
-                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
                       {selectedCup.constituents.map((item) => (
                         <Link
                           key={item.code}
                           to={`/chart?code=${item.code}`}
-                          className="flex items-center justify-between rounded border border-border bg-background px-3 py-2 transition-colors hover:border-foreground/40 hover:bg-muted/40"
+                          className="flex items-center justify-between rounded border border-border bg-background px-2.5 py-1.5 transition-colors hover:border-foreground/40 hover:bg-muted/40"
                         >
                           <div className="min-w-0">
                             <span className="mr-1.5 text-xs font-mono font-semibold text-foreground/65">
                               {item.code}
                             </span>
-                            <span className="text-xs sm:text-sm font-bold text-foreground">
+                            <span className="text-[13px] font-bold text-foreground">
                               {item.name}
                             </span>
                           </div>
                           <span
-                            className={`ml-2 shrink-0 text-sm font-extrabold tabular-nums ${
+                            className={`ml-2 shrink-0 text-[13px] font-extrabold tabular-nums ${
                               item.changePercent > 0
                                 ? "text-stock-up"
                                 : item.changePercent < 0
@@ -919,12 +919,12 @@ const MoneyFlowCups = ({ indices, stocks = [] }: MoneyFlowCupsProps) => {
                 )}
 
                 {/* キーワード & 導線 */}
-                <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                <div className="flex flex-wrap items-center justify-between gap-1.5 pt-0.5">
                   <div className="flex flex-wrap items-center gap-1.5">
                     {selectedCup.tags.map((tag) => (
                       <span
                         key={tag}
-                        className="rounded border border-border bg-muted/60 px-2.5 py-0.5 text-xs font-semibold text-foreground/80"
+                        className="rounded border border-border bg-muted/60 px-2 py-0.5 text-xs font-semibold text-foreground/80"
                       >
                         #{tag}
                       </span>
@@ -934,7 +934,7 @@ const MoneyFlowCups = ({ indices, stocks = [] }: MoneyFlowCupsProps) => {
                     <button
                       type="button"
                       onClick={() => setMode("sectors")}
-                      className="text-xs sm:text-sm font-bold text-primary hover:underline"
+                      className="text-xs font-bold text-primary hover:underline"
                     >
                       日本株のセクター別コップを見る →
                     </button>

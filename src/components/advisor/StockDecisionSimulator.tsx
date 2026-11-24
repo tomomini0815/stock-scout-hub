@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { Link } from "react-router-dom";
 import {
   Activity,
@@ -147,6 +147,7 @@ export const StockDecisionSimulator = ({
   const [stockCodeB, setStockCodeB] = useState<string>("7267");
   const [searchQueryA, setSearchQueryA] = useState<string>("");
   const [searchQueryB, setSearchQueryB] = useState<string>("");
+  const versusResultRef = useRef<HTMLDivElement>(null);
 
   // --- 2. 売買シナリオ判定の状態 ---
   const [scenarioStockCode, setScenarioStockCode] = useState<string>(
@@ -523,6 +524,12 @@ export const StockDecisionSimulator = ({
                     onClick={() => {
                       setStockCodeA(rp.codeA);
                       setStockCodeB(rp.codeB);
+                      window.setTimeout(() => {
+                        versusResultRef.current?.scrollIntoView({
+                          behavior: "smooth",
+                          block: "start",
+                        });
+                      }, 60);
                     }}
                     className={`flex flex-col items-start rounded-lg border p-1.5 sm:p-2 text-left text-xs transition-colors ${
                       isSelected
@@ -677,7 +684,8 @@ export const StockDecisionSimulator = ({
 
           {/* 総合判定勝敗バナー */}
           <div
-            className={`rounded-xl border p-3 sm:p-4 shadow-xs transition-colors ${
+            ref={versusResultRef}
+            className={`scroll-mt-14 rounded-xl border p-3 sm:p-4 shadow-xs transition-colors ${
               overallWinner === "A"
                 ? "border-blue-500/30 bg-blue-500/5"
                 : overallWinner === "B"
