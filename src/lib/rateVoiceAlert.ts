@@ -1036,6 +1036,74 @@ export const getJapaneseVoices = (): SpeechSynthesisVoice[] => {
   return voices.filter((v) => v.lang.toLowerCase().startsWith("ja"));
 };
 
+const SILENT_WAV_DATA_URI =
+  "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA";
+
+let sharedAudioCtx: AudioContext | null = null;
+let sharedAudioElement: HTMLAudioElement | null = null;
+let mobileAudioUnlocked = false;
+
+const getSharedAudioContext = (): AudioContext | null => {
+  if (typeof window === "undefined") return null;
+  const AudioCtx =
+    window.AudioContext ||
+    (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+  if (!AudioCtx) return null;
+  if (!sharedAudioCtx || sharedAudioCtx.state === "closed") {
+    sharedAudioCtx = new AudioCtx();
+  }
+  if (sharedAudioCtx.state === "suspended") {
+    sharedAudioCtx.resume().catch(() => {});
+  }
+  return sharedAudioCtx;
+};
+
+const getSharedAudioElement = (): HTMLAudioElement | null => {
+  if (typeof window === "undefined" || typeof Audio === "undefined") return null;
+  if (!sharedAudioElement) {
+    const el = new Audio();
+    el.setAttribute("playsinline", "true");
+    el.preload = "auto";
+    sharedAudioElement = el;
+  }
+  return sharedAudioElement;
+};
+
+/**
+ * モバイルブラウザ（iOS Safari / Android Chrome）の自動再生制限をユーザー操作の同期イベント内で解除する
+ */
+export const unlockMobileAudio = () => {
+  if (typeof window === "undefined") return;
+  try {
+    getSharedAudioContext();
+
+    const audio = getSharedAudioElement();
+    if (audio && !mobileAudioUnlocked) {
+      audio.src = SILENT_WAV_DATA_URI;
+      audio.volume = 0.01;
+      const playPromise = audio.play();
+      if (playPromise && typeof playPromise.then === "function") {
+        playPromise
+          .then(() => {
+            audio.pause();
+            audio.currentTime = 0;
+            mobileAudioUnlocked = true;
+          })
+          .catch(() => {});
+      }
+    }
+
+    if (isSpeechSynthesisSupported() && !mobileAudioUnlocked) {
+      const dummy = new SpeechSynthesisUtterance("");
+      dummy.lang = "ja-JP";
+      dummy.volume = 0;
+      window.speechSynthesis.speak(dummy);
+    }
+  } catch {
+    // ignore unlock errors
+  }
+};
+
 /**
  * Web Audio API による先頭チャイム（5種類のプリセット＋上昇/下落の音程差別化）
  */
@@ -1046,11 +1114,8 @@ export const playAlertChime = (
 ): number => {
   if (typeof window === "undefined" || preset === "none") return 0;
   try {
-    const AudioCtx =
-      window.AudioContext ||
-      (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-    if (!AudioCtx) return 0;
-    const ctx = new AudioCtx();
+    const ctx = getSharedAudioContext();
+    if (!ctx) return 0;
     const peakGain = Math.min(0.55, Math.max(0.12, volume * 0.48));
 
     type ToneStep = {
@@ -1149,24 +1214,25 @@ export const playAlertChime = (
     });
 
     const totalMs = Math.round(maxEnd * 1000) + 80;
-    window.setTimeout(() => {
-      ctx.close().catch(() => {});
-    }, totalMs + 300);
     return totalMs;
   } catch {
     return 0;
   }
 };
 
-let currentVoicevoxAudio: HTMLAudioElement | null = null;
+let currentVoicevoxBlobUrl: string | null = null;
 let currentVoicevoxSessionId = 0;
 
 export const stopAllVoiceAlerts = () => {
   currentVoicevoxSessionId += 1;
-  if (currentVoicevoxAudio) {
-    currentVoicevoxAudio.pause();
-    currentVoicevoxAudio.src = "";
-    currentVoicevoxAudio = null;
+  if (sharedAudioElement) {
+    sharedAudioElement.pause();
+    sharedAudioElement.onended = null;
+    sharedAudioElement.onerror = null;
+  }
+  if (currentVoicevoxBlobUrl) {
+    URL.revokeObjectURL(currentVoicevoxBlobUrl);
+    currentVoicevoxBlobUrl = null;
   }
   if (typeof window !== "undefined" && "speechSynthesis" in window) {
     window.speechSynthesis.cancel();
@@ -1289,15 +1355,27 @@ const playBlobAudio = (
       resolve(false);
       return;
     }
+    const audio = getSharedAudioElement();
+    if (!audio) {
+      resolve(false);
+      return;
+    }
+    if (currentVoicevoxBlobUrl) {
+      URL.revokeObjectURL(currentVoicevoxBlobUrl);
+      currentVoicevoxBlobUrl = null;
+    }
     const url = URL.createObjectURL(blob);
-    const audio = new Audio(url);
-    currentVoicevoxAudio = audio;
+    currentVoicevoxBlobUrl = url;
+    audio.pause();
+    audio.src = url;
     audio.volume = Math.min(1, Math.max(0.1, volume));
     audio.playbackRate = Math.min(1.6, Math.max(0.7, playbackRate));
     const cleanup = (ok: boolean) => {
-      URL.revokeObjectURL(url);
-      if (currentVoicevoxAudio === audio) {
-        currentVoicevoxAudio = null;
+      audio.onended = null;
+      audio.onerror = null;
+      if (currentVoicevoxBlobUrl === url) {
+        URL.revokeObjectURL(url);
+        currentVoicevoxBlobUrl = null;
       }
       resolve(ok);
     };
@@ -1323,10 +1401,10 @@ const trySpeakWithVoicevox = async (
 
   currentVoicevoxSessionId += 1;
   const sessionId = currentVoicevoxSessionId;
-  if (currentVoicevoxAudio) {
-    currentVoicevoxAudio.pause();
-    currentVoicevoxAudio.src = "";
-    currentVoicevoxAudio = null;
+  if (sharedAudioElement) {
+    sharedAudioElement.pause();
+    sharedAudioElement.onended = null;
+    sharedAudioElement.onerror = null;
   }
 
   const requestTimeoutMs = isLocalHttpOrigin() ? 15000 : 22000;
@@ -1377,7 +1455,7 @@ export const speakJapaneseAlert = (
     voicevoxSpeakerId?: number;
   } = {}
 ): boolean => {
-  if (!isSpeechSynthesisSupported() || !text.trim()) return false;
+  if (typeof window === "undefined" || !text.trim()) return false;
   try {
     const {
       rate = 1.1,
@@ -1391,12 +1469,15 @@ export const speakJapaneseAlert = (
       voicevoxSpeakerId = 1,
     } = options;
 
+    if (!useVoicevox && !isSpeechSynthesisSupported()) return false;
+
     let delayMs = 0;
     if (chime && chimePreset !== "none") {
       delayMs = playAlertChime(chime, volume, chimePreset);
     }
 
     const doSpeakBrowser = () => {
+      if (!isSpeechSynthesisSupported()) return;
       const synth = window.speechSynthesis;
       if (synth.speaking || synth.pending) {
         synth.cancel();

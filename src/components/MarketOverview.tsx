@@ -328,7 +328,7 @@ const getIndexFocusTags = (index: MarketIndex) => {
   if (/TOPIX/.test(index.name)) return ["銀行", "自動車", "内需"];
   if (/ダウ/.test(index.name)) return ["景気敏感", "決算", "米金利"];
   if (/NASDAQ/.test(index.name)) return ["AI", "半導体", "メガテック"];
-  if (/S&P/.test(index.name)) return ["米大型株", "決算", "雇用・物価"];
+  if (/S&P/.test(index.name)) return ["大型株", "決算", "雇用・物価"];
   if (/USD|JPY|ドル|円/.test(index.name)) return ["日米金利差", "FRB", "日銀"];
   if (/GOLD|金/.test(index.name)) return ["実質金利", "ドル", "地政学"];
   if (/BTC|ビットコイン/.test(index.name)) return ["ETFフロー", "米金利", "リスク資産"];
@@ -724,9 +724,11 @@ const MarketOverview = ({ indices, detailed = false }: MarketOverviewProps) => {
               <Newspaper className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
               {detailed ? "主要指数詳細" : "主要指数"}
             </h3>
-            <span className="shrink-0 whitespace-nowrap rounded bg-muted px-1.5 py-0.5 text-xxs font-semibold text-muted-foreground">
-              {driverStatus === "loading" ? "材料取得中" : driverStatus === "live" ? "材料反映" : "推定材料"}
-            </span>
+            {detailed && (
+              <span className="shrink-0 whitespace-nowrap rounded bg-muted px-1.5 py-0.5 text-xxs font-semibold text-muted-foreground">
+                {driverStatus === "loading" ? "材料取得中" : driverStatus === "live" ? "材料反映" : "推定材料"}
+              </span>
+            )}
           </div>
           <div className="flex shrink-0 items-center gap-1.5 text-xxs font-semibold text-muted-foreground sm:order-3 sm:gap-2">
             {/* 日本株カラー表記案内（超コンパクト） */}
@@ -779,7 +781,7 @@ const MarketOverview = ({ indices, detailed = false }: MarketOverviewProps) => {
           <RateVoiceAlertControl indices={displayIndices} />
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-0 md:grid-cols-4">
+      <div className={`grid gap-0 ${detailed ? "grid-cols-1 sm:grid-cols-2 xl:grid-cols-4" : "grid-cols-2 md:grid-cols-4"}`}>
         {displayIndices.map((index) => {
           const hasFutures = typeof index.futuresValue === "number";
           const mainValue = hasFutures ? (index.futuresValue as number) : index.value;
@@ -903,16 +905,16 @@ const MarketOverview = ({ indices, detailed = false }: MarketOverviewProps) => {
                       </span>
                       <span className="text-[10px] font-bold leading-none text-muted-foreground">{getMoveLabel(mainChangePercent)}</span>
                     </div>
-                    <div className="mb-1 flex flex-wrap gap-1">
+                    <div className="mb-1.5 flex flex-nowrap items-center gap-1 overflow-x-auto no-scrollbar">
                       {getIndexFocusTags(index).map((tag) => (
-                        <span key={tag} className="rounded border border-border bg-background px-1 py-0.5 text-[10px] font-semibold leading-none text-primary">
+                        <span key={tag} className="shrink-0 whitespace-nowrap rounded border border-border bg-background px-1.5 py-0.5 text-[10px] font-semibold leading-none text-primary">
                           {tag}
                         </span>
                       ))}
                     </div>
-                    <ClampedDriverText text={getIndexMarketBrief(index)} lines={2} />
+                    <ClampedDriverText text={getIndexMarketBrief(index)} lines={3} />
                     {driverText && (
-                      <div className="mt-1 line-clamp-2 border-t border-border/70 pt-1 text-xxs leading-snug text-muted-foreground">
+                      <div className="mt-1.5 border-t border-border/70 pt-1.5 text-xs leading-relaxed text-foreground/85">
                         <span className="font-bold text-foreground">材料:</span> {formatDriverMaterial(driverText)}
                       </div>
                     )}
@@ -934,12 +936,12 @@ const MarketOverview = ({ indices, detailed = false }: MarketOverviewProps) => {
       {detailed && (
         <section className="border-t border-border bg-background px-3 py-1.5">
           <div className="flex flex-col gap-2">
-            <div className="flex min-w-0 flex-wrap items-center gap-1">
-              <span className={`shrink-0 rounded border px-1.5 py-0.5 text-[10px] font-black leading-none ${marketSummary.toneClass}`}>
+            <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+              <span className={`shrink-0 rounded border px-2 py-0.5 text-xxs font-black ${marketSummary.toneClass}`}>
                 市況まとめ
               </span>
               <span
-                className={`shrink-0 rounded border px-1.5 py-0.5 text-[10px] font-black leading-none ${getRiskModeClass(marketSummary.riskMode)}`}
+                className={`shrink-0 rounded border px-2 py-0.5 text-xxs font-black ${getRiskModeClass(marketSummary.riskMode)}`}
                 title={marketSummary.riskModeReason}
               >
                 {marketSummary.riskModeLabel}
@@ -948,22 +950,22 @@ const MarketOverview = ({ indices, detailed = false }: MarketOverviewProps) => {
             </div>
             <div className="grid gap-1.5 text-xxs md:grid-cols-3">
               {marketSummary.points.map((point) => (
-                <div key={point} className="rounded border border-slate-200 bg-card px-2 py-1 font-semibold leading-snug text-slate-700">
+                <div key={point} className="rounded border border-slate-200 bg-card px-2 py-1 font-semibold leading-relaxed text-slate-700">
                   {point}
                 </div>
               ))}
             </div>
-            <div className="flex min-w-0 flex-wrap items-center gap-1 text-[10px]">
-              <span className="rounded border border-red-200 bg-red-50 px-1.5 py-0.5 font-bold leading-none text-red-700">
+            <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-xxs">
+              <span className="rounded border border-red-200 bg-red-50 px-2 py-0.5 font-bold text-red-700">
                 強い: {marketSummary.strongest}
               </span>
-              <span className="rounded border border-blue-200 bg-blue-50 px-1.5 py-0.5 font-bold leading-none text-blue-700">
+              <span className="rounded border border-blue-200 bg-blue-50 px-2 py-0.5 font-bold text-blue-700">
                 弱い: {marketSummary.weakest}
               </span>
-              <span className="min-w-0 max-w-full rounded border border-slate-300 bg-slate-100 px-1.5 py-0.5 font-semibold leading-snug text-slate-700">
+              <span className="min-w-0 max-w-full rounded border border-slate-300 bg-slate-100 px-2 py-0.5 font-semibold leading-relaxed text-slate-700">
                 材料: {marketSummary.driver}
               </span>
-              <span className="min-w-0 max-w-full rounded border border-primary/30 bg-primary/5 px-1.5 py-0.5 font-bold leading-snug text-primary">
+              <span className="min-w-0 max-w-full rounded border border-primary/30 bg-primary/5 px-2 py-0.5 font-bold leading-relaxed text-primary">
                 {marketSummary.action}
               </span>
             </div>

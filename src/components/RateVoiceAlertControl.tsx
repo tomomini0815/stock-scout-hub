@@ -34,6 +34,7 @@ import {
   speakJapaneseAlert,
   SR_CHART_SYMBOL_BY_INDEX,
   stopAllVoiceAlerts,
+  unlockMobileAudio,
   VOICE_ALERT_EVENT_NAME,
   VOICE_ALERT_HISTORY_EVENT,
   type AutoRoundStepLevel,
@@ -462,7 +463,7 @@ export const RateVoiceAlertControl = ({ indices }: RateVoiceAlertControlProps) =
   const quietNow = isInQuietHours(settings);
 
   const handleToggle = () => {
-    if (!supported) {
+    if (!supported && !settings.useVoicevox) {
       toast.error("お使いのブラウザは音声読み上げ機能に対応していません。");
       return;
     }
@@ -471,6 +472,7 @@ export const RateVoiceAlertControl = ({ indices }: RateVoiceAlertControlProps) =
     updateSettings(next);
 
     if (nextEnabled) {
+      unlockMobileAudio();
       const briefing = buildPeriodicBriefingSpeech(indices, next);
       speakJapaneseAlert(
         `音声読み上げをオンにしました。監視対象は${next.targets.length}銘柄です。${briefing}`,
@@ -492,10 +494,11 @@ export const RateVoiceAlertControl = ({ indices }: RateVoiceAlertControlProps) =
   };
 
   const handleTestSpeak = (direction: "up" | "down") => {
-    if (!supported) {
+    if (!supported && !settings.useVoicevox) {
       toast.error("お使いのブラウザは音声読み上げ機能に対応していません。");
       return;
     }
+    unlockMobileAudio();
     const text = buildSpikeSpeechText(
       sampleIndex,
       getActiveIndexPrice(sampleIndex),
@@ -752,6 +755,7 @@ export const RateVoiceAlertControl = ({ indices }: RateVoiceAlertControlProps) =
                     <button
                       type="button"
                       onClick={() => {
+                        unlockMobileAudio();
                         const text = buildPeriodicBriefingSpeech(indices, settings);
                         speakJapaneseAlert(text, {
                           rate: settings.speechRate,
@@ -1420,6 +1424,7 @@ export const RateVoiceAlertControl = ({ indices }: RateVoiceAlertControlProps) =
                         <button
                           type="button"
                           onClick={() => {
+                            unlockMobileAudio();
                             const targetName = settings.srTargets[0] ?? "USD/JPY";
                             const targetIdx =
                               indices.find((item) => item.name === targetName) ??
