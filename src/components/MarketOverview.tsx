@@ -1,6 +1,7 @@
 import { type MarketIndex } from "@/data/stockData";
 import { useLiveMarketData } from "@/hooks/useLiveMarketData";
 import { isIndexMarketAfterHours } from "@/lib/marketHours";
+import { RateVoiceAlertControl } from "@/components/RateVoiceAlertControl";
 import TradingViewQuadPanel from "@/components/TradingViewQuadPanel";
 import { AlertTriangle, LayoutGrid, Newspaper, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -746,6 +747,7 @@ const MarketOverview = ({ indices, detailed = false }: MarketOverviewProps) => {
             <LayoutGrid className="h-3.5 w-3.5" />
             <span className="whitespace-nowrap">各チャート表示</span>
           </button>
+          <RateVoiceAlertControl indices={displayIndices} />
         </div>
         <div className="ml-auto flex shrink-0 items-start gap-1.5 sm:gap-2 text-xxs font-semibold text-muted-foreground">
           {/* 日本株カラー表記案内（超コンパクト） */}
