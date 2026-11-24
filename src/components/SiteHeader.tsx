@@ -95,14 +95,14 @@ const SiteHeader = ({ activeTab = "トップ" }: SiteHeaderProps) => {
                 placeholder="銘柄検索"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="h-7 w-28 rounded bg-nav-bg px-2.5 text-xs text-nav-foreground placeholder:text-nav-foreground/75 focus:outline-none focus:ring-1 focus:ring-header-accent xs:w-36 sm:h-8 sm:w-56"
+                className="h-9 w-32 rounded bg-nav-bg px-2.5 text-base text-nav-foreground placeholder:text-xs placeholder:text-nav-foreground/75 focus:outline-none focus:ring-1 focus:ring-header-accent sm:h-8 sm:w-56 sm:text-xs"
               />
               <button
                 type="submit"
                 aria-label="銘柄検索"
-                className="inline-flex h-7 w-7 items-center justify-center rounded bg-nav-bg text-nav-foreground/90 transition-colors hover:bg-nav-hover hover:text-header-accent focus:outline-none focus:ring-1 focus:ring-header-accent sm:h-8 sm:w-8"
+                className="inline-flex h-9 w-9 items-center justify-center rounded bg-nav-bg text-nav-foreground/90 transition-colors hover:bg-nav-hover hover:text-header-accent focus:outline-none focus:ring-1 focus:ring-header-accent sm:h-8 sm:w-8"
               >
-                <Search className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                <Search className="h-4 w-4" aria-hidden="true" />
               </button>
             </form>
 
@@ -116,9 +116,9 @@ const SiteHeader = ({ activeTab = "トップ" }: SiteHeaderProps) => {
                 <button
                   type="button"
                   aria-label="メニューを開く"
-                  className="inline-flex h-6.5 w-6.5 items-center justify-center rounded bg-nav-bg text-nav-foreground/80 transition-colors hover:bg-nav-hover hover:text-header-accent focus:outline-none focus:ring-1 focus:ring-header-accent sm:h-7 sm:w-7 md:hidden"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded bg-nav-bg text-nav-foreground/90 transition-colors hover:bg-nav-hover hover:text-header-accent focus:outline-none focus:ring-1 focus:ring-header-accent md:hidden"
                 >
-                  <Menu className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                  <Menu className="h-4.5 w-4.5" aria-hidden="true" />
                 </button>
               </SheetTrigger>
               <SheetContent side="right" className="flex w-[82vw] max-w-xs flex-col p-0 bg-background text-foreground">
@@ -190,17 +190,18 @@ const SiteHeader = ({ activeTab = "トップ" }: SiteHeaderProps) => {
         </div>
       </header>
 
-      {/* Navigation bar（PC時はスクロールしても常時表示） */}
-      <nav className="bg-nav-bg md:sticky md:top-0 md:z-40 md:shadow-sm">
-        <div className="container mx-auto flex items-center justify-between gap-2 px-2.5 sm:px-4">
-          <ul className="flex min-w-0 flex-1 items-center justify-start gap-0 overflow-x-auto no-scrollbar text-xs sm:text-[13px]">
+      {/* Navigation bar（PC・モバイルともにスクロールしても常時表示） */}
+      <nav aria-label="メインナビゲーション" className="sticky top-0 z-40 bg-nav-bg shadow-sm">
+        <div className="container mx-auto flex items-center justify-between gap-2 px-2 sm:px-4">
+          <ul className="flex min-w-0 flex-1 items-center justify-start gap-0.5 overflow-x-auto no-scrollbar text-xs sm:text-[13px]">
             {navItems.map((item) => (
               <li key={item.label}>
                 <Link
                   to={item.path}
-                  className={`block whitespace-nowrap px-2.5 py-2 font-medium transition-colors hover:bg-nav-hover sm:px-3 ${
+                  aria-current={activeTab === item.label ? "page" : undefined}
+                  className={`inline-flex min-h-[38px] items-center whitespace-nowrap px-2.5 py-2 font-medium transition-colors hover:bg-nav-hover sm:min-h-0 sm:px-3 ${
                     activeTab === item.label
-                      ? "border-b-2 border-header-accent text-header-accent"
+                      ? "border-b-2 border-header-accent font-bold text-header-accent"
                       : "text-nav-foreground"
                   }`}
                 >

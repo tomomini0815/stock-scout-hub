@@ -39,9 +39,9 @@ const ScrollToTopButton = () => {
       onClick={handleScrollTop}
       aria-label="ページ上部へ戻る"
       title="ページ上部へ戻る"
-      className="fixed bottom-5 right-5 z-50 inline-flex h-10 items-center gap-1 rounded-full border border-border bg-primary px-3.5 text-xs font-bold text-primary-foreground shadow-md transition-all hover:bg-primary/90 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-primary/50"
+      className="fixed bottom-[max(1.25rem,env(safe-area-inset-bottom))] right-[max(1rem,env(safe-area-inset-right))] z-50 inline-flex h-11 min-w-11 items-center justify-center gap-1 rounded-full border border-border bg-primary px-3.5 text-xs font-bold text-primary-foreground shadow-md transition-all hover:bg-primary/90 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-primary/50 sm:h-10 sm:min-w-10"
     >
-      <ArrowUp className="h-4 w-4" />
+      <ArrowUp className="h-4 w-4" aria-hidden="true" />
       <span className="hidden sm:inline">TOPへ</span>
     </button>
   );

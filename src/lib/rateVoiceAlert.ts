@@ -1173,10 +1173,10 @@ export const stopAllVoiceAlerts = () => {
   }
 };
 
-const splitSpeechChunks = (text: string): string[] => {
+const splitSpeechChunks = (text: string, maxChunkLength = 70): string[] => {
   const normalized = text.trim();
   if (!normalized) return [];
-  if (normalized.length <= 55) return [normalized];
+  if (normalized.length <= maxChunkLength) return [normalized];
   const rawParts = normalized
     .split(/(?<=[。！？])/)
     .map((part) => part.trim())
@@ -1186,7 +1186,7 @@ const splitSpeechChunks = (text: string): string[] => {
   const chunks: string[] = [];
   let buffer = "";
   for (const part of rawParts) {
-    if (buffer && buffer.length + part.length > 70) {
+    if (buffer && buffer.length + part.length > maxChunkLength) {
       chunks.push(buffer);
       buffer = part;
     } else {
@@ -1317,7 +1317,8 @@ const trySpeakWithVoicevox = async (
   volume: number,
   speaker = 1
 ): Promise<boolean> => {
-  const chunks = splitSpeechChunks(text);
+  // ローカルHTTP時は細かく分割して即時再生、本番/WEB API経由時はレート制限回避のため180文字単位にまとめる
+  const chunks = splitSpeechChunks(text, isLocalHttpOrigin() ? 70 : 180);
   if (!chunks.length) return false;
 
   currentVoicevoxSessionId += 1;
@@ -1328,9 +1329,11 @@ const trySpeakWithVoicevox = async (
     currentVoicevoxAudio = null;
   }
 
+  const requestTimeoutMs = isLocalHttpOrigin() ? 15000 : 22000;
+
   try {
     let nextPromise: Promise<{ blob: Blob; isServerMp3: boolean } | null> | null =
-      synthesizeVoicevoxBlob(chunks[0], rate, volume, speaker, 15000);
+      synthesizeVoicevoxBlob(chunks[0], rate, volume, speaker, requestTimeoutMs);
 
     for (let i = 0; i < chunks.length; i += 1) {
       if (sessionId !== currentVoicevoxSessionId) return true;
@@ -1343,7 +1346,7 @@ const trySpeakWithVoicevox = async (
       // 現在の文を再生している間に次の文を先読み合成
       nextPromise =
         i + 1 < chunks.length
-          ? synthesizeVoicevoxBlob(chunks[i + 1], rate, volume, speaker, 15000)
+          ? synthesizeVoicevoxBlob(chunks[i + 1], rate, volume, speaker, requestTimeoutMs)
           : null;
 
       const played = await playBlobAudio(

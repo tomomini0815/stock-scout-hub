@@ -22,27 +22,27 @@ export const AdvisorBanner = () => {
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
           <Link
             to="/advisor?tab=simulator"
-            className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg bg-header-accent px-3.5 py-2 text-xs font-bold text-header-bg shadow-sm transition-opacity hover:opacity-90"
+            className="inline-flex min-h-[38px] shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-header-accent px-3.5 py-2 text-xs font-bold text-header-bg shadow-sm transition-opacity hover:opacity-90 sm:min-h-0"
           >
-            <Cpu className="h-3.5 w-3.5" />
+            <Cpu className="h-3.5 w-3.5" aria-hidden="true" />
             <span className="whitespace-nowrap">投資シミュレーター</span>
-            <ArrowRight className="h-3 w-3" />
+            <ArrowRight className="h-3 w-3" aria-hidden="true" />
           </Link>
           <Link
             to="/advisor?tab=wizard"
-            className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border border-border/80 bg-background/80 px-3.5 py-2 text-xs font-semibold text-foreground transition-colors hover:bg-muted"
+            className="inline-flex min-h-[38px] shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-border/80 bg-background/80 px-3 py-2 text-xs font-semibold text-foreground transition-colors hover:bg-muted sm:min-h-0 sm:px-3.5"
           >
-            <Compass className="h-3.5 w-3.5 text-foreground" />
+            <Compass className="h-3.5 w-3.5 text-foreground" aria-hidden="true" />
             <span className="whitespace-nowrap">3分スタイル診断</span>
           </Link>
           <Link
             to="/advisor?tab=health"
-            className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border border-border/80 bg-background/80 px-3.5 py-2 text-xs font-semibold text-foreground transition-colors hover:bg-muted"
+            className="inline-flex min-h-[38px] shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-border/80 bg-background/80 px-3 py-2 text-xs font-semibold text-foreground transition-colors hover:bg-muted sm:min-h-0 sm:px-3.5"
           >
-            <Activity className="h-3.5 w-3.5 text-blue-500" />
+            <Activity className="h-3.5 w-3.5 text-blue-500" aria-hidden="true" />
             <span className="whitespace-nowrap">銘柄カルテ発行</span>
           </Link>
         </div>

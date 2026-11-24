@@ -133,8 +133,28 @@
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
     font-family: 'Noto Sans JP', sans-serif;
+    overflow-wrap: break-word;
     -webkit-font-smoothing: antialiased;
+    -webkit-tap-highlight-color: transparent;
     text-rendering: optimizeLegibility;
+  }
+
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+
+  p,
+  li {
+    text-wrap: pretty;
+  }
+
+  button,
+  a,
+  select,
+  input {
+    touch-action: manipulation;
   }
 
   #root {
@@ -142,6 +162,9 @@
     height: 100dvh;
     overflow-y: auto;
     overflow-x: hidden;
+    scroll-padding-top: 3.5rem;
+    scroll-padding-bottom: calc(3.5rem + env(safe-area-inset-bottom, 0px));
+    padding-bottom: env(safe-area-inset-bottom, 0px);
     -webkit-overflow-scrolling: touch;
     background-color: hsl(var(--background));
   }

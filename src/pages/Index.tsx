@@ -23,7 +23,7 @@ const Index = () => {
       <SiteHeader activeTab="トップ" />
       <MarketTicker indices={marketIndices} />
 
-      <main className="container mx-auto space-y-3 px-4 py-3">
+      <main className="container mx-auto space-y-3 px-2.5 py-2.5 sm:px-4 sm:py-3">
         <div>
           <MarketOverview indices={marketIndices} />
         </div>

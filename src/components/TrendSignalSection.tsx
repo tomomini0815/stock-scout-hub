@@ -316,16 +316,16 @@ const TrendSignalSection = ({ stocks, growthPicks, dailyPicks }: TrendSignalSect
   }, [candidates]);
 
   return (
-    <section className="rounded border border-border bg-card">
-      <div className="flex flex-col gap-1 border-b border-border bg-table-header-bg px-3 py-2 md:flex-row md:items-center md:justify-between">
-        <div className="flex shrink-0 items-center gap-2">
-          <RadioTower className="h-4 w-4 text-primary" />
-          <h2 className="text-sm font-bold text-foreground whitespace-nowrap">トレンド・需給シグナル</h2>
+    <section className="overflow-hidden rounded border border-border bg-card">
+      <div className="flex flex-col gap-1.5 border-b border-border bg-table-header-bg px-2.5 py-2 sm:px-3 md:flex-row md:items-center md:justify-between">
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5 sm:gap-2">
+          <RadioTower className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+          <h2 className="text-sm font-bold text-foreground">トレンド・需給シグナル</h2>
           <span className="shrink-0 rounded bg-primary px-2 py-0.5 text-xxs font-bold text-primary-foreground whitespace-nowrap">
             SMA/RSI/MACD/BB
           </span>
         </div>
-        <div className="flex shrink-0 items-center gap-2 text-xxs text-muted-foreground">
+        <div className="flex shrink-0 items-center justify-end gap-2 text-xxs text-muted-foreground">
           <span className="whitespace-nowrap">{updatedAt ? `${updatedAt}更新` : "チャート解析中"}</span>
           {!updatedAt && <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 font-bold whitespace-nowrap">取得中</span>}
         </div>

@@ -83,14 +83,14 @@ const FundamentalPicks = ({
   };
 
   return (
-    <section className="rounded border border-border bg-card">
-      <div className="flex flex-col gap-1 border-b border-border bg-table-header-bg px-3 py-2 md:flex-row md:items-center md:justify-between">
-        <div className="flex shrink-0 items-center gap-2">
-          <Target className="h-4 w-4 text-primary" />
-          <h2 className="text-sm font-bold text-foreground whitespace-nowrap">{title}</h2>
+    <section className="overflow-hidden rounded border border-border bg-card">
+      <div className="flex flex-col gap-1.5 border-b border-border bg-table-header-bg px-2.5 py-2 sm:px-3 md:flex-row md:items-center md:justify-between">
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5 sm:gap-2">
+          <Target className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+          <h2 className="text-sm font-bold text-foreground">{title}</h2>
           <span className="group relative inline-flex shrink-0" tabIndex={0}>
-            <Info className="h-3.5 w-3.5 cursor-help text-muted-foreground" />
-            <span className="pointer-events-none absolute left-0 top-5 z-20 hidden w-72 rounded border border-border bg-popover p-2 text-left text-xxs leading-relaxed text-popover-foreground shadow-lg group-hover:block group-focus-within:block">
+            <Info className="h-3.5 w-3.5 cursor-help text-muted-foreground" aria-hidden="true" />
+            <span className="pointer-events-none absolute left-0 top-5 z-20 hidden w-[min(18rem,calc(100vw-2rem))] rounded border border-border bg-popover p-2 text-left text-xxs leading-relaxed text-popover-foreground shadow-lg group-hover:block group-focus-within:block">
               <span className="mb-1 block font-bold text-foreground">スコア判断基準</span>
               {scoreCriteria.map((item) => (
                 <span key={item} className="block">・{item}</span>
@@ -101,8 +101,8 @@ const FundamentalPicks = ({
             {badge}
           </span>
         </div>
-        <div className="flex shrink-0 items-center gap-2 text-xxs text-muted-foreground">
-          <span className="whitespace-nowrap">{updatedAt || picks[0]?.updatedAt}更新・{note}</span>
+        <div className="flex min-w-0 flex-wrap items-center justify-end gap-1.5 text-xxs text-muted-foreground">
+          <span className="min-w-0 text-right leading-snug">{updatedAt || picks[0]?.updatedAt}更新・{note}</span>
           <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 font-bold text-muted-foreground whitespace-nowrap">
             {status === "loading" ? "材料取得中" : "材料更新済み"}
           </span>
