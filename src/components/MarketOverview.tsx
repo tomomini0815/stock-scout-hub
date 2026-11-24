@@ -1,9 +1,37 @@
 import { type MarketIndex } from "@/data/stockData";
 import { useLiveMarketData } from "@/hooks/useLiveMarketData";
 import { isIndexMarketAfterHours } from "@/lib/marketHours";
+import {
+  ALL_INDICATOR_NAMES,
+  computeIndicatorSnapshotFromCandles,
+  DEFAULT_SELECTED_INDICATORS,
+  loadSelectedMarketIndicators,
+  MARKET_INDICATOR_CATEGORIES,
+  PRO_INDICATOR_BY_NAME,
+  PRO_MARKET_INDICATORS,
+  PRO_PRESET_INDICATORS,
+  saveSelectedMarketIndicators,
+  type ExtraIndicatorSnapshot,
+} from "@/lib/proMarketIndicators";
 import { RateVoiceAlertControl } from "@/components/RateVoiceAlertControl";
 import TradingViewQuadPanel from "@/components/TradingViewQuadPanel";
-import { AlertTriangle, LayoutGrid, Newspaper, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  AlertTriangle,
+  Check,
+  LayoutGrid,
+  Minus,
+  Newspaper,
+  SlidersHorizontal,
+  TrendingDown,
+  TrendingUp,
+} from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 interface MarketOverviewProps {
@@ -199,6 +227,10 @@ const getFallbackDriverFocus = (index: MarketIndex) => {
       ? "米実質金利低下、ドル安、地政学リスク、インフレ警戒を確認。"
       : "米実質金利上昇、ドル高、リスク選好回復による金売りを確認。";
   }
+  const proDef = PRO_INDICATOR_BY_NAME[index.name];
+  if (proDef) {
+    return isUp ? proDef.driverUp : proDef.driverDown;
+  }
   return "為替、金利、海外市場、先物、関連セクターの動きを確認。";
 };
 
@@ -324,14 +356,8 @@ const getIndexMarketBrief = (index: MarketIndex) => {
 };
 
 const getIndexFocusTags = (index: MarketIndex) => {
-  if (/日経/.test(index.name)) return ["半導体", "ドル円", "米金利"];
-  if (/TOPIX/.test(index.name)) return ["銀行", "自動車", "内需"];
-  if (/ダウ/.test(index.name)) return ["景気敏感", "決算", "米金利"];
-  if (/NASDAQ/.test(index.name)) return ["AI", "半導体", "メガテック"];
-  if (/S&P/.test(index.name)) return ["大型株", "決算", "雇用・物価"];
-  if (/USD|JPY|ドル|円/.test(index.name)) return ["日米金利差", "FRB", "日銀"];
-  if (/GOLD|金/.test(index.name)) return ["実質金利", "ドル", "地政学"];
-  if (/BTC|ビットコイン/.test(index.name)) return ["ETFフロー", "米金利", "リスク資産"];
+  const proDef = PRO_INDICATOR_BY_NAME[index.name];
+  if (proDef) return proDef.focusTags;
   return ["為替", "金利", "海外市場"];
 };
 
@@ -523,9 +549,182 @@ const ClampedDriverText = ({ text, lines = 2 }: { text?: string; lines?: 2 | 3 }
   );
 };
 
+const getIndexRegionFlag = (name: string): string => {
+  const def = PRO_INDICATOR_BY_NAME[name];
+  if (def) return def.flag;
+  return "🌐";
+};
+
+const indicatorSnapshotCache = new Map<string, { snapshot: ExtraIndicatorSnapshot; fetchedAt: number }>();
+const SPARKLINE_CACHE_MS = 2 * 60 * 1000;
+
+const useSelectedIndicatorSnapshots = (selectedNames: string[], needCoreSparklines: boolean) => {
+  const [snapshotsByName, setSnapshotsByName] = useState<Record<string, ExtraIndicatorSnapshot>>(() => {
+    const init: Record<string, ExtraIndicatorSnapshot> = {};
+    indicatorSnapshotCache.forEach((entry, key) => {
+      init[key] = entry.snapshot;
+    });
+    return init;
+  });
+
+  const namesKey = selectedNames.join(",");
+
+  useEffect(() => {
+    let active = true;
+    const now = Date.now();
+
+    selectedNames.forEach((name) => {
+      const def = PRO_INDICATOR_BY_NAME[name];
+      if (!def) return;
+      // 詳細モードではコア8銘柄のスパークラインは不要（追加プロ指標のみ取得）
+      if (def.isCore && !needCoreSparklines) return;
+
+      const cached = indicatorSnapshotCache.get(name);
+      if (cached && now - cached.fetchedAt < SPARKLINE_CACHE_MS) {
+        setSnapshotsByName((prev) => (prev[name] ? prev : { ...prev, [name]: cached.snapshot }));
+        return;
+      }
+
+      fetch(`/api/stock-chart?symbol=${encodeURIComponent(def.chartSymbol)}&range=5d&interval=15m`)
+        .then((res) => (res.ok ? res.json() : null))
+        .then((payload) => {
+          if (!active || !Array.isArray(payload?.candles)) return;
+          const snapshot = computeIndicatorSnapshotFromCandles(payload.candles);
+          if (!snapshot) return;
+          indicatorSnapshotCache.set(name, { snapshot, fetchedAt: Date.now() });
+          setSnapshotsByName((prev) => ({ ...prev, [name]: snapshot }));
+        })
+        .catch(() => {});
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [namesKey, needCoreSparklines]);
+
+  return snapshotsByName;
+};
+
+const formatCompactAxisValue = (name: string, value: number): string => {
+  const def = PRO_INDICATOR_BY_NAME[name];
+  if (def?.decimals === 3) return value.toFixed(3);
+  if (/USD|JPY|EUR/.test(name)) return value.toFixed(2);
+  if (Math.abs(value) >= 1000) return Math.round(value).toLocaleString();
+  return value.toFixed(def?.decimals ?? 1);
+};
+
+const IndexMiniChartSvg = ({
+  name,
+  rawPoints,
+  currentValue,
+  prevClose,
+  isUp,
+  isDown,
+}: {
+  name: string;
+  rawPoints?: number[];
+  currentValue: number;
+  prevClose: number;
+  isUp: boolean;
+  isDown: boolean;
+}) => {
+  const scaledPoints = useMemo(() => {
+    if (!rawPoints || rawPoints.length < 2) {
+      // データ取得中の仮ライン（前日終値→現在値）
+      return [prevClose, (prevClose + currentValue) / 2, currentValue];
+    }
+    const last = rawPoints[rawPoints.length - 1];
+    const scale = last > 0 && currentValue > 0 ? currentValue / last : 1;
+    const mapped = rawPoints.map((v) => v * scale);
+    mapped[mapped.length - 1] = currentValue;
+    return mapped;
+  }, [rawPoints, currentValue, prevClose]);
+
+  const high = Math.max(...scaledPoints, prevClose);
+  const low = Math.min(...scaledPoints, prevClose);
+  const span = Math.max(high - low, Math.abs(currentValue) * 0.002 || 1);
+  const pad = span * 0.1;
+  const maxY = high + pad;
+  const minY = low - pad;
+  const rangeY = maxY - minY || 1;
+
+  const w = 160;
+  const h = 62;
+  const toX = (i: number) => (i / Math.max(1, scaledPoints.length - 1)) * w;
+  const toY = (v: number) => h - ((v - minY) / rangeY) * h;
+
+  const baselineY = toY(prevClose);
+  const linePath = scaledPoints
+    .map((v, i) => `${i === 0 ? "M" : "L"}${toX(i).toFixed(1)},${toY(v).toFixed(1)}`)
+    .join(" ");
+  const areaPath = `${linePath} L${w},${baselineY.toFixed(1)} L0,${baselineY.toFixed(1)} Z`;
+  const lastY = toY(currentValue);
+
+  const areaFill = isUp
+    ? "rgba(220, 38, 38, 0.22)"
+    : isDown
+      ? "rgba(37, 99, 235, 0.20)"
+      : "rgba(100, 116, 139, 0.16)";
+  const baseLineColor = isUp ? "#ef4444" : isDown ? "#3b82f6" : "#94a3b8";
+
+  return (
+    <div className="flex items-stretch gap-1 px-1.5 py-0.5">
+      <div className="relative min-w-0 flex-1">
+        <svg
+          viewBox={`0 0 ${w} ${h}`}
+          preserveAspectRatio="none"
+          className="h-[58px] w-full overflow-visible sm:h-[64px]"
+          aria-hidden="true"
+        >
+          {/* グリッド補助線 */}
+          <line x1={0} y1={h * 0.25} x2={w} y2={h * 0.25} stroke="rgba(148,163,184,0.22)" strokeWidth="0.7" />
+          <line x1={0} y1={h * 0.5} x2={w} y2={h * 0.5} stroke="rgba(148,163,184,0.22)" strokeWidth="0.7" />
+          <line x1={0} y1={h * 0.75} x2={w} y2={h * 0.75} stroke="rgba(148,163,184,0.22)" strokeWidth="0.7" />
+
+          {/* 前日終値基準線からの塗りつぶし */}
+          <path d={areaPath} fill={areaFill} />
+
+          {/* 前日終値基準線 */}
+          <line
+            x1={0}
+            y1={baselineY}
+            x2={w}
+            y2={baselineY}
+            stroke={baseLineColor}
+            strokeWidth="1"
+            strokeDasharray="2 2"
+          />
+
+          {/* 値動きライン */}
+          <path d={linePath} fill="none" stroke="#1e3a8a" strokeWidth="1.35" strokeLinejoin="round" />
+
+          {/* 現在値マーカー */}
+          <circle cx={w} cy={lastY} r="2.2" fill={baseLineColor} />
+        </svg>
+      </div>
+      {/* 右軸の高値・現在値・安値ラベル */}
+      <div className="flex shrink-0 flex-col justify-between py-0.5 text-right font-mono text-[9px] leading-none tabular-nums sm:text-[10px]">
+        <span className="rounded bg-red-50/90 px-1 py-0.5 font-bold text-red-700 dark:bg-red-950/40 dark:text-red-300">
+          {formatCompactAxisValue(name, high)}
+        </span>
+        <span className="font-bold text-foreground/80">
+          {formatCompactAxisValue(name, currentValue)}
+        </span>
+        <span className="rounded bg-blue-50/90 px-1 py-0.5 font-bold text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">
+          {formatCompactAxisValue(name, low)}
+        </span>
+      </div>
+    </div>
+  );
+};
+
 const MarketOverview = ({ indices, detailed = false }: MarketOverviewProps) => {
   const cachedDrivers = loadCachedDrivers();
   const [showIndexCharts, setShowIndexCharts] = useState(false);
+  const [selectorOpen, setSelectorOpen] = useState(false);
+  const [selectedIndicatorNames, setSelectedIndicatorNames] = useState<string[]>(() =>
+    loadSelectedMarketIndicators()
+  );
   const [indexChartLayout, setIndexChartLayout] = useState<"8" | "4">("8");
   const [isMobileChartViewport, setIsMobileChartViewport] = useState(false);
   const [mobileDrawingToolsOpen, setMobileDrawingToolsOpen] = useState(false);
@@ -538,9 +737,60 @@ const MarketOverview = ({ indices, detailed = false }: MarketOverviewProps) => {
     status,
     updatedAt,
   } = useLiveMarketData(indices);
+
+  const updateSelectedIndicators = (next: string[]) => {
+    const valid = next.filter((n) => Boolean(PRO_INDICATOR_BY_NAME[n]));
+    if (!valid.length) return;
+    setSelectedIndicatorNames(valid);
+    saveSelectedMarketIndicators(valid);
+  };
+
+  const toggleIndicator = (name: string) => {
+    const exists = selectedIndicatorNames.includes(name);
+    if (exists && selectedIndicatorNames.length <= 1) return;
+    const next = exists
+      ? selectedIndicatorNames.filter((n) => n !== name)
+      : [...selectedIndicatorNames, name];
+    updateSelectedIndicators(next);
+  };
+
+  const snapshotsByName = useSelectedIndicatorSnapshots(selectedIndicatorNames, !detailed);
+
+  const visibleIndices = useMemo<MarketIndex[]>(() => {
+    const coreMap = new Map(displayIndices.map((idx) => [idx.name, idx]));
+    const selectedSet = new Set(selectedIndicatorNames);
+    const list: MarketIndex[] = [];
+
+    for (const def of PRO_MARKET_INDICATORS) {
+      if (!selectedSet.has(def.name)) continue;
+      const core = coreMap.get(def.name);
+      if (core) {
+        list.push(core);
+        continue;
+      }
+      const snap = snapshotsByName[def.name];
+      if (snap) {
+        list.push({
+          name: def.name,
+          value: snap.value,
+          change: snap.change,
+          changePercent: snap.changePercent,
+        });
+      } else {
+        list.push({
+          name: def.name,
+          value: 0,
+          change: 0,
+          changePercent: 0,
+        });
+      }
+    }
+    return list;
+  }, [displayIndices, selectedIndicatorNames, snapshotsByName]);
+
   const marketDriverByName = useMemo(
-    () => buildMarketDriverMap(displayIndices, driverNews),
-    [displayIndices, driverNews]
+    () => buildMarketDriverMap(visibleIndices, driverNews),
+    [visibleIndices, driverNews]
   );
   const marketSummary = useMemo(
     () => buildMarketSummary(displayIndices, marketDriverByName),
@@ -724,8 +974,11 @@ const MarketOverview = ({ indices, detailed = false }: MarketOverviewProps) => {
               <Newspaper className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
               {detailed ? "主要指数詳細" : "主要指数"}
             </h3>
+            <span className="shrink-0 whitespace-nowrap rounded border border-border bg-muted px-2 py-0.5 text-xxs font-bold text-foreground/80">
+              前日比
+            </span>
             {detailed && (
-              <span className="shrink-0 whitespace-nowrap rounded bg-muted px-1.5 py-0.5 text-xxs font-semibold text-muted-foreground">
+              <span className="shrink-0 whitespace-nowrap rounded border border-border bg-muted px-1.5 py-0.5 text-xxs font-semibold text-muted-foreground">
                 {driverStatus === "loading" ? "材料取得中" : driverStatus === "live" ? "材料反映" : "推定材料"}
               </span>
             )}
@@ -756,6 +1009,19 @@ const MarketOverview = ({ indices, detailed = false }: MarketOverviewProps) => {
         <div className="flex flex-wrap items-center justify-end gap-1.5 sm:order-2 sm:ml-auto sm:gap-2">
           <button
             type="button"
+            onClick={() => setSelectorOpen(true)}
+            className="inline-flex h-7 shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded border border-border bg-background px-2 text-xxs font-bold text-foreground transition-colors hover:bg-muted"
+            aria-label="表示する銘柄・指標を選択"
+            title="日本株・米国株・為替・金利・コモディティから表示銘柄を選択"
+          >
+            <SlidersHorizontal className="h-3 w-3 text-primary" aria-hidden="true" />
+            <span className="whitespace-nowrap">表示銘柄</span>
+            <span className="rounded bg-muted px-1 text-[10px] font-extrabold text-primary">
+              {selectedIndicatorNames.length}
+            </span>
+          </button>
+          <button
+            type="button"
             onClick={() => {
               setShowIndexCharts((value) => {
                 const nextValue = !value;
@@ -781,8 +1047,15 @@ const MarketOverview = ({ indices, detailed = false }: MarketOverviewProps) => {
           <RateVoiceAlertControl indices={displayIndices} />
         </div>
       </div>
-      <div className={`grid gap-0 ${detailed ? "grid-cols-1 sm:grid-cols-2 xl:grid-cols-4" : "grid-cols-2 md:grid-cols-4"}`}>
-        {displayIndices.map((index) => {
+      <div
+        className={
+          detailed
+            ? "grid grid-cols-1 gap-0 sm:grid-cols-2 xl:grid-cols-4"
+            : "grid grid-cols-2 gap-1.5 bg-muted/40 p-1.5 sm:gap-2 sm:p-2 lg:grid-cols-4"
+        }
+      >
+        {visibleIndices.map((index) => {
+          const proDef = PRO_INDICATOR_BY_NAME[index.name];
           const hasFutures = typeof index.futuresValue === "number";
           const mainValue = hasFutures ? (index.futuresValue as number) : index.value;
           const mainChange =
@@ -798,6 +1071,143 @@ const MarketOverview = ({ indices, detailed = false }: MarketOverviewProps) => {
           const isAfterHours = isIndexMarketAfterHours(index.name);
           const urgentMove = isUrgentMove(mainChangePercent);
           const driverText = urgentDrivers[index.name]?.text ?? marketDriverByName.get(index.name);
+          const prevClose = mainValue - mainChange;
+          const displayTitle = hasFutures
+            ? index.name === "NASDAQ"
+              ? "NASDAQ100先物"
+              : `${index.name}先物`
+            : index.name;
+          const isWholeNumber = hasFutures && (index.name === "日経平均" || index.name === "NYダウ");
+          const decimals = isWholeNumber ? 0 : proDef?.decimals ?? 2;
+          const unitSuffix = proDef?.unit ?? "";
+          const isLoadingExtra = !proDef?.isCore && mainValue === 0;
+
+          if (!detailed) {
+            return (
+              <div
+                key={index.name}
+                className="flex flex-col justify-between overflow-hidden rounded-md border border-border bg-card shadow-2xs transition-colors hover:border-foreground/30"
+              >
+                {/* タイル上部ヘッダー帯（国旗＋銘柄名＋RT/時間外） */}
+                <div className="flex items-center justify-between gap-1 border-b border-border/80 bg-gradient-to-b from-muted/80 to-muted/35 px-2 py-1">
+                  <div className="flex min-w-0 items-center gap-1">
+                    <span className="shrink-0 text-xs leading-none" aria-hidden="true">
+                      {getIndexRegionFlag(index.name)}
+                    </span>
+                    <span className="truncate text-[11px] font-extrabold text-foreground sm:text-xs">
+                      {displayTitle}
+                    </span>
+                  </div>
+                  {isAfterHours ? (
+                    <span className="shrink-0 rounded border border-slate-300 bg-background px-1 py-0 text-[9px] font-bold text-slate-600">
+                      時間外
+                    </span>
+                  ) : hasFutures ? (
+                    <span className="shrink-0 rounded border border-border/80 bg-background px-1 py-0 text-[9px] font-bold text-muted-foreground">
+                      RT
+                    </span>
+                  ) : null}
+                </div>
+
+                {/* 大きな騰落率 */}
+                <div
+                  className={`pt-1 text-center text-lg font-black leading-none tracking-tight tabular-nums sm:text-xl ${
+                    isLoadingExtra
+                      ? "text-muted-foreground"
+                      : isUp
+                        ? "text-stock-up"
+                        : isDown
+                          ? "text-stock-down"
+                          : "text-stock-unchanged"
+                  }`}
+                >
+                  {isLoadingExtra ? (
+                    <span className="text-xs font-bold">取得中...</span>
+                  ) : (
+                    <>
+                      {isUp ? "+" : ""}
+                      {mainChangePercent.toFixed(2)}
+                      <span className="text-xs font-extrabold sm:text-sm">%</span>
+                    </>
+                  )}
+                </div>
+
+                {/* ライブミニラインチャート（基準線＋塗りつぶし＋高値/安値） */}
+                <IndexMiniChartSvg
+                  name={index.name}
+                  rawPoints={snapshotsByName[index.name]?.points}
+                  currentValue={mainValue || 1}
+                  prevClose={prevClose || 1}
+                  isUp={isUp}
+                  isDown={isDown}
+                />
+
+                {/* 下部：太字の現在値＋前日比 */}
+                <div className="border-t border-border/50 bg-background/60 px-1.5 py-1 text-center">
+                  <div className="flex flex-wrap items-baseline justify-center gap-x-1.5 leading-tight">
+                    <span className="text-sm font-black tabular-nums text-foreground sm:text-base">
+                      {isLoadingExtra
+                        ? "--"
+                        : `${mainValue.toLocaleString(undefined, {
+                            minimumFractionDigits: decimals,
+                            maximumFractionDigits: decimals,
+                          })}${unitSuffix}`}
+                    </span>
+                    {!isLoadingExtra && (
+                      <span
+                        className={`text-xs font-extrabold tabular-nums ${
+                          isUp
+                            ? "text-stock-up"
+                            : isDown
+                            ? "text-stock-down"
+                            : "text-stock-unchanged"
+                        }`}
+                      >
+                        {isUp ? "+" : ""}
+                        {mainChange.toFixed(decimals)}
+                      </span>
+                    )}
+                  </div>
+                  {hasFutures && (
+                    <div className="mt-0.5 truncate text-[10px] tabular-nums text-muted-foreground">
+                      <span>現物 </span>
+                      <span className="font-semibold text-foreground/80">
+                        {index.value.toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </span>
+                      <span
+                        className={`ml-0.5 font-bold ${
+                          index.changePercent >= 0 ? "text-stock-up" : "text-stock-down"
+                        }`}
+                      >
+                        ({index.changePercent >= 0 ? "+" : ""}
+                        {index.changePercent.toFixed(2)}%)
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* 騰落原因（簡潔3行まとめ） */}
+                {driverText && (
+                  <div
+                    className={`border-t px-2 py-1.5 text-left ${getDriverPanelClass(mainChangePercent)}`}
+                    title={driverText}
+                  >
+                    <div className="mb-0.5 flex items-center gap-1 text-[10px] font-bold leading-none text-foreground/75">
+                      {urgentMove && <AlertTriangle className="h-2.5 w-2.5 shrink-0 text-amber-500" aria-hidden="true" />}
+                      <span>{getMoveLabel(mainChangePercent)}</span>
+                    </div>
+                    <p className="line-clamp-3 text-[10px] leading-snug text-foreground/85 sm:text-xxs">
+                      {formatDriverMaterial(driverText)}
+                    </p>
+                  </div>
+                )}
+              </div>
+            );
+          }
+
           return (
             <div
               key={index.name}
@@ -994,6 +1404,110 @@ const MarketOverview = ({ indices, detailed = false }: MarketOverviewProps) => {
           />
         </div>
       )}
+
+      {/* カテゴリ別 表示銘柄選択モーダル */}
+      <Dialog open={selectorOpen} onOpenChange={setSelectorOpen}>
+        <DialogContent className="flex max-h-[86dvh] w-[95vw] max-w-lg flex-col gap-0 overflow-hidden p-0">
+          <DialogHeader className="shrink-0 border-b border-border bg-table-header-bg px-4 py-3 pr-10 text-left">
+            <DialogTitle className="text-sm font-extrabold text-foreground">
+              表示する市況・プロ投資家指標を選択
+            </DialogTitle>
+            <DialogDescription className="text-xxs text-muted-foreground">
+              日本株・米国株・為替・金利・コモディティから見たい指標を自由に選べます（自動保存）。
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* ワンクリックプリセット */}
+          <div className="flex shrink-0 flex-wrap items-center gap-1.5 border-b border-border bg-muted/20 px-4 py-2">
+            <span className="whitespace-nowrap text-[10px] font-bold text-muted-foreground">プリセット:</span>
+            <button
+              type="button"
+              onClick={() => updateSelectedIndicators(DEFAULT_SELECTED_INDICATORS)}
+              className="whitespace-nowrap rounded border border-border bg-background px-2 py-1 text-xxs font-bold text-foreground hover:bg-muted"
+            >
+              標準8銘柄
+            </button>
+            <button
+              type="button"
+              onClick={() => updateSelectedIndicators(PRO_PRESET_INDICATORS)}
+              className="whitespace-nowrap rounded border border-primary/40 bg-primary/10 px-2 py-1 text-xxs font-bold text-primary hover:bg-primary/15"
+            >
+              プロ定番12銘柄（+SOX/金利/VIX/原油）
+            </button>
+            <button
+              type="button"
+              onClick={() => updateSelectedIndicators(ALL_INDICATOR_NAMES)}
+              className="whitespace-nowrap rounded border border-border bg-background px-2 py-1 text-xxs font-bold text-foreground hover:bg-muted"
+            >
+              全銘柄 ({ALL_INDICATOR_NAMES.length})
+            </button>
+          </div>
+
+          <div className="always-scrollbar min-h-0 flex-1 space-y-3 px-4 py-3 text-xs">
+            {MARKET_INDICATOR_CATEGORIES.map((cat) => {
+              const items = PRO_MARKET_INDICATORS.filter((item) => item.category === cat.id);
+              const allChecked = items.every((item) => selectedIndicatorNames.includes(item.name));
+              return (
+                <div key={cat.id} className="rounded-md border border-border bg-muted/15 p-2.5">
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <span className="text-xs font-extrabold text-foreground">{cat.label}</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const catNames = items.map((i) => i.name);
+                        if (allChecked) {
+                          const remaining = selectedIndicatorNames.filter((n) => !catNames.includes(n));
+                          if (remaining.length > 0) updateSelectedIndicators(remaining);
+                        } else {
+                          const merged = Array.from(new Set([...selectedIndicatorNames, ...catNames]));
+                          updateSelectedIndicators(merged);
+                        }
+                      }}
+                      className="whitespace-nowrap rounded border border-border bg-background px-2 py-0.5 text-[10px] font-bold text-primary hover:bg-muted"
+                    >
+                      {allChecked ? "このカテゴリを解除" : "すべて選択"}
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {items.map((item) => {
+                      const active = selectedIndicatorNames.includes(item.name);
+                      return (
+                        <button
+                          key={item.name}
+                          type="button"
+                          onClick={() => toggleIndicator(item.name)}
+                          className={`inline-flex items-center gap-1 whitespace-nowrap rounded border px-2 py-1 text-xxs font-bold transition-colors ${
+                            active
+                              ? "border-primary bg-primary text-primary-foreground"
+                              : "border-border bg-background text-foreground/80 hover:bg-muted"
+                          }`}
+                        >
+                          <span aria-hidden="true">{item.flag}</span>
+                          <span>{item.name}</span>
+                          {active && <Check className="h-3 w-3 shrink-0" aria-hidden="true" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="flex shrink-0 items-center justify-between gap-2 border-t border-border bg-muted/20 px-4 py-2.5">
+            <span className="whitespace-nowrap text-xxs font-bold text-muted-foreground">
+              選択中: {selectedIndicatorNames.length} / {ALL_INDICATOR_NAMES.length} 銘柄
+            </span>
+            <button
+              type="button"
+              onClick={() => setSelectorOpen(false)}
+              className="ml-auto shrink-0 whitespace-nowrap rounded bg-primary px-4 py-1.5 text-xs font-bold text-primary-foreground hover:bg-primary/90"
+            >
+              閉じる
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

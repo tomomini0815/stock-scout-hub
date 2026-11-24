@@ -649,12 +649,12 @@ const MoneyFlowCups = ({ indices, stocks = [] }: MoneyFlowCupsProps) => {
 
             {/* 最新の重要ニュースと資金フローへの影響解説 */}
             <div className="mt-3.5 border-t border-border pt-3">
-              <div className="mb-2 flex items-center justify-between gap-2">
-                <h4 className="text-[13px] font-extrabold text-foreground">
+              <div className="mb-2 flex items-center justify-between gap-1.5">
+                <h4 className="min-w-0 text-[13px] font-extrabold leading-snug text-foreground">
                   いまの騰落原因・重要ニュース（規制・政権・マクロ）
                 </h4>
-                <span className="shrink-0 rounded border border-border bg-muted/60 px-1.5 py-0.5 text-xxs font-semibold text-foreground/75">
-                  {newsStatus === "loading" ? "ニュース取得中" : topNews.length ? `${topNews.length}件反映` : "市況監視中"}
+                <span className="shrink-0 whitespace-nowrap rounded border border-border bg-muted/60 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-foreground/75">
+                  {newsStatus === "loading" ? "取得中" : topNews.length ? `${topNews.length}件反映` : "監視中"}
                 </span>
               </div>
 
@@ -665,26 +665,26 @@ const MoneyFlowCups = ({ indices, stocks = [] }: MoneyFlowCupsProps) => {
                       key={item.id}
                       className="rounded border border-border bg-card p-2.5 transition-colors hover:border-foreground/30"
                     >
-                      <div className="mb-1 flex flex-wrap items-center gap-1 text-xxs">
+                      <div className="mb-1 flex flex-nowrap items-center gap-1 overflow-x-auto no-scrollbar text-[10px]">
                         <span
-                          className={`rounded border px-1.5 py-0.5 font-bold ${getDirectionBadgeClass(
+                          className={`shrink-0 whitespace-nowrap rounded border px-1 py-0.5 font-bold leading-none ${getDirectionBadgeClass(
                             item.direction
                           )}`}
                         >
                           {item.directionLabel}
                         </span>
-                        <span className="rounded border border-sky-200 bg-sky-50 px-1.5 py-0.5 font-bold text-sky-800 dark:border-sky-900/70 dark:bg-sky-950/40 dark:text-sky-200">
+                        <span className="shrink-0 whitespace-nowrap rounded border border-sky-200 bg-sky-50 px-1 py-0.5 font-bold leading-none text-sky-800 dark:border-sky-900/70 dark:bg-sky-950/40 dark:text-sky-200">
                           {item.impactTag}
                         </span>
                         {item.matchedCupLabels.map((label) => (
                           <span
                             key={label}
-                            className="rounded border border-border bg-muted/60 px-1.5 py-0.5 font-semibold text-foreground/80"
+                            className="shrink-0 whitespace-nowrap rounded border border-border bg-muted/60 px-1 py-0.5 font-semibold leading-none text-foreground/80"
                           >
                             {label}
                           </span>
                         ))}
-                        <span className="ml-auto text-xxs text-muted-foreground">
+                        <span className="ml-auto shrink-0 whitespace-nowrap pl-1 text-[10px] leading-none text-muted-foreground">
                           {item.source}
                           {item.dateLabel ? `・${item.dateLabel}` : ""}
                         </span>
@@ -745,12 +745,12 @@ const MoneyFlowCups = ({ indices, stocks = [] }: MoneyFlowCupsProps) => {
                 <h3 className="text-sm font-extrabold text-foreground">
                   「{selectedCup.label}」の深掘り解説
                 </h3>
-                <div className="flex items-center gap-1.5 text-xs font-extrabold tabular-nums">
-                  <span className="rounded border border-sky-200 bg-sky-50 px-2 py-0.5 text-sky-800 dark:border-sky-900/70 dark:bg-sky-950/40 dark:text-sky-200">
+                <div className="flex shrink-0 items-center gap-1 text-[10px] font-extrabold leading-none tabular-nums">
+                  <span className="whitespace-nowrap rounded border border-sky-200 bg-sky-50 px-1.5 py-0.5 text-sky-800 dark:border-sky-900/70 dark:bg-sky-950/40 dark:text-sky-200">
                     水位 {selectedCup.waterLevel}%（{selectedCup.rank}位）
                   </span>
                   <span
-                    className={`rounded border border-border px-2 py-0.5 ${
+                    className={`whitespace-nowrap rounded border border-border px-1.5 py-0.5 ${
                       selectedCup.changePercent > 0
                         ? "text-stock-up"
                         : selectedCup.changePercent < 0
@@ -811,18 +811,20 @@ const MoneyFlowCups = ({ indices, stocks = [] }: MoneyFlowCupsProps) => {
                           key={item.id}
                           className="rounded border border-border/80 bg-muted/25 p-2.5"
                         >
-                          <div className="mb-1 flex flex-wrap items-center justify-between gap-1 text-xxs text-muted-foreground">
-                            <div className="flex flex-wrap items-center gap-1">
+                          <div className="mb-1 flex flex-nowrap items-center justify-between gap-1 overflow-x-auto no-scrollbar text-[10px] text-muted-foreground">
+                            <div className="flex shrink-0 flex-nowrap items-center gap-1">
                               <span
-                                className={`rounded border px-1.5 py-0.5 font-bold leading-none ${getDirectionBadgeClass(
+                                className={`shrink-0 whitespace-nowrap rounded border px-1 py-0.5 font-bold leading-none ${getDirectionBadgeClass(
                                   item.direction
                                 )}`}
                               >
                                 {item.directionLabel}
                               </span>
-                              <span className="font-bold text-foreground/80">{item.impactTag}</span>
+                              <span className="shrink-0 whitespace-nowrap rounded border border-sky-200 bg-sky-50 px-1 py-0.5 font-bold leading-none text-sky-800 dark:border-sky-900/70 dark:bg-sky-950/40 dark:text-sky-200">
+                                {item.impactTag}
+                              </span>
                             </div>
-                            <span>
+                            <span className="ml-auto shrink-0 whitespace-nowrap pl-1 leading-none">
                               {item.source}
                               {item.dateLabel ? `・${item.dateLabel}` : ""}
                             </span>

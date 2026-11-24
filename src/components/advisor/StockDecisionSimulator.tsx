@@ -425,12 +425,12 @@ export const StockDecisionSimulator = ({
         type: ["growth", "balanced"],
       },
       {
-        code: "2914",
-        name: "日本たばこ産業 (JT)",
-        sector: "食品・たばこ",
-        role: "高配当性向・莫大なフリーCF",
-        dividendYield: 4.8,
-        price: 4200,
+        code: "4502",
+        name: "武田薬品",
+        sector: "医薬品",
+        role: "国内製薬最大手・高配当ディフェンシブ",
+        dividendYield: 4.6,
+        price: 4250,
         type: ["dividend"],
       },
     ];
@@ -499,7 +499,7 @@ export const StockDecisionSimulator = ({
         <div className="flex flex-col gap-1 border-b border-border bg-table-header-bg px-3 py-2 md:flex-row md:items-center md:justify-between rounded-t">
           <div className="flex items-center gap-2">
             <h2 className="text-xs sm:text-sm font-bold text-foreground">2銘柄ガチンコ比較</h2>
-            <span className="rounded bg-primary px-2 py-0.5 text-xxs font-bold text-primary-foreground shrink-0">
+            <span className="rounded border border-border bg-muted px-2 py-0.5 text-xxs font-bold text-foreground/80 shrink-0">
               ライバル対決
             </span>
           </div>
@@ -842,7 +842,7 @@ export const StockDecisionSimulator = ({
           <div className="flex items-center gap-2">
             <Target className="h-4 w-4 text-foreground" />
             <h2 className="text-xs sm:text-sm font-bold text-foreground">売買シナリオ判定</h2>
-            <span className="rounded bg-primary px-2 py-0.5 text-xxs font-bold text-primary-foreground shrink-0">
+            <span className="rounded border border-border bg-muted px-2 py-0.5 text-xxs font-bold text-foreground/80 shrink-0">
               売買シミュレーション
             </span>
           </div>
@@ -1171,7 +1171,7 @@ export const StockDecisionSimulator = ({
           <div className="flex items-center gap-2">
             <Wallet className="h-4 w-4 text-foreground" />
             <h2 className="text-xs sm:text-sm font-bold text-foreground">予算別ポートフォリオ</h2>
-            <span className="rounded bg-primary px-2 py-0.5 text-xxs font-bold text-primary-foreground shrink-0">
+            <span className="rounded border border-border bg-muted px-2 py-0.5 text-xxs font-bold text-foreground/80 shrink-0">
               新NISA対応
             </span>
           </div>
@@ -1330,53 +1330,56 @@ export const StockDecisionSimulator = ({
 
             {/* 銘柄一覧テーブル */}
             <div className="rounded-lg border border-border/80 overflow-hidden">
-              <div className="grid grid-cols-12 border-b border-border/80 bg-muted/40 p-2.5 text-xs font-bold text-muted-foreground">
-                <div className="col-span-5 sm:col-span-4">組み入れ銘柄・セクター</div>
-                <div className="col-span-3 sm:col-span-2 text-right">購入株数</div>
-                <div className="col-span-4 sm:col-span-2 text-right">想定投資額</div>
-                <div className="hidden sm:col-span-2 sm:block text-right">配当利回り</div>
-                <div className="hidden sm:col-span-2 sm:block text-right">年間予想配当</div>
+              <div className="grid grid-cols-12 items-center gap-1 border-b border-border/80 bg-muted/40 px-2.5 py-2 text-[11px] font-bold text-muted-foreground sm:p-2.5 sm:text-xs">
+                <div className="col-span-6 whitespace-nowrap sm:col-span-4">
+                  <span className="sm:hidden">組み入れ銘柄</span>
+                  <span className="hidden sm:inline">組み入れ銘柄・セクター</span>
+                </div>
+                <div className="col-span-2 whitespace-nowrap text-right sm:col-span-2">株数</div>
+                <div className="col-span-4 whitespace-nowrap text-right sm:col-span-2">想定投資額</div>
+                <div className="hidden whitespace-nowrap text-right sm:col-span-2 sm:block">配当利回り</div>
+                <div className="hidden whitespace-nowrap text-right sm:col-span-2 sm:block">年間予想配当</div>
               </div>
 
               <div className="divide-y divide-border/60">
                 {generatedPortfolio.items.map((it) => (
                   <div
                     key={it.code}
-                    className="grid grid-cols-12 items-center p-3 text-xs hover:bg-muted/20"
+                    className="grid grid-cols-12 items-center gap-1 px-2.5 py-2.5 text-xs hover:bg-muted/20 sm:p-3"
                   >
-                    <div className="col-span-5 sm:col-span-4 space-y-0.5">
-                      <div className="flex items-center gap-1.5 font-bold text-foreground">
+                    <div className="col-span-6 min-w-0 space-y-0.5 sm:col-span-4">
+                      <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 font-bold text-foreground">
                         <Link
                           to={`/advisor?tab=health&code=${it.code}`}
-                          className="hover:underline flex items-center gap-1"
+                          className="inline-flex items-center gap-1 whitespace-nowrap hover:underline"
                         >
-                          {it.name}
-                          <span className="font-mono text-xxs text-muted-foreground">
+                          <span>{it.name}</span>
+                          <span className="font-mono text-xxs font-normal text-muted-foreground">
                             ({it.code})
                           </span>
                         </Link>
-                        <span className="rounded bg-muted px-1.5 py-0.2 text-xxs text-muted-foreground">
+                        <span className="shrink-0 whitespace-nowrap rounded bg-muted px-1.5 py-0.5 text-[10px] font-semibold leading-none text-muted-foreground">
                           {it.sector}
                         </span>
                       </div>
-                      <div className="text-xxs text-muted-foreground truncate">
+                      <div className="truncate text-xxs text-muted-foreground">
                         {it.role}
                       </div>
                     </div>
 
-                    <div className="col-span-3 sm:col-span-2 text-right font-mono font-bold text-foreground">
-                      {it.shares.toLocaleString()} 株
+                    <div className="col-span-2 whitespace-nowrap text-right font-mono text-[11px] font-bold tabular-nums text-foreground sm:col-span-2 sm:text-xs">
+                      {it.shares.toLocaleString()}株
                     </div>
 
-                    <div className="col-span-4 sm:col-span-2 text-right font-mono font-bold text-foreground">
+                    <div className="col-span-4 whitespace-nowrap text-right font-mono text-[11px] font-bold tabular-nums text-foreground sm:col-span-2 sm:text-xs">
                       ¥{it.cost.toLocaleString()}
                     </div>
 
-                    <div className="hidden sm:col-span-2 sm:block text-right font-mono text-emerald-600 dark:text-emerald-400 font-bold">
+                    <div className="hidden whitespace-nowrap text-right font-mono font-bold tabular-nums text-emerald-600 dark:text-emerald-400 sm:col-span-2 sm:block">
                       {it.dividendYield.toFixed(2)}%
                     </div>
 
-                    <div className="hidden sm:col-span-2 sm:block text-right font-mono text-emerald-600 dark:text-emerald-400 font-bold">
+                    <div className="hidden whitespace-nowrap text-right font-mono font-bold tabular-nums text-emerald-600 dark:text-emerald-400 sm:col-span-2 sm:block">
                       ¥{it.annualDiv.toLocaleString()}/年
                     </div>
                   </div>
@@ -1409,7 +1412,7 @@ export const StockDecisionSimulator = ({
           <div className="flex items-center gap-2">
             <Compass className="h-4 w-4 text-foreground" />
             <h2 className="text-xs sm:text-sm font-bold text-foreground">3分スタイル診断</h2>
-            <span className="rounded bg-primary px-2 py-0.5 text-xxs font-bold text-primary-foreground shrink-0">
+            <span className="rounded border border-border bg-muted px-2 py-0.5 text-xxs font-bold text-foreground/80 shrink-0">
               簡単マッチング
             </span>
           </div>

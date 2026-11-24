@@ -449,7 +449,7 @@ const ThemesPage = () => {
             <div className="flex items-center gap-2">
               <RadioTower className="h-4 w-4 text-primary" />
               <h3 className="text-sm font-bold text-foreground">テーマ別トレンド・需給シグナル</h3>
-              <span className="rounded bg-primary px-2 py-0.5 text-xxs font-bold text-primary-foreground">
+              <span className="rounded border border-border bg-muted px-2 py-0.5 text-xxs font-bold text-foreground/80">
                 SMA/RSI/MACD/BB
               </span>
             </div>

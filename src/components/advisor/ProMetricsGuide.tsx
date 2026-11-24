@@ -127,7 +127,7 @@ export const ProMetricsGuide = ({
             <h2 className="text-xs sm:text-sm font-bold text-foreground whitespace-nowrap">
               投資指標の実践ガイド（PBR・PER・ROE）
             </h2>
-            <span className="rounded bg-primary px-2 py-0.5 text-xxs font-bold text-primary-foreground shrink-0">
+            <span className="rounded border border-border bg-muted px-2 py-0.5 text-xxs font-bold text-foreground/80 shrink-0">
               実践ガイド
             </span>
             <span className="hidden xl:inline text-xxs text-muted-foreground truncate">

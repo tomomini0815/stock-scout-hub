@@ -270,7 +270,10 @@ const RealStockChart = ({
     };
 
     loadChart();
-    timeoutId = window.setInterval(loadChart, 5 * 60 * 1000);
+    timeoutId = window.setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return;
+      loadChart();
+    }, 5 * 60 * 1000);
 
     return () => {
       isActive = false;

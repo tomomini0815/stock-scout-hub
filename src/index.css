@@ -255,7 +255,8 @@
   }
 }
 
-@media (prefers-reduced-motion: no-preference) {
+/* モバイル端末のGPU連続稼働・発熱を抑えるため、波と泡の無限アニメーションはPC幅のみ有効化 */
+@media (min-width: 768px) and (prefers-reduced-motion: no-preference) {
   .cup-wave-front {
     animation: cup-wave-front 5.2s linear infinite;
   }

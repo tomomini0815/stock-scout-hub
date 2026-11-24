@@ -237,7 +237,7 @@ export const StockHealthCheck = ({
           <div className="flex items-center gap-2">
             <Activity className="h-4 w-4 text-foreground" />
             <h2 className="text-xs sm:text-sm font-bold text-foreground">銘柄カルテ診断</h2>
-            <span className="rounded bg-primary px-2 py-0.5 text-xxs font-bold text-primary-foreground shrink-0">
+            <span className="rounded border border-border bg-muted px-2 py-0.5 text-xxs font-bold text-foreground/80 shrink-0">
               5軸総合診断
             </span>
           </div>

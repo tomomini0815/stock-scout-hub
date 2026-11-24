@@ -321,7 +321,7 @@ const TrendSignalSection = ({ stocks, growthPicks, dailyPicks }: TrendSignalSect
         <div className="flex min-w-0 flex-wrap items-center gap-1.5 sm:gap-2">
           <RadioTower className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
           <h2 className="text-sm font-bold text-foreground">トレンド・需給シグナル</h2>
-          <span className="shrink-0 rounded bg-primary px-2 py-0.5 text-xxs font-bold text-primary-foreground whitespace-nowrap">
+          <span className="shrink-0 rounded border border-border bg-muted px-2 py-0.5 text-xxs font-bold text-foreground/80 whitespace-nowrap">
             SMA/RSI/MACD/BB
           </span>
         </div>

@@ -105,6 +105,7 @@ export const useLiveMarketData = (fallbackIndices: MarketIndex[]) => {
       const backoff = Math.min(MARKET_BASE_REFETCH_MS * 2 ** errors, MARKET_MAX_REFETCH_MS);
       return backoff;
     },
+    refetchIntervalInBackground: false,
     staleTime: MARKET_STALE_TIME_MS,
     retry: (failureCount, error) => {
       const msg = error instanceof Error ? error.message : "";

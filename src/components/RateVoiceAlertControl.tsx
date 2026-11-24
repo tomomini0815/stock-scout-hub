@@ -624,16 +624,16 @@ export const RateVoiceAlertControl = ({ indices }: RateVoiceAlertControlProps) =
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="flex max-h-[86vh] w-[94vw] max-w-xl flex-col gap-0 overflow-hidden p-0">
-          <DialogHeader className="border-b border-border bg-table-header-bg px-5 py-3.5 pr-11 text-left">
-            <div className="flex items-center gap-2">
+        <DialogContent className="flex max-h-[88dvh] w-[95vw] max-w-xl flex-col gap-0 overflow-hidden p-0">
+          <DialogHeader className="shrink-0 border-b border-border bg-table-header-bg px-3.5 py-3 pr-10 text-left sm:px-5 sm:py-3.5 sm:pr-11">
+            <div className="flex flex-wrap items-center gap-2">
               <DialogTitle className="text-sm sm:text-base font-extrabold text-foreground">
-                レート急変 音声読み上げカスタマイズ
+                レート音声読み上げ設定
               </DialogTitle>
               <button
                 type="button"
                 onClick={handleToggle}
-                className={`rounded border px-2 py-0.5 text-xxs font-bold transition-colors ${
+                className={`shrink-0 whitespace-nowrap rounded border px-2 py-0.5 text-xxs font-bold transition-colors ${
                   settings.enabled
                     ? "border-primary bg-primary text-primary-foreground"
                     : "border-border bg-background text-muted-foreground hover:bg-muted"
@@ -643,12 +643,12 @@ export const RateVoiceAlertControl = ({ indices }: RateVoiceAlertControlProps) =
               </button>
             </div>
             <DialogDescription className="text-xxs text-muted-foreground">
-              読み上げ文面・声・チャイム音・価格ライン・静音時間帯を自由に設定できます。
+              読み上げ文面・声・チャイム音・価格ライン・静音時間帯を設定できます。
             </DialogDescription>
           </DialogHeader>
 
           {/* タブ切替 */}
-          <div className="flex border-b border-border bg-muted/20 px-4 pt-2 text-xs font-bold">
+          <div className="flex shrink-0 overflow-x-auto no-scrollbar border-b border-border bg-muted/20 px-2.5 pt-1.5 text-xs font-bold sm:px-4 sm:pt-2">
             {(
               [
                 { id: "monitor", label: "1. 監視・静音" },
@@ -663,7 +663,7 @@ export const RateVoiceAlertControl = ({ indices }: RateVoiceAlertControlProps) =
                 key={tab.id}
                 type="button"
                 onClick={() => setActiveTab(tab.id)}
-                className={`border-b-2 px-3 py-2 transition-colors ${
+                className={`shrink-0 whitespace-nowrap border-b-2 px-2.5 py-2 transition-colors sm:px-3 ${
                   activeTab === tab.id
                     ? "border-primary text-primary"
                     : "border-transparent text-muted-foreground hover:text-foreground"
@@ -674,7 +674,7 @@ export const RateVoiceAlertControl = ({ indices }: RateVoiceAlertControlProps) =
             ))}
           </div>
 
-          <div className="always-scrollbar flex-1 space-y-4 px-5 py-4 text-xs">
+          <div className="always-scrollbar min-h-0 flex-1 space-y-3.5 px-3.5 py-3.5 text-xs sm:space-y-4 sm:px-5 sm:py-4">
             {activeTab === "monitor" && (
               <>
                 {/* 急変しきい値 */}
@@ -686,7 +686,7 @@ export const RateVoiceAlertControl = ({ indices }: RateVoiceAlertControlProps) =
                         key={opt.value}
                         type="button"
                         onClick={() => updateSettings({ ...settings, thresholdPercent: opt.value })}
-                        className={`rounded border px-2 py-1.5 text-xxs font-bold transition-colors ${
+                        className={`whitespace-nowrap rounded border px-2 py-1.5 text-xxs font-bold transition-colors ${
                           settings.thresholdPercent === opt.value
                             ? "border-primary bg-primary text-primary-foreground"
                             : "border-border bg-background text-foreground/80 hover:bg-muted"
@@ -707,7 +707,7 @@ export const RateVoiceAlertControl = ({ indices }: RateVoiceAlertControlProps) =
                         key={opt.value}
                         type="button"
                         onClick={() => updateSettings({ ...settings, directionFilter: opt.value })}
-                        className={`rounded border px-2 py-1.5 text-xxs font-bold transition-colors ${
+                        className={`whitespace-nowrap rounded border px-1.5 py-1.5 text-xxs font-bold transition-colors sm:px-2 ${
                           settings.directionFilter === opt.value
                             ? "border-primary bg-primary text-primary-foreground"
                             : "border-border bg-background text-foreground/80 hover:bg-muted"
@@ -730,7 +730,7 @@ export const RateVoiceAlertControl = ({ indices }: RateVoiceAlertControlProps) =
                           key={name}
                           type="button"
                           onClick={() => toggleTarget(name)}
-                          className={`rounded border px-2.5 py-1 text-xxs font-bold transition-colors ${
+                          className={`whitespace-nowrap rounded border px-2.5 py-1 text-xxs font-bold transition-colors ${
                             active
                               ? "border-primary/40 bg-primary/10 text-primary"
                               : "border-border bg-muted/40 text-muted-foreground"
@@ -745,8 +745,8 @@ export const RateVoiceAlertControl = ({ indices }: RateVoiceAlertControlProps) =
 
                 {/* 時間ごとの定時読み上げ */}
                 <div className="rounded-md border border-border bg-muted/20 p-3">
-                  <div className="mb-1.5 flex items-center justify-between gap-2">
-                    <div>
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <div className="min-w-0">
                       <div className="font-bold text-foreground">時間ごとの定時読み上げ</div>
                       <div className="text-xxs text-muted-foreground">
                         毎正時や30分ごとなど、定期的に主要レートをまとめて読み上げます
@@ -769,13 +769,13 @@ export const RateVoiceAlertControl = ({ indices }: RateVoiceAlertControlProps) =
                           voicevoxSpeakerId: settings.voicevoxSpeakerId,
                         });
                       }}
-                      className="inline-flex shrink-0 items-center gap-1 rounded border border-border bg-background px-2 py-1 text-xxs font-bold text-primary hover:bg-muted"
+                      className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded border border-border bg-background px-2 py-1 text-xxs font-bold text-primary hover:bg-muted"
                     >
                       <Play className="h-2.5 w-2.5" />
                       定時テスト
                     </button>
                   </div>
-                  <div className="grid grid-cols-4 gap-1.5">
+                  <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
                     {PERIODIC_OPTIONS.map((opt) => (
                       <button
                         key={opt.value}
@@ -783,7 +783,7 @@ export const RateVoiceAlertControl = ({ indices }: RateVoiceAlertControlProps) =
                         onClick={() =>
                           updateSettings({ ...settings, periodicIntervalMinutes: opt.value })
                         }
-                        className={`rounded border px-2 py-1.5 text-xxs font-bold transition-colors ${
+                        className={`whitespace-nowrap rounded border px-2 py-1.5 text-xxs font-bold transition-colors ${
                           settings.periodicIntervalMinutes === opt.value
                             ? "border-primary bg-primary text-primary-foreground"
                             : "border-border bg-background text-foreground/80 hover:bg-muted"
@@ -798,7 +798,7 @@ export const RateVoiceAlertControl = ({ indices }: RateVoiceAlertControlProps) =
                 {/* 静音時間帯（おやすみモード） */}
                 <div className="rounded-md border border-border bg-muted/20 p-3">
                   <div className="flex items-center justify-between gap-2">
-                    <div>
+                    <div className="min-w-0">
                       <div className="font-bold text-foreground">静音時間帯（おやすみモード）</div>
                       <div className="text-xxs text-muted-foreground">
                         指定した時間帯（日本時間）は自動で音声を鳴らしません
@@ -809,7 +809,7 @@ export const RateVoiceAlertControl = ({ indices }: RateVoiceAlertControlProps) =
                       onClick={() =>
                         updateSettings({ ...settings, quietHoursEnabled: !settings.quietHoursEnabled })
                       }
-                      className={`shrink-0 rounded border px-2.5 py-1 text-xxs font-bold transition-colors ${
+                      className={`shrink-0 whitespace-nowrap rounded border px-2.5 py-1 text-xxs font-bold transition-colors ${
                         settings.quietHoursEnabled
                           ? "border-primary bg-primary text-primary-foreground"
                           : "border-border bg-background text-muted-foreground"
@@ -820,7 +820,7 @@ export const RateVoiceAlertControl = ({ indices }: RateVoiceAlertControlProps) =
                   </div>
                   {settings.quietHoursEnabled && (
                     <div className="mt-2.5 flex flex-wrap items-center gap-2 text-xxs">
-                      <label className="flex items-center gap-1.5 font-semibold text-foreground">
+                      <label className="flex items-center gap-1.5 whitespace-nowrap font-semibold text-foreground">
                         開始
                         <input
                           type="time"
@@ -830,7 +830,7 @@ export const RateVoiceAlertControl = ({ indices }: RateVoiceAlertControlProps) =
                         />
                       </label>
                       <span className="text-muted-foreground">〜</span>
-                      <label className="flex items-center gap-1.5 font-semibold text-foreground">
+                      <label className="flex items-center gap-1.5 whitespace-nowrap font-semibold text-foreground">
                         終了
                         <input
                           type="time"
@@ -847,8 +847,8 @@ export const RateVoiceAlertControl = ({ indices }: RateVoiceAlertControlProps) =
 
             {activeTab === "voice" && (
               <>
-                {/* キャラクター・口調（標準 / ずんだもん風） */}
-                <div className="rounded-md border border-border bg-muted/20 p-3 space-y-2">
+                {/* キャラクター・口調（標準アナウンサー / VOICEVOX アニメ音声の2択） */}
+                <div className="rounded-md border border-border bg-muted/20 p-3 space-y-2.5">
                   <div className="font-bold text-foreground">声のキャラクター・口調</div>
                   <div className="grid grid-cols-2 gap-1.5">
                     <button
@@ -857,19 +857,20 @@ export const RateVoiceAlertControl = ({ indices }: RateVoiceAlertControlProps) =
                         updateSettings({
                           ...settings,
                           voiceCharacter: "normal",
+                          useVoicevox: false,
                           pitch: 1.0,
                         })
                       }
-                      className={`rounded border px-2.5 py-1.5 text-left transition-colors ${
-                        settings.voiceCharacter === "normal"
+                      className={`rounded border px-2.5 py-2 text-left transition-colors ${
+                        !settings.useVoicevox
                           ? "border-primary bg-primary text-primary-foreground"
                           : "border-border bg-background text-foreground/85 hover:bg-muted"
                       }`}
                     >
-                      <div className="text-xxs font-bold">標準アナウンサー</div>
+                      <div className="whitespace-nowrap text-xxs font-bold">標準アナウンサー</div>
                       <div
                         className={`text-[10px] ${
-                          settings.voiceCharacter === "normal"
+                          !settings.useVoicevox
                             ? "text-primary-foreground/85"
                             : "text-muted-foreground"
                         }`}
@@ -882,66 +883,53 @@ export const RateVoiceAlertControl = ({ indices }: RateVoiceAlertControlProps) =
                       onClick={() =>
                         updateSettings({
                           ...settings,
-                          voiceCharacter: "zunda",
-                          pitch: 1.75,
-                          speechRate: Math.max(settings.speechRate, 1.2),
+                          voiceCharacter: "normal",
+                          useVoicevox: true,
+                          pitch: 1.0,
                         })
                       }
-                      className={`rounded border px-2.5 py-1.5 text-left transition-colors ${
-                        settings.voiceCharacter === "zunda"
+                      className={`rounded border px-2.5 py-2 text-left transition-colors ${
+                        settings.useVoicevox
                           ? "border-emerald-600 bg-emerald-600 text-white"
                           : "border-border bg-background text-foreground/85 hover:bg-muted"
                       }`}
                     >
-                      <div className="text-xxs font-bold">高め・キュート声</div>
+                      <div className="whitespace-nowrap text-xxs font-bold">VOICEVOX アニメ音声</div>
                       <div
                         className={`text-[10px] ${
-                          settings.voiceCharacter === "zunda"
+                          settings.useVoicevox
                             ? "text-white/90"
                             : "text-muted-foreground"
                         }`}
                       >
-                        高めピッチ＋軽快テンポ（標準語尾）
+                        PC・スマホ対応アニメ声
                       </div>
                     </button>
                   </div>
 
-                  <div className="space-y-1.5 rounded border border-border bg-background p-2 text-[10px]">
-                    <label className="flex cursor-pointer items-center justify-between gap-2">
-                      <span className="text-foreground/85">
-                        <strong>VOICEVOX アニメ音声（PC・スマホ対応）</strong>（本番・スマホはWEB版VOICEVOXで自動再生／PCアプリ起動時はローカル優先）
+                  {settings.useVoicevox && (
+                    <div className="flex items-center gap-2 rounded border border-border bg-background p-2">
+                      <span className="shrink-0 whitespace-nowrap text-xxs font-bold text-muted-foreground">
+                        キャラ:
                       </span>
-                      <input
-                        type="checkbox"
-                        checked={settings.useVoicevox}
+                      <select
+                        value={settings.voicevoxSpeakerId}
                         onChange={(e) =>
-                          updateSettings({ ...settings, useVoicevox: e.target.checked })
+                          updateSettings({
+                            ...settings,
+                            voicevoxSpeakerId: Number(e.target.value),
+                          })
                         }
-                        className="shrink-0 accent-emerald-600"
-                      />
-                    </label>
-                    {settings.useVoicevox && (
-                      <div className="flex items-center gap-2 pt-1">
-                        <span className="shrink-0 font-bold text-muted-foreground">キャラ:</span>
-                        <select
-                          value={settings.voicevoxSpeakerId}
-                          onChange={(e) =>
-                            updateSettings({
-                              ...settings,
-                              voicevoxSpeakerId: Number(e.target.value),
-                            })
-                          }
-                          className="h-7 flex-1 rounded border border-border bg-background px-2 text-xxs text-foreground"
-                        >
-                          {VOICEVOX_SPEAKERS.map((sp) => (
-                            <option key={sp.id} value={sp.id}>
-                              {sp.label}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
-                  </div>
+                        className="h-8 flex-1 rounded border border-border bg-background px-2 text-xs text-foreground"
+                      >
+                        {VOICEVOX_SPEAKERS.map((sp) => (
+                          <option key={sp.id} value={sp.id}>
+                            {sp.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                 </div>
 
                 {/* 読み上げスタイル */}
@@ -1242,7 +1230,7 @@ export const RateVoiceAlertControl = ({ indices }: RateVoiceAlertControlProps) =
                                 autoRoundStepLevel: opt.value,
                               })
                             }
-                            className={`rounded border px-1 py-0.5 font-bold transition-colors ${
+                            className={`whitespace-nowrap rounded border px-1 py-0.5 font-bold transition-colors ${
                               settings.autoRoundStepLevel === opt.value
                                 ? "border-primary bg-primary text-primary-foreground"
                                 : "border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -1302,7 +1290,7 @@ export const RateVoiceAlertControl = ({ indices }: RateVoiceAlertControlProps) =
                               onClick={() =>
                                 updateSettings({ ...settings, srLookbackDays: opt.value })
                               }
-                              className={`rounded border px-2.5 py-1 text-xxs font-bold transition-colors ${
+                              className={`whitespace-nowrap rounded border px-2.5 py-1 text-xxs font-bold transition-colors ${
                                 settings.srLookbackDays === opt.value
                                   ? "border-primary bg-primary text-primary-foreground"
                                   : "border-border bg-background text-foreground/80 hover:bg-muted"
@@ -1327,7 +1315,7 @@ export const RateVoiceAlertControl = ({ indices }: RateVoiceAlertControlProps) =
                                 key={name}
                                 type="button"
                                 onClick={() => toggleSrTarget(name)}
-                                className={`rounded border px-2 py-0.5 text-[10px] font-bold transition-colors ${
+                                className={`whitespace-nowrap rounded border px-2 py-0.5 text-[10px] font-bold transition-colors ${
                                   active
                                     ? "border-primary/40 bg-primary/10 text-primary"
                                     : "border-border bg-background text-muted-foreground hover:bg-muted"
@@ -1402,8 +1390,8 @@ export const RateVoiceAlertControl = ({ indices }: RateVoiceAlertControlProps) =
                       </div>
 
                       <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
-                        <div className="flex items-center gap-1">
-                          <span className="text-[10px] font-bold text-muted-foreground">通知範囲:</span>
+                        <div className="flex flex-wrap items-center gap-1">
+                          <span className="whitespace-nowrap text-[10px] font-bold text-muted-foreground">通知範囲:</span>
                           {SR_MARGIN_OPTIONS.map((opt) => (
                             <button
                               key={opt.value}
@@ -1411,7 +1399,7 @@ export const RateVoiceAlertControl = ({ indices }: RateVoiceAlertControlProps) =
                               onClick={() =>
                                 updateSettings({ ...settings, srMarginPercent: opt.value })
                               }
-                              className={`rounded border px-2 py-0.5 text-[10px] font-bold transition-colors ${
+                              className={`whitespace-nowrap rounded border px-2 py-0.5 text-[10px] font-bold transition-colors ${
                                 settings.srMarginPercent === opt.value
                                   ? "border-primary bg-primary text-primary-foreground"
                                   : "border-border bg-background text-foreground/80 hover:bg-muted"
@@ -1454,7 +1442,7 @@ export const RateVoiceAlertControl = ({ indices }: RateVoiceAlertControlProps) =
                               voicevoxSpeakerId: settings.voicevoxSpeakerId,
                             });
                           }}
-                          className="inline-flex items-center gap-1 rounded border border-border bg-background px-2 py-0.5 text-[10px] font-bold text-primary hover:bg-muted"
+                          className="ml-auto inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded border border-border bg-background px-2 py-0.5 text-[10px] font-bold text-primary hover:bg-muted"
                         >
                           <Play className="h-2.5 w-2.5" />
                           サポレジテスト
@@ -1576,13 +1564,13 @@ export const RateVoiceAlertControl = ({ indices }: RateVoiceAlertControlProps) =
             )}
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border bg-muted/20 px-5 py-3">
+          <div className="flex shrink-0 flex-col gap-2 border-t border-border bg-muted/20 px-3.5 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:px-5 sm:py-3">
             <div className="flex flex-wrap items-center gap-1.5">
               <select
                 value={testTargetName}
                 onChange={(e) => setTestTargetName(e.target.value)}
                 aria-label="テスト読み上げ銘柄"
-                className="h-7 rounded border border-border bg-background px-1.5 text-xxs font-bold text-foreground"
+                className="h-7 shrink-0 rounded border border-border bg-background px-1.5 text-xxs font-bold text-foreground"
               >
                 {ALL_VOICE_ALERT_TARGETS.map((name) => (
                   <option key={name} value={name}>
@@ -1593,7 +1581,7 @@ export const RateVoiceAlertControl = ({ indices }: RateVoiceAlertControlProps) =
               <button
                 type="button"
                 onClick={() => handleTestSpeak("up")}
-                className="inline-flex items-center gap-1 rounded border border-red-200 bg-red-50 px-2.5 py-1 text-xxs font-bold text-red-700 hover:bg-red-100"
+                className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded border border-red-200 bg-red-50 px-2 py-1 text-xxs font-bold text-red-700 hover:bg-red-100 sm:px-2.5"
               >
                 <Play className="h-3 w-3" />
                 テスト（上昇）
@@ -1601,7 +1589,7 @@ export const RateVoiceAlertControl = ({ indices }: RateVoiceAlertControlProps) =
               <button
                 type="button"
                 onClick={() => handleTestSpeak("down")}
-                className="inline-flex items-center gap-1 rounded border border-blue-200 bg-blue-50 px-2.5 py-1 text-xxs font-bold text-blue-700 hover:bg-blue-100"
+                className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded border border-blue-200 bg-blue-50 px-2 py-1 text-xxs font-bold text-blue-700 hover:bg-blue-100 sm:px-2.5"
               >
                 <Play className="h-3 w-3" />
                 テスト（下落）
@@ -1609,20 +1597,22 @@ export const RateVoiceAlertControl = ({ indices }: RateVoiceAlertControlProps) =
               <button
                 type="button"
                 onClick={handleResetAll}
-                className="inline-flex items-center gap-1 rounded border border-border bg-background px-2 py-1 text-xxs font-semibold text-muted-foreground hover:text-foreground"
+                className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded border border-border bg-background px-2 py-1 text-xxs font-semibold text-muted-foreground hover:text-foreground"
                 title="設定を初期値に戻す"
               >
                 <RotateCcw className="h-3 w-3" />
                 初期化
               </button>
             </div>
-            <button
-              type="button"
-              onClick={() => setDialogOpen(false)}
-              className="rounded bg-primary px-4 py-1.5 text-xs font-bold text-primary-foreground hover:bg-primary/90"
-            >
-              閉じる
-            </button>
+            <div className="flex justify-end sm:ml-auto">
+              <button
+                type="button"
+                onClick={() => setDialogOpen(false)}
+                className="shrink-0 whitespace-nowrap rounded bg-primary px-4 py-1.5 text-xs font-bold text-primary-foreground hover:bg-primary/90"
+              >
+                閉じる
+              </button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

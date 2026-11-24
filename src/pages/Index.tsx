@@ -32,7 +32,7 @@ const Index = () => {
           <MoneyFlowCups indices={marketIndices} stocks={stockUniverse} />
         </div>
 
-        <div>
+        <div className="[content-visibility:auto] [contain-intrinsic-size:auto_560px]">
           <TrendSignalSection
             stocks={stockUniverse}
             growthPicks={futureGrowthPicks}
@@ -44,7 +44,7 @@ const Index = () => {
           <AdvisorBanner />
         </div>
 
-        <div>
+        <div className="[content-visibility:auto] [contain-intrinsic-size:auto_420px]">
           <FundamentalPicks
             picks={fundamentalPicks}
             title="本日のおすすめ銘柄"
@@ -54,7 +54,7 @@ const Index = () => {
           />
         </div>
 
-        <div>
+        <div className="[content-visibility:auto] [contain-intrinsic-size:auto_420px]">
           <FundamentalPicks
             picks={futureGrowthPicks}
             title="今後の注目銘柄"
@@ -66,7 +66,7 @@ const Index = () => {
           />
         </div>
 
-        <div>
+        <div className="[content-visibility:auto] [contain-intrinsic-size:auto_420px]">
           <FundamentalPicks
             picks={undervaluedPicks}
             title="割安銘柄"
@@ -78,7 +78,7 @@ const Index = () => {
           />
         </div>
 
-        <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 [content-visibility:auto] [contain-intrinsic-size:auto_420px] lg:grid-cols-3">
           <StockRankingTable
             title="📈 値上がりランキング"
             stocks={stockUniverse}
@@ -99,7 +99,7 @@ const Index = () => {
           />
         </div>
 
-        <div>
+        <div className="[content-visibility:auto] [contain-intrinsic-size:auto_500px]">
           <NewsFeed />
           <TradingViewMarketNews />
         </div>

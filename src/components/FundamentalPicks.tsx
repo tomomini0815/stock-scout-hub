@@ -37,9 +37,12 @@ const FundamentalPicks = ({
   defaultOpenChartCount = 0,
 }: FundamentalPicksProps) => {
   const [expanded, setExpanded] = useState(false);
-  const [openCharts, setOpenCharts] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(picks.slice(0, defaultOpenChartCount).map((pick) => [pick.code, true]))
-  );
+  const [openCharts, setOpenCharts] = useState<Record<string, boolean>>(() => {
+    // モバイル端末での初回一括チャート描画によるCPU負荷・発熱を防ぐため、モバイルではタップ展開にする
+    const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
+    const initialOpenCount = isMobile ? 0 : defaultOpenChartCount;
+    return Object.fromEntries(picks.slice(0, initialOpenCount).map((pick) => [pick.code, true]));
+  });
   const newsQuery = `${picks.map((pick) => pick.name).join(" OR ")} 株 決算 業績 投資 when:14d`;
   const { news, status, updatedAt } = useLiveNewsSearch({
     query: newsQuery,
@@ -97,7 +100,7 @@ const FundamentalPicks = ({
               ))}
             </span>
           </span>
-          <span className="shrink-0 rounded bg-primary px-2 py-0.5 text-xxs font-bold text-primary-foreground whitespace-nowrap">
+          <span className="shrink-0 rounded border border-border bg-muted px-2 py-0.5 text-xxs font-bold text-foreground/80 whitespace-nowrap">
             {badge}
           </span>
         </div>
