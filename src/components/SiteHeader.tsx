@@ -4,7 +4,6 @@ import {
   Calendar,
   ChevronRight,
   Flame,
-  Globe,
   Home,
   Info,
   Layers,
@@ -13,6 +12,7 @@ import {
   RefreshCw,
   Search,
   ShieldAlert,
+  SlidersHorizontal,
   TrendingUp,
 } from "lucide-react";
 import { type FormEvent, useState } from "react";
@@ -31,7 +31,7 @@ interface SiteHeaderProps {
 
 const navItems = [
   { label: "トップ", path: "/", icon: Home, desc: "市況概況・シグナル・注目銘柄" },
-  { label: "市況・スクリーニング", path: "/market", icon: Globe, desc: "指数・セクター・スクリーニング" },
+  { label: "スクリーニング", path: "/market", icon: SlidersHorizontal, desc: "6指数・条件絞り込みスクリーナー" },
   { label: "銘柄・チャート", path: "/chart", icon: BarChart3, desc: "高機能チャート・テクニカル分析" },
   { label: "チャートパターン", path: "/patterns", icon: TrendingUp, desc: "反転・継続20パターンの解説" },
   { label: "銘柄診断", path: "/advisor", icon: Bot, desc: "シミュレーター・スタイル診断" },

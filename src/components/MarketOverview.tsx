@@ -14,6 +14,7 @@ import {
   type ExtraIndicatorSnapshot,
 } from "@/lib/proMarketIndicators";
 import { RateVoiceAlertControl } from "@/components/RateVoiceAlertControl";
+import MarketIndexDetailModal from "@/components/MarketIndexDetailModal";
 import TradingViewQuadPanel from "@/components/TradingViewQuadPanel";
 import {
   Dialog,
@@ -25,6 +26,7 @@ import {
 import {
   AlertTriangle,
   Check,
+  ChevronDown,
   LayoutGrid,
   Minus,
   Newspaper,
@@ -722,6 +724,8 @@ const MarketOverview = ({ indices, detailed = false }: MarketOverviewProps) => {
   const cachedDrivers = loadCachedDrivers();
   const [showIndexCharts, setShowIndexCharts] = useState(false);
   const [selectorOpen, setSelectorOpen] = useState(false);
+  const [detailIndexName, setDetailIndexName] = useState<string | null>(null);
+  const [summaryExpanded, setSummaryExpanded] = useState(false);
   const [selectedIndicatorNames, setSelectedIndicatorNames] = useState<string[]>(() =>
     loadSelectedMarketIndicators()
   );
@@ -1084,9 +1088,12 @@ const MarketOverview = ({ indices, detailed = false }: MarketOverviewProps) => {
 
           if (!detailed) {
             return (
-              <div
+              <button
                 key={index.name}
-                className="flex flex-col justify-between overflow-hidden rounded-md border border-border bg-card shadow-2xs transition-colors hover:border-foreground/30"
+                type="button"
+                onClick={() => setDetailIndexName(index.name)}
+                aria-label={`${displayTitle}の詳細解説を見る`}
+                className="flex w-full cursor-pointer flex-col justify-between overflow-hidden rounded-md border border-border bg-card text-left shadow-2xs transition-colors hover:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
               >
                 {/* タイル上部ヘッダー帯（国旗＋銘柄名＋RT/時間外） */}
                 <div className="flex items-center justify-between gap-1 border-b border-border/80 bg-gradient-to-b from-muted/80 to-muted/35 px-2 py-1">
@@ -1192,19 +1199,22 @@ const MarketOverview = ({ indices, detailed = false }: MarketOverviewProps) => {
                 {/* 騰落原因（簡潔3行まとめ） */}
                 {driverText && (
                   <div
-                    className={`border-t px-2 py-1.5 text-left ${getDriverPanelClass(mainChangePercent)}`}
+                    className={`w-full border-t px-2 py-1.5 text-left ${getDriverPanelClass(mainChangePercent)}`}
                     title={driverText}
                   >
-                    <div className="mb-0.5 flex items-center gap-1 text-[10px] font-bold leading-none text-foreground/75">
-                      {urgentMove && <AlertTriangle className="h-2.5 w-2.5 shrink-0 text-amber-500" aria-hidden="true" />}
-                      <span>{getMoveLabel(mainChangePercent)}</span>
+                    <div className="mb-0.5 flex items-center justify-between gap-1 text-[10px] font-bold leading-none text-foreground/75">
+                      <span className="inline-flex items-center gap-1">
+                        {urgentMove && <AlertTriangle className="h-2.5 w-2.5 shrink-0 text-amber-500" aria-hidden="true" />}
+                        <span>{getMoveLabel(mainChangePercent)}</span>
+                      </span>
+                      <span className="text-[9px] font-semibold text-primary/80">詳細 ›</span>
                     </div>
                     <p className="line-clamp-3 text-[10px] leading-snug text-foreground/85 sm:text-xxs">
                       {formatDriverMaterial(driverText)}
                     </p>
                   </div>
                 )}
-              </div>
+              </button>
             );
           }
 
@@ -1343,6 +1353,67 @@ const MarketOverview = ({ indices, detailed = false }: MarketOverviewProps) => {
           );
         })}
       </div>
+      {!detailed && (
+        <section className="border-t border-border bg-background px-2.5 py-2 sm:px-3">
+          <button
+            type="button"
+            onClick={() => setSummaryExpanded((prev) => !prev)}
+            aria-expanded={summaryExpanded}
+            className="flex w-full items-center justify-between gap-2 text-left"
+          >
+            <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+              <span className={`shrink-0 whitespace-nowrap rounded border px-2 py-0.5 text-xxs font-black ${marketSummary.toneClass}`}>
+                市況まとめ
+              </span>
+              <span
+                className={`shrink-0 whitespace-nowrap rounded border px-2 py-0.5 text-xxs font-black ${getRiskModeClass(marketSummary.riskMode)}`}
+                title={marketSummary.riskModeReason}
+              >
+                {marketSummary.riskModeLabel}
+              </span>
+              <span className="min-w-0 text-xs font-extrabold leading-snug text-foreground">
+                {marketSummary.headline}
+              </span>
+            </div>
+            <span className="inline-flex shrink-0 items-center gap-0.5 whitespace-nowrap rounded border border-border bg-muted/40 px-2 py-0.5 text-xxs font-bold text-primary">
+              {summaryExpanded ? "閉じる" : "詳細"}
+              <ChevronDown
+                className={`h-3 w-3 transition-transform ${summaryExpanded ? "rotate-180" : ""}`}
+                aria-hidden="true"
+              />
+            </span>
+          </button>
+
+          {summaryExpanded && (
+            <div className="mt-2 flex flex-col gap-2 border-t border-border/60 pt-2">
+              <div className="grid gap-1.5 text-xxs md:grid-cols-3">
+                {marketSummary.points.map((point) => (
+                  <div
+                    key={point}
+                    className="rounded border border-slate-200 bg-card px-2 py-1.5 font-semibold leading-relaxed text-slate-700"
+                  >
+                    {point}
+                  </div>
+                ))}
+              </div>
+              <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-xxs">
+                <span className="rounded border border-red-200 bg-red-50 px-2 py-0.5 font-bold text-red-700">
+                  強い: {marketSummary.strongest}
+                </span>
+                <span className="rounded border border-blue-200 bg-blue-50 px-2 py-0.5 font-bold text-blue-700">
+                  弱い: {marketSummary.weakest}
+                </span>
+                <span className="min-w-0 max-w-full rounded border border-slate-300 bg-slate-100 px-2 py-0.5 font-semibold leading-relaxed text-slate-700">
+                  材料: {marketSummary.driver}
+                </span>
+                <span className="min-w-0 max-w-full rounded border border-primary/30 bg-primary/5 px-2 py-0.5 font-bold leading-relaxed text-primary">
+                  {marketSummary.action}
+                </span>
+              </div>
+            </div>
+          )}
+        </section>
+      )}
       {detailed && (
         <section className="border-t border-border bg-background px-3 py-1.5">
           <div className="flex flex-col gap-2">
@@ -1404,6 +1475,39 @@ const MarketOverview = ({ indices, detailed = false }: MarketOverviewProps) => {
           />
         </div>
       )}
+
+      {/* タイルタップ時の銘柄詳細モーダル */}
+      {(() => {
+        const detailIndex = detailIndexName
+          ? visibleIndices.find((item) => item.name === detailIndexName)
+          : undefined;
+        if (!detailIndex) return null;
+        const proDef = PRO_INDICATOR_BY_NAME[detailIndex.name];
+        const hasFutures = typeof detailIndex.futuresValue === "number";
+        const mainChangePercent =
+          hasFutures && typeof detailIndex.futuresChangePercent === "number"
+            ? detailIndex.futuresChangePercent
+            : detailIndex.changePercent;
+        const isAfterHours = isIndexMarketAfterHours(detailIndex.name);
+        const urgentMove = isUrgentMove(mainChangePercent);
+        const rawDriverText = urgentDrivers[detailIndex.name]?.text ?? marketDriverByName.get(detailIndex.name) ?? "";
+
+        return (
+          <MarketIndexDetailModal
+            open={Boolean(detailIndex)}
+            onOpenChange={(open) => !open && setDetailIndexName(null)}
+            detailIndex={detailIndex}
+            intradayPoints={snapshotsByName[detailIndex.name]?.points}
+            focusTags={getIndexFocusTags(detailIndex)}
+            marketBrief={getIndexMarketBrief(detailIndex)}
+            driverText={rawDriverText ? formatDriverMaterial(rawDriverText) : ""}
+            moveLabel={getMoveLabel(mainChangePercent)}
+            driverPanelClass={getDriverPanelClass(mainChangePercent)}
+            urgentMove={urgentMove}
+            isAfterHours={isAfterHours}
+          />
+        );
+      })()}
 
       {/* カテゴリ別 表示銘柄選択モーダル */}
       <Dialog open={selectorOpen} onOpenChange={setSelectorOpen}>

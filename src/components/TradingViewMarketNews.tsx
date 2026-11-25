@@ -302,79 +302,90 @@ const TradingViewMarketNews = () => {
   return (
     <section className="mt-3 flex flex-col rounded border border-border bg-card">
       {/* ヘッダー */}
-      <div className="flex items-start justify-between gap-2 border-b border-border bg-table-header-bg px-3 py-2">
-        <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-2">
+      <div className="flex flex-col gap-1.5 border-b border-border bg-table-header-bg px-3 py-2 sm:flex-row sm:items-center sm:justify-between sm:gap-2">
+        <div className="flex min-w-0 items-center justify-between gap-2">
           <div className="flex min-w-0 items-center gap-1.5">
             <Radio className="h-4 w-4 shrink-0 text-primary" />
             <h3 className="truncate text-xs sm:text-sm font-bold text-foreground">
               TradingView 市況ニュース
             </h3>
           </div>
+          <span
+            className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded px-1.5 py-0.5 text-xxs font-bold sm:hidden ${
+              status === "live"
+                ? "border border-red-600 bg-white text-red-600"
+                : "bg-muted text-muted-foreground"
+            }`}
+            title={updatedLabel ? `更新 ${updatedLabel}` : undefined}
+          >
+            {status === "live" && <span className="h-1.5 w-1.5 rounded-full bg-red-600" />}
+            {status === "live" ? "LIVE" : status === "cached" ? "前回値" : "確認中"}
+          </span>
+        </div>
+
+        <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto sm:shrink-0">
           <a
             href="https://jp.tradingview.com/news/"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex shrink-0 items-center gap-1 text-xxs font-semibold text-primary hover:underline"
+            className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-xxs font-semibold text-primary hover:underline"
           >
             TradingView日本語版
             <ExternalLink className="h-3 w-3" />
           </a>
-        </div>
-        <span
-          className={`inline-flex shrink-0 self-start items-center gap-1 whitespace-nowrap rounded px-1.5 py-0.5 text-xxs font-bold ${
-            status === "live"
-              ? "border border-red-600 bg-white text-red-600"
-              : "bg-muted text-muted-foreground"
-          }`}
-          title={updatedLabel ? `更新 ${updatedLabel}` : undefined}
-        >
-          {status === "live" && <span className="h-1.5 w-1.5 rounded-full bg-red-600" />}
-          {status === "live" ? "LIVE" : status === "cached" ? "前回値" : "確認中"}
-        </span>
-      </div>
-
-      {/* セクター切替タブ + 無料記事のみフィルター */}
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-muted/30 px-3 py-2">
-        <div className="flex flex-wrap items-center gap-1.5">
           <button
             type="button"
-            onClick={() => setActiveSector("all")}
+            aria-pressed={freeOnly}
+            onClick={() => setFreeOnly((prev) => !prev)}
+            className={`shrink-0 whitespace-nowrap rounded border px-2 py-0.5 text-xxs font-bold transition-colors ${
+              freeOnly
+                ? "border-emerald-600 bg-emerald-600 text-white"
+                : "border-border bg-background text-foreground/85 hover:bg-muted"
+            }`}
+          >
+            無料記事のみ（{freeCount}）
+          </button>
+          <span
+            className={`hidden shrink-0 items-center gap-1 whitespace-nowrap rounded px-1.5 py-0.5 text-xxs font-bold sm:inline-flex ${
+              status === "live"
+                ? "border border-red-600 bg-white text-red-600"
+                : "bg-muted text-muted-foreground"
+            }`}
+            title={updatedLabel ? `更新 ${updatedLabel}` : undefined}
+          >
+            {status === "live" && <span className="h-1.5 w-1.5 rounded-full bg-red-600" />}
+            {status === "live" ? "LIVE" : status === "cached" ? "前回値" : "確認中"}
+          </span>
+        </div>
+      </div>
+
+      {/* セクター切替タブ */}
+      <div className="flex flex-wrap items-center gap-1.5 border-b border-border bg-muted/30 px-3 py-2">
+        <button
+          type="button"
+          onClick={() => setActiveSector("all")}
+          className={`rounded border px-2.5 py-1 text-xs font-bold transition-colors ${
+            activeSector === "all"
+              ? "border-primary bg-primary text-primary-foreground"
+              : "border-border bg-background text-foreground/80 hover:bg-muted"
+          }`}
+        >
+          すべて（{filteredItems.length}）
+        </button>
+        {TV_SECTORS.map((sector) => (
+          <button
+            key={sector.id}
+            type="button"
+            onClick={() => setActiveSector(sector.id)}
             className={`rounded border px-2.5 py-1 text-xs font-bold transition-colors ${
-              activeSector === "all"
+              activeSector === sector.id
                 ? "border-primary bg-primary text-primary-foreground"
                 : "border-border bg-background text-foreground/80 hover:bg-muted"
             }`}
           >
-            すべて（{filteredItems.length}）
+            {sector.label}（{grouped[sector.id].length}）
           </button>
-          {TV_SECTORS.map((sector) => (
-            <button
-              key={sector.id}
-              type="button"
-              onClick={() => setActiveSector(sector.id)}
-              className={`rounded border px-2.5 py-1 text-xs font-bold transition-colors ${
-                activeSector === sector.id
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "border-border bg-background text-foreground/80 hover:bg-muted"
-              }`}
-            >
-              {sector.label}（{grouped[sector.id].length}）
-            </button>
-          ))}
-        </div>
-
-        <button
-          type="button"
-          aria-pressed={freeOnly}
-          onClick={() => setFreeOnly((prev) => !prev)}
-          className={`shrink-0 rounded border px-2.5 py-1 text-xs font-bold transition-colors ${
-            freeOnly
-              ? "border-emerald-600 bg-emerald-600 text-white"
-              : "border-border bg-background text-foreground/85 hover:bg-muted"
-          }`}
-        >
-          無料記事のみ（{freeCount}）
-        </button>
+        ))}
       </div>
 
       {/* コンテンツ */}

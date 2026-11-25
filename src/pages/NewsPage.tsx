@@ -5,7 +5,7 @@ import MarketTicker from "@/components/MarketTicker";
 import MoneyFlowNewsSection from "@/components/MoneyFlowNewsSection";
 import { marketIndices, type NewsItem } from "@/data/stockData";
 import { normalizeArticleSummaryToJapanese, translateEnglishNewsTitle } from "@/lib/newsTranslation";
-import { Newspaper, Flame, Sparkles, ExternalLink } from "lucide-react";
+import { Newspaper, ExternalLink } from "lucide-react";
 
 const categories = ["すべて", "市況", "半導体", "AI", "金融", "個別株", "投資戦略"];
 const NEWS_CACHE_KEY = "stock-scout-live-news-v2";
@@ -583,13 +583,13 @@ const NewsPage = () => {
             {lastUpdated ? ` 最終取得: ${lastUpdated}` : " 更新まで保存済み1カ月分のニュースを表示します。"}
           </p>
           <div className="mt-1.5 flex flex-wrap gap-1">
-            <span className="rounded border border-sky-200 bg-sky-50 px-2 py-0.5 text-xxs font-semibold text-sky-700">
+            <span className="whitespace-nowrap rounded border border-sky-200 bg-sky-50 px-1.5 py-0.5 text-[10px] font-semibold leading-tight text-sky-700">
               資金フロー: 8資産連動
             </span>
             {sourceSummary.map((source) => (
               <span
                 key={source.provider}
-                className={`rounded px-2 py-0.5 text-xxs font-semibold ${
+                className={`whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-semibold leading-tight ${
                   source.status === "live"
                     ? "bg-stock-up/10 text-stock-up"
                     : source.status === "error"
@@ -687,24 +687,22 @@ const NewsPage = () => {
                                 : "記事本文を取得できませんでした（リンク先で全文を確認できます）。"}
                         </p>
                         <div className="mt-1 flex items-end justify-between gap-2 text-xxs font-semibold">
-                          <div className="flex min-w-0 flex-wrap gap-1">
+                          <div className="flex min-w-0 flex-wrap items-center gap-1">
                             <span className="text-primary">出典: {item.source}</span>
                             {item.provider && (
-                              <span className="rounded bg-slate-200 px-1.5 py-0.5 text-slate-700">
+                              <span className="whitespace-nowrap rounded bg-slate-200 px-1 py-0 text-[10px] leading-tight text-slate-700">
                                 API: {item.provider}
                               </span>
                             )}
                           </div>
                           <div className="ml-auto flex shrink-0 items-center gap-1">
                             {item.isHot && (
-                              <span className="flex items-center gap-0.5 rounded bg-badge-hot px-1 py-0 text-xxs font-bold text-primary-foreground">
-                                <Flame className="h-2.5 w-2.5" />
+                              <span className="inline-flex items-center rounded bg-badge-hot px-1.5 py-0 text-[10px] font-bold text-primary-foreground">
                                 注目
                               </span>
                             )}
                             {item.isNew && (
-                              <span className="flex items-center gap-0.5 rounded bg-badge-new px-1 py-0 text-xxs font-bold text-primary-foreground">
-                                <Sparkles className="h-2.5 w-2.5" />
+                              <span className="inline-flex items-center rounded bg-badge-new px-1.5 py-0 text-[10px] font-bold text-primary-foreground">
                                 NEW
                               </span>
                             )}

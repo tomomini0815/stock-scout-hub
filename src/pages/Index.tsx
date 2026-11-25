@@ -8,7 +8,6 @@ import NewsFeed from "@/components/NewsFeed";
 import TradingViewMarketNews from "@/components/TradingViewMarketNews";
 import FundamentalPicks from "@/components/FundamentalPicks";
 import TrendSignalSection from "@/components/TrendSignalSection";
-import { AdvisorBanner } from "@/components/advisor/AdvisorBanner";
 import {
   marketIndices,
   stockUniverse,
@@ -38,10 +37,6 @@ const Index = () => {
             growthPicks={futureGrowthPicks}
             dailyPicks={fundamentalPicks}
           />
-        </div>
-
-        <div>
-          <AdvisorBanner />
         </div>
 
         <div className="[content-visibility:auto] [contain-intrinsic-size:auto_420px]">

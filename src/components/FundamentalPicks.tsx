@@ -37,14 +37,11 @@ const FundamentalPicks = ({
   defaultOpenChartCount = 0,
 }: FundamentalPicksProps) => {
   const [expanded, setExpanded] = useState(false);
-  const [openCharts, setOpenCharts] = useState<Record<string, boolean>>(() => {
-    // モバイル端末での初回一括チャート描画によるCPU負荷・発熱を防ぐため、モバイルではタップ展開にする
-    const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
-    const initialOpenCount = isMobile ? 0 : defaultOpenChartCount;
-    return Object.fromEntries(picks.slice(0, initialOpenCount).map((pick) => [pick.code, true]));
-  });
+  const [openCharts, setOpenCharts] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(picks.slice(0, defaultOpenChartCount).map((pick) => [pick.code, true]))
+  );
   const newsQuery = `${picks.map((pick) => pick.name).join(" OR ")} 株 決算 業績 投資 when:14d`;
-  const { news, status, updatedAt } = useLiveNewsSearch({
+  const { news, updatedAt } = useLiveNewsSearch({
     query: newsQuery,
     limit: 12,
   });
@@ -87,29 +84,31 @@ const FundamentalPicks = ({
 
   return (
     <section className="overflow-hidden rounded border border-border bg-card">
-      <div className="flex flex-col gap-1.5 border-b border-border bg-table-header-bg px-2.5 py-2 sm:px-3 md:flex-row md:items-center md:justify-between">
-        <div className="flex min-w-0 flex-wrap items-center gap-1.5 sm:gap-2">
-          <Target className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
-          <h2 className="text-sm font-bold text-foreground">{title}</h2>
-          <span className="group relative inline-flex shrink-0" tabIndex={0}>
-            <Info className="h-3.5 w-3.5 cursor-help text-muted-foreground" aria-hidden="true" />
-            <span className="pointer-events-none absolute left-0 top-5 z-20 hidden w-[min(18rem,calc(100vw-2rem))] rounded border border-border bg-popover p-2 text-left text-xxs leading-relaxed text-popover-foreground shadow-lg group-hover:block group-focus-within:block">
-              <span className="mb-1 block font-bold text-foreground">スコア判断基準</span>
-              {scoreCriteria.map((item) => (
-                <span key={item} className="block">・{item}</span>
-              ))}
+      <div className="flex items-start justify-between gap-2 border-b border-border bg-table-header-bg px-2.5 py-2 sm:px-3">
+        <div className="flex min-w-0 flex-1 flex-col gap-1 md:flex-row md:items-center md:justify-between md:gap-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-1.5 sm:gap-2">
+            <Target className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+            <h2 className="text-sm font-bold text-foreground">{title}</h2>
+            <span className="group relative inline-flex shrink-0" tabIndex={0}>
+              <Info className="h-3.5 w-3.5 cursor-help text-muted-foreground" aria-hidden="true" />
+              <span className="pointer-events-none absolute left-0 top-5 z-20 hidden w-[min(18rem,calc(100vw-2rem))] rounded border border-border bg-popover p-2 text-left text-xxs leading-relaxed text-popover-foreground shadow-lg group-hover:block group-focus-within:block">
+                <span className="mb-1 block font-bold text-foreground">スコア判断基準</span>
+                {scoreCriteria.map((item) => (
+                  <span key={item} className="block">・{item}</span>
+                ))}
+              </span>
             </span>
-          </span>
-          <span className="shrink-0 rounded border border-border bg-muted px-2 py-0.5 text-xxs font-bold text-foreground/80 whitespace-nowrap">
-            {badge}
-          </span>
-        </div>
-        <div className="flex min-w-0 flex-wrap items-center justify-end gap-1.5 text-xxs text-muted-foreground">
-          <span className="min-w-0 text-right leading-snug">{updatedAt || picks[0]?.updatedAt}更新・{note}</span>
-          <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 font-bold text-muted-foreground whitespace-nowrap">
-            {status === "loading" ? "材料取得中" : "材料更新済み"}
+            <span className="shrink-0 rounded border border-border bg-muted px-2 py-0.5 text-xxs font-bold text-foreground/80 whitespace-nowrap">
+              {badge}
+            </span>
+          </div>
+          <span className="min-w-0 text-xxs leading-snug text-muted-foreground md:text-right">
+            {note}
           </span>
         </div>
+        <span className="shrink-0 self-start whitespace-nowrap text-right text-[10px] font-medium tabular-nums text-muted-foreground">
+          {updatedAt || picks[0]?.updatedAt}更新
+        </span>
       </div>
 
       <div className={compact ? "grid grid-cols-1 gap-2 p-2 md:grid-cols-2 xl:grid-cols-4" : "divide-y divide-border"}>

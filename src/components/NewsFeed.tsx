@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { type NewsItem } from "@/data/stockData";
-import { ExternalLink, Flame, Newspaper, Radio, Sparkles, TrendingUp } from "lucide-react";
+import { ExternalLink, Newspaper, Radio, TrendingUp } from "lucide-react";
 
 interface NewsFeedProps {
   news?: NewsItem[];
@@ -496,14 +496,12 @@ const NewsColumn = ({
                 {item.category}
               </span>
               {item.isNew && (
-                <span className="flex shrink-0 items-center gap-0.5 rounded bg-badge-new px-1 py-0 text-xxs font-bold text-primary-foreground">
-                  <Sparkles className="h-2.5 w-2.5" />
+                <span className="inline-flex shrink-0 items-center rounded bg-badge-new px-1.5 py-0 text-[10px] font-bold text-primary-foreground">
                   NEW
                 </span>
               )}
               {item.isHot && (
-                <span className="flex shrink-0 items-center gap-0.5 rounded bg-badge-hot px-1 py-0 text-xxs font-bold text-primary-foreground">
-                  <Flame className="h-2.5 w-2.5" />
+                <span className="inline-flex shrink-0 items-center rounded bg-badge-hot px-1.5 py-0 text-[10px] font-bold text-primary-foreground">
                   注目
                 </span>
               )}
@@ -698,28 +696,28 @@ const NewsFeed = ({ news: incomingNews }: NewsFeedProps) => {
 
   return (
     <div className="rounded border border-border bg-card">
-      <div className="flex items-center gap-1 overflow-x-auto border-b border-border bg-table-header-bg px-2 py-1.5">
+      <div className="flex items-center gap-1 overflow-x-auto border-b border-border bg-table-header-bg px-2 py-1.5 no-scrollbar">
         {orderedColumns.map((column) => (
           <button
             key={column.id}
             type="button"
             onClick={() => setActiveColumnId(column.id)}
-            className={`inline-flex shrink-0 items-center gap-1.5 rounded px-2 py-1 text-xs font-bold transition-colors ${
+            className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded px-1.5 py-0.5 text-[11px] font-bold transition-colors ${
               activeColumn.id === column.id
                 ? "bg-primary text-primary-foreground"
                 : "text-muted-foreground hover:bg-muted hover:text-foreground"
             }`}
           >
             {column.id === "market" ? (
-              <TrendingUp className="h-3.5 w-3.5" />
+              <TrendingUp className="h-3 w-3 shrink-0" />
             ) : column.id === "gdelt" ? (
-              <Radio className="h-3.5 w-3.5" />
+              <Radio className="h-3 w-3 shrink-0" />
             ) : (
-              <Newspaper className="h-3.5 w-3.5" />
+              <Newspaper className="h-3 w-3 shrink-0" />
             )}
-            {column.title}
+            <span>{column.title}</span>
             <span
-              className={`rounded px-1 py-0 text-xxs ${
+              className={`rounded px-1 py-0 text-[10px] leading-tight ${
                 activeColumn.id === column.id
                   ? "bg-primary-foreground/20 text-primary-foreground"
                   : "bg-muted text-muted-foreground"

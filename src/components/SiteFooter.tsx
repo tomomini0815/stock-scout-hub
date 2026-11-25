@@ -5,7 +5,7 @@ const footerSections = [
     title: "メイン",
     links: [
       { label: "トップ", path: "/" },
-      { label: "市況・スクリーニング", path: "/market" },
+      { label: "スクリーニング", path: "/market" },
       { label: "銘柄・チャート", path: "/chart" },
       { label: "大口・ファンド", path: "/smart-money" },
     ],
