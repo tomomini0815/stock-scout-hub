@@ -574,7 +574,7 @@ const NewsPage = () => {
         <div className="mb-3 rounded border border-border bg-card px-3 py-2">
           <div className="flex flex-col gap-1 text-xs font-bold text-foreground sm:flex-row sm:flex-wrap sm:items-center sm:gap-2">
             <span>毎日最新ニュースを自動取得</span>
-            <span className="rounded bg-muted px-2 py-0.5 text-xxs text-muted-foreground">
+            <span className="self-start whitespace-nowrap rounded bg-muted px-1.5 py-0.5 text-[10px] font-semibold leading-tight text-muted-foreground sm:self-auto">
               {lastUpdated ? `更新 ${lastUpdated}` : status === "loading" ? "取得中" : status === "cached" ? "前回値" : "確認中"}
             </span>
           </div>
@@ -611,12 +611,12 @@ const NewsPage = () => {
             <h3 className="min-w-0 truncate text-xs font-bold text-foreground">
               {selectedCategory === "すべて" ? "最新ニュース" : `${selectedCategory}ニュース`}（{filtered.length}件）
             </h3>
-            <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-xxs font-bold text-slate-600">
+            <span className="shrink-0 whitespace-nowrap rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold leading-tight text-slate-600">
               記事本文要約
             </span>
           </div>
           {/* Category Filter Tabs */}
-          <div className="flex gap-1.5 overflow-x-auto border-b border-border bg-muted/20 px-3 py-1.5 sm:flex-wrap sm:overflow-visible">
+          <div className="flex gap-1.5 overflow-x-auto border-b border-border bg-muted/20 px-3 py-1.5 sm:flex-wrap sm:overflow-visible no-scrollbar">
             {categories.map((cat) => {
               const count =
                 cat === "すべて"
@@ -628,7 +628,7 @@ const NewsPage = () => {
                   key={cat}
                   type="button"
                   onClick={() => setSelectedCategory(cat)}
-                  className={`inline-flex shrink-0 items-center gap-1 rounded border px-2.5 py-1 text-xxs font-bold transition-colors ${
+                  className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded border px-2.5 py-1 text-xxs font-bold transition-colors ${
                     active
                       ? "border-primary bg-primary text-primary-foreground"
                       : "border-border bg-background text-foreground/80 hover:bg-muted"
@@ -663,7 +663,7 @@ const NewsPage = () => {
                           {item.date} {item.time}
                         </span>
                         <span
-                          className={`shrink-0 rounded px-1.5 py-0.5 text-xxs font-bold sm:mt-0.5 sm:px-1.5 sm:py-0 ${
+                          className={`shrink-0 whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-bold leading-tight sm:mt-0.5 ${
                             categoryColors[item.category] || "border border-slate-300 bg-slate-100 text-slate-700"
                           }`}
                         >
@@ -672,12 +672,12 @@ const NewsPage = () => {
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-start gap-1">
-                          <span className="text-xs font-semibold leading-relaxed text-foreground hover:text-primary">
+                          <span className="text-sm font-semibold leading-relaxed text-foreground hover:text-primary">
                             {item.title}
                           </span>
-                          <ExternalLink className="mt-0.5 h-3 w-3 shrink-0 text-muted-foreground" />
+                          <ExternalLink className="mt-1 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                         </div>
-                        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                        <p className="mt-1 text-[13px] leading-relaxed text-muted-foreground">
                           {articleState?.status === "loading"
                             ? "記事本文を取得して要約しています。"
                             : articleState?.status === "ready"
@@ -690,19 +690,19 @@ const NewsPage = () => {
                           <div className="flex min-w-0 flex-wrap items-center gap-1">
                             <span className="text-primary">出典: {item.source}</span>
                             {item.provider && (
-                              <span className="whitespace-nowrap rounded bg-slate-200 px-1 py-0 text-[10px] leading-tight text-slate-700">
+                              <span className="whitespace-nowrap rounded bg-slate-200 px-1.5 py-0.5 text-[10px] leading-tight text-slate-700">
                                 API: {item.provider}
                               </span>
                             )}
                           </div>
                           <div className="ml-auto flex shrink-0 items-center gap-1">
                             {item.isHot && (
-                              <span className="inline-flex items-center rounded bg-badge-hot px-1.5 py-0 text-[10px] font-bold text-primary-foreground">
+                              <span className="inline-flex items-center whitespace-nowrap rounded bg-badge-hot px-1.5 py-0.5 text-[10px] font-bold leading-tight text-primary-foreground">
                                 注目
                               </span>
                             )}
                             {item.isNew && (
-                              <span className="inline-flex items-center rounded bg-badge-new px-1.5 py-0 text-[10px] font-bold text-primary-foreground">
+                              <span className="inline-flex items-center whitespace-nowrap rounded bg-badge-new px-1.5 py-0.5 text-[10px] font-bold leading-tight text-primary-foreground">
                                 NEW
                               </span>
                             )}

@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
 import MarketTicker from "@/components/MarketTicker";
+import StockRankingTable from "@/components/StockRankingTable";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/components/ui/sonner";
 import {
@@ -12,7 +13,7 @@ import {
   topixConstituentStocks,
   toshoReitConstituentStocks,
 } from "@/data/japaneseIndexConstituents";
-import { marketIndices, nikkei225Stocks, type StockData } from "@/data/stockData";
+import { marketIndices, nikkei225Stocks, stockUniverse, type StockData } from "@/data/stockData";
 import { useLiveStockQuotes } from "@/hooks/useLiveStockQuote";
 import {
   addChartWatchlistStock,
@@ -36,6 +37,7 @@ import {
   Sparkles,
   Table2,
   TrendingUp,
+  Trophy,
   X,
 } from "lucide-react";
 
@@ -1045,7 +1047,16 @@ const IndexScreeningPanel = ({
   );
 };
 
+const rankingTabs = [
+  { key: "gainers" as const, label: "値上がり" },
+  { key: "losers" as const, label: "値下がり" },
+  { key: "active" as const, label: "売買代金" },
+];
+
 const resolveInitialIndexId = (indexParam: string | null, highlightCode?: string) => {
+  if (indexParam === "ranking") {
+    return "ranking";
+  }
   if (indexParam && screeningIndices.some((item) => item.id === indexParam)) {
     return indexParam;
   }
@@ -1067,6 +1078,7 @@ const MarketPage = () => {
   const [activeIndexId, setActiveIndexId] = useState<string>(() =>
     resolveInitialIndexId(indexParam, highlightCode)
   );
+  const [rankingType, setRankingType] = useState<"gainers" | "losers" | "active">("gainers");
   const [chartWatchlistCodes, setChartWatchlistCodes] = useState<string[]>(() =>
     readChartWatchlist().map((stock) => stock.code)
   );
@@ -1145,23 +1157,23 @@ const MarketPage = () => {
               銘柄スクリーニング
             </h1>
             <span className="whitespace-nowrap rounded border border-border bg-muted px-1.5 py-0.5 text-xxs font-semibold text-foreground/80">
-              全6指数・条件絞り込み
+              全6指数・ランキング
             </span>
           </div>
           <span className="hidden truncate text-xxs text-muted-foreground lg:inline">
-            指数を切り替えてテーマ・株価帯・騰落率・出来高で絞り込み
+            指数切替・条件絞り込み・市場ランキングを1ページで確認
           </span>
         </div>
 
-        {/* 6指数下線タブ＋スクリーニング本体の一体型カード */}
+        {/* 6指数＋ランキング下線タブの一体型カード */}
         <section className="overflow-hidden rounded border border-border bg-card">
           <div
             role="tablist"
-            aria-label="スクリーニング対象指数"
+            aria-label="スクリーニング対象指数・ランキング"
             className="flex items-stretch overflow-x-auto border-b border-border bg-muted/40 no-scrollbar"
           >
             {screeningIndices.map((item) => {
-              const isActive = item.id === activeConfig.id;
+              const isActive = activeIndexId === item.id;
               return (
                 <button
                   key={item.id}
@@ -1188,16 +1200,63 @@ const MarketPage = () => {
                 </button>
               );
             })}
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeIndexId === "ranking"}
+              onClick={() => handleSelectIndex("ranking")}
+              className={`relative -mb-px flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-4 px-3 py-2.5 text-xs transition-colors sm:px-4 ${
+                activeIndexId === "ranking"
+                  ? "border-primary bg-table-header-bg font-bold text-primary"
+                  : "border-transparent font-semibold text-muted-foreground hover:bg-muted/70 hover:text-foreground"
+              }`}
+            >
+              <Trophy className="h-3.5 w-3.5 shrink-0 text-amber-500" />
+              <span>ランキング</span>
+            </button>
           </div>
 
-          {/* 選択中指数のスクリーニング本体 */}
-          <IndexScreeningPanel
-            key={activeConfig.id}
-            config={activeConfig}
-            chartWatchlistCodes={chartWatchlistCodes}
-            onToggleChartStock={handleToggleChartStock}
-            highlightCode={highlightCode}
-          />
+          {/* 選択中タブの本体 */}
+          {activeIndexId === "ranking" ? (
+            <div>
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-table-header-bg px-3 py-2">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {rankingTabs.map((tab) => (
+                    <button
+                      key={tab.key}
+                      type="button"
+                      onClick={() => setRankingType(tab.key)}
+                      className={`whitespace-nowrap rounded border px-2.5 py-1 text-xs font-bold transition-colors ${
+                        rankingType === tab.key
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
+                      }`}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+                <span className="text-xxs font-semibold text-muted-foreground">
+                  リアルタイム株価ベース・銘柄クリックでチャートへ移動
+                </span>
+              </div>
+              <div className="p-2.5 sm:p-3">
+                <StockRankingTable
+                  title={`${rankingTabs.find((t) => t.key === rankingType)?.label ?? "値上がり"}ランキング`}
+                  stocks={stockUniverse}
+                  type={rankingType}
+                />
+              </div>
+            </div>
+          ) : (
+            <IndexScreeningPanel
+              key={activeConfig.id}
+              config={activeConfig}
+              chartWatchlistCodes={chartWatchlistCodes}
+              onToggleChartStock={handleToggleChartStock}
+              highlightCode={highlightCode}
+            />
+          )}
         </section>
       </main>
       <SiteFooter />

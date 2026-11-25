@@ -229,7 +229,7 @@ const MoneyFlowNewsSection = () => {
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-xs font-bold text-foreground">資金フロー関連ニュース</h3>
             <span
-              className={`rounded border px-2 py-0.5 text-xxs font-bold ${getRegimeBadgeClass(
+              className={`whitespace-nowrap rounded border px-2 py-0.5 text-xxs font-bold ${getRegimeBadgeClass(
                 flowSnapshot.regimeTone
               )}`}
             >
@@ -272,11 +272,11 @@ const MoneyFlowNewsSection = () => {
       </div>
 
       {/* アセット別フィルタタブ */}
-      <div className="flex gap-1.5 overflow-x-auto border-b border-border bg-muted/20 px-3 py-1.5">
+      <div className="flex gap-1.5 overflow-x-auto border-b border-border bg-muted/20 px-3 py-1.5 no-scrollbar">
         <button
           type="button"
           onClick={() => setSelectedCupId("all")}
-          className={`shrink-0 rounded border px-2.5 py-1 text-xxs font-bold transition-colors ${
+          className={`shrink-0 whitespace-nowrap rounded border px-2.5 py-1 text-xxs font-bold transition-colors ${
             selectedCupId === "all"
               ? "border-primary bg-primary text-primary-foreground"
               : "border-border bg-background text-foreground/80 hover:bg-muted"
@@ -292,7 +292,7 @@ const MoneyFlowNewsSection = () => {
               key={cup.id}
               type="button"
               onClick={() => setSelectedCupId(cup.id)}
-              className={`inline-flex shrink-0 items-center gap-1.5 rounded border px-2.5 py-1 text-xxs font-bold transition-colors ${
+              className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded border px-2.5 py-1 text-xxs font-bold transition-colors ${
                 active
                   ? "border-primary bg-primary text-primary-foreground"
                   : "border-border bg-background text-foreground/80 hover:bg-muted"
@@ -359,7 +359,7 @@ const MoneyFlowNewsSection = () => {
                     {item.matchedCupLabels.map((label) => (
                       <span
                         key={label}
-                        className={`shrink-0 rounded px-1.5 py-0.5 text-xxs font-bold ${getAssetBadgeClass(
+                        className={`shrink-0 whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-bold leading-tight ${getAssetBadgeClass(
                           label
                         )}`}
                       >
@@ -367,7 +367,7 @@ const MoneyFlowNewsSection = () => {
                       </span>
                     ))}
                     <span
-                      className={`shrink-0 rounded border px-1.5 py-0.5 text-xxs font-bold ${getDirectionBadgeClass(
+                      className={`shrink-0 whitespace-nowrap rounded border px-1.5 py-0.5 text-[10px] font-bold leading-tight ${getDirectionBadgeClass(
                         item.direction
                       )}`}
                     >
@@ -378,12 +378,12 @@ const MoneyFlowNewsSection = () => {
                   <button
                     type="button"
                     onClick={() => openArticleModal(item)}
-                    className="block w-full text-left text-xs font-bold leading-relaxed text-foreground hover:text-primary"
+                    className="block w-full text-left text-sm font-bold leading-relaxed text-foreground hover:text-primary"
                   >
                     {item.title}
                   </button>
 
-                  <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+                  <p className="mt-1 line-clamp-2 text-[13px] leading-relaxed text-muted-foreground">
                     {previewText}
                   </p>
 

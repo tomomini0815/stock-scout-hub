@@ -6,12 +6,14 @@ import {
   BookOpenText,
   Building2,
   CheckCircle2,
+  ChevronDown,
   Clock3,
   Database,
   Eye,
   ExternalLink,
   Filter,
   Gauge,
+  Info,
   Layers3,
   RefreshCw,
   X,
@@ -23,6 +25,7 @@ import {
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
 import MarketTicker from "@/components/MarketTicker";
+import InlinePdfViewer from "@/components/InlinePdfViewer";
 import { marketIndices } from "@/data/stockData";
 import { addChartWatchlistStock } from "@/lib/chartWatchlist";
 
@@ -54,6 +57,7 @@ interface FilingSignalSeed {
   portfolioWeight: number;
   positionChange: number;
   priceMoveSinceReport: number;
+  priceEvaluated?: boolean;
   multiFundCount: number;
   activistIntent: boolean;
   concentrationRank: number;
@@ -340,38 +344,113 @@ const dayDiff = (from: string, to: string) =>
 const getFund = (fundId: string, fundList: FundSeed[] = funds) => fundList.find((fund) => fund.id === fundId) ?? fundList[0] ?? funds[0];
 const formatSignedPercent = (value: number) => `${value >= 0 ? "+" : ""}${value.toFixed(1)}%`;
 
+const isPlaceholderPositionChange = (signal: FilingSignalSeed) =>
+  signal.positionChange === 100 &&
+  (signal.signalType === "新規買い" ||
+    signal.signalType === "大量保有" ||
+    signal.filingType === "EDINET" ||
+    signal.filingType === "13D" ||
+    signal.filingType === "13G");
+
+const formatPortfolioWeightLabel = (signal: FilingSignalSeed) =>
+  signal.portfolioWeight > 0 ? `${signal.portfolioWeight.toFixed(1)}%` : "PDF記載";
+
+const formatPositionChangeLabel = (signal: FilingSignalSeed) => {
+  if (isPlaceholderPositionChange(signal)) {
+    if (signal.signalType === "新規買い") return "新規買い";
+    if (signal.filingType === "EDINET") {
+      if (signal.note.includes("変更報告書")) return "増減あり(PDF)";
+      if (signal.note.includes("訂正報告書")) return "訂正報告(PDF)";
+      return "新規(5%超)";
+    }
+    return "新規(5%超)";
+  }
+  if (Math.abs(signal.positionChange) < 0.05) return "増減なし";
+  return formatSignedPercent(signal.positionChange);
+};
+
+const isPriceMoveEvaluated = (signal: FilingSignalSeed) =>
+  Boolean(signal.priceEvaluated) ||
+  signal.priceMoveSinceReport !== 0 ||
+  signal.note.includes("Yahoo Finance日足で再評価済み");
+
+const formatPriceMoveLabel = (signal: FilingSignalSeed) => {
+  if (!isPriceMoveEvaluated(signal)) return "未計測";
+  if (Math.abs(signal.priceMoveSinceReport) < 0.05) {
+    const todayIso = new Date().toISOString().slice(0, 10);
+    const daysSinceReport = Math.max(0, dayDiff(signal.reportDate, todayIso));
+    return daysSinceReport <= 2 ? "当日開示" : "変わらず";
+  }
+  return formatSignedPercent(signal.priceMoveSinceReport);
+};
+
+const getEffectivePositionChange = (signal: FilingSignalSeed) => {
+  if (isPlaceholderPositionChange(signal)) {
+    return signal.signalType === "新規買い" ? 28 : 16;
+  }
+  return signal.positionChange;
+};
+
+type ScoreRank = "S" | "A" | "B" | "C";
+
+const rankBadgeClass = (rank: ScoreRank) => {
+  if (rank === "S") return "bg-emerald-600 text-white";
+  if (rank === "A") return "bg-primary text-primary-foreground";
+  if (rank === "B") return "border border-sky-200 bg-sky-50 text-sky-800";
+  return "border border-border bg-muted text-muted-foreground";
+};
+
 const scoreSignal = (signal: FilingSignalSeed, fundList: FundSeed[] = funds) => {
   const fund = getFund(signal.fundId, fundList);
   const filingLagDays = Math.max(0, dayDiff(signal.reportDate, signal.filingDate));
-  const pricePenalty = Math.max(0, signal.priceMoveSinceReport - 6) * 1.6;
-  const stylePenalty = fund.style === "クオンツ" ? 22 : fund.style === "イベント" ? 8 : 0;
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const daysSinceFiling = Math.max(0, dayDiff(signal.filingDate, todayIso));
+  const pricePenalty = Math.max(0, signal.priceMoveSinceReport - 5) * 1.4;
+  const stylePenalty = fund.style === "クオンツ" ? 18 : fund.style === "イベント" ? 6 : 0;
+
+  // 100点満点に正規化した配点（天井張り付きを防ぎ、鮮度・本気度・複数一致で明確に差をつける）
+  const effectivePositionChange = getEffectivePositionChange(signal);
+  const fundQuality = fund.reliability * 0.16 + fund.readable * 0.1; // 最大 ~26点
   const conviction =
-    Math.min(22, signal.portfolioWeight * 1.35)
-    + Math.min(18, Math.max(0, signal.positionChange) * 0.16)
-    + (signal.concentrationRank <= 5 ? 12 : signal.concentrationRank <= 10 ? 7 : 0);
-  const publicFilingBoost = signal.filingType === "13D" || signal.filingType === "EDINET" ? 14 : signal.filingType === "13G" ? 8 : 0;
-  const consensusBoost = Math.min(14, Math.max(0, signal.multiFundCount - 1) * 5);
-  const activistBoost = signal.activistIntent ? 10 : 0;
-  const sellPenalty = signal.signalType === "縮小" ? 28 : signal.signalType === "全売却" ? 45 : 0;
+    Math.min(12, signal.portfolioWeight * 0.85)
+    + Math.min(10, Math.max(0, effectivePositionChange) * 0.12)
+    + (signal.concentrationRank <= 3 ? 6 : signal.concentrationRank <= 7 ? 4 : signal.concentrationRank <= 12 ? 2 : 0); // 最大28点
+  const filingTypeScore = signal.filingType === "13D" || signal.filingType === "EDINET" ? 8 : signal.filingType === "13G" ? 5 : 2;
+  const lagFreshness = Math.max(0, 7 - Math.floor(filingLagDays / 6)); // 遅延少ないほど高点（最大7点）
+  const recencyScore = daysSinceFiling <= 3 ? 7 : daysSinceFiling <= 7 ? 5 : daysSinceFiling <= 14 ? 3 : daysSinceFiling <= 30 ? 1 : 0; // 提出鮮度（最大7点）
+  const consensusBoost = Math.min(10, Math.max(0, signal.multiFundCount - 1) * 4); // 最大10点
+  const activistBoost = signal.activistIntent ? 8 : 0; // 最大8点
+  const sellPenalty = signal.signalType === "縮小" ? 26 : signal.signalType === "全売却" ? 42 : 0;
 
   const raw =
-    fund.reliability * 0.28
-    + fund.readable * 0.2
+    fundQuality
     + conviction
-    + publicFilingBoost
+    + filingTypeScore
+    + lagFreshness
+    + recencyScore
     + consensusBoost
     + activistBoost
     - pricePenalty
     - stylePenalty
     - sellPenalty;
-  const score = Math.max(0, Math.min(100, Math.round(raw)));
+  const score = Math.max(5, Math.min(98, Math.round(raw)));
+  const isSell = signal.signalType === "全売却" || signal.signalType === "縮小";
+  const rank: ScoreRank = isSell
+    ? "C"
+    : score >= 82
+      ? "S"
+      : score >= 70
+        ? "A"
+        : score >= 55
+          ? "B"
+          : "C";
 
   const verdict =
-    signal.signalType === "全売却" || signal.signalType === "縮小"
+    isSell
       ? "コピー非推奨"
-      : score >= 76
+      : score >= 72
         ? "調査優先"
-        : score >= 58
+        : score >= 55
           ? "監視"
           : pricePenalty >= 10
             ? "織り込み注意"
@@ -381,11 +460,11 @@ const scoreSignal = (signal: FilingSignalSeed, fundList: FundSeed[] = funds) => 
       ? "開示後急騰"
       : fund.readable < 60
           ? "戦略不透明"
-          : signal.signalType === "縮小" || signal.signalType === "全売却"
+          : isSell
             ? "売却系"
             : "許容";
 
-  return { fund, score, verdict, risk, filingLagDays, pricePenalty };
+  return { fund, score, rank, verdict, risk, filingLagDays, pricePenalty };
 };
 
 type ScoredSignal = FilingSignalSeed & ReturnType<typeof scoreSignal>;
@@ -577,7 +656,7 @@ const getPricingBadge = (signal: ScoredSignal) => {
 const buildFollowScoreBreakdown = (signal: ScoredSignal) => {
   const freshness = 18;
   const fundQuality = signal.fund.reliability * 0.16 + signal.fund.readable * 0.1;
-  const conviction = Math.min(22, signal.portfolioWeight * 1.6 + Math.max(0, signal.positionChange) * 0.08);
+  const conviction = Math.min(22, signal.portfolioWeight * 1.6 + Math.max(0, getEffectivePositionChange(signal)) * 0.08);
   const notPricedIn = Math.max(0, 20 - Math.max(0, signal.priceMoveSinceReport - 1) * 1.45);
   const intent = Math.min(16, (signal.multiFundCount - 1) * 4 + (signal.activistIntent ? 8 : 0) + (signal.concentrationRank <= 5 ? 4 : 0));
   const riskPenalty =
@@ -624,7 +703,7 @@ const buildFollowScoreBreakdown = (signal: ScoredSignal) => {
       label: "保有強度",
       value: Math.round(conviction),
       max: 22,
-      note: `保有比率${signal.portfolioWeight.toFixed(1)}%、ポジション変化${formatSignedPercent(signal.positionChange)}、集中順位${signal.concentrationRank}位を見ています。比率が高く、買い増しで、上位保有ほど本気度が高いと判断します。`,
+      note: `保有比率${signal.portfolioWeight.toFixed(1)}%、ポジション変化は${formatPositionChangeLabel(signal)}、集中順位${signal.concentrationRank}位を見ています。比率が高く、買い増し・新規取得で、上位保有ほど本気度が高いと判断します。`,
       tone: signal.positionChange >= 0 ? "bg-emerald-500" : "bg-rose-500",
     },
     {
@@ -748,7 +827,7 @@ const buildSignalReportCards = (signal: ScoredSignal) => [
   {
     title: "2. 保有差分",
     icon: Layers3,
-    body: `前回提出と比較し、${signal.signalType}として扱います。ポートフォリオ比率は${signal.portfolioWeight.toFixed(1)}%、保有変化は${signal.positionChange >= 0 ? "+" : ""}${signal.positionChange.toFixed(1)}%です。`,
+    body: `前回提出と比較し、${signal.signalType}として扱います。ポートフォリオ比率は${signal.portfolioWeight.toFixed(1)}%、保有変化は${formatPositionChangeLabel(signal)}です。`,
     points: [
       `集中順位: ${signal.concentrationRank}位`,
       `複数ファンド一致: ${signal.multiFundCount}件`,
@@ -823,6 +902,11 @@ const buildSignalChecklist = (signal: ScoredSignal, refreshedAt: Date) => {
 
 const SmartMoneyPage = () => {
   const [selectedStyle, setSelectedStyle] = useState<"すべて" | FundStyle>("すべて");
+  const [activeTab, setActiveTab] = useState<"all" | "jp" | "us" | "priority" | "funds">("all");
+  const [sortBy, setSortBy] = useState<"score" | "date" | "weight" | "move">("score");
+  const [showGuideAccordion, setShowGuideAccordion] = useState(false);
+  const [reportTab, setReportTab] = useState<"summary" | "analysis" | "sources">("summary");
+  const [guideTab, setGuideTab] = useState<"steps" | "metrics" | "glossary">("steps");
   const [query, setQuery] = useState("");
   const [selectedSignalId, setSelectedSignalId] = useState<string | null>(null);
   const [viewerSignalId, setViewerSignalId] = useState<string | null>(null);
@@ -1014,11 +1098,37 @@ const SmartMoneyPage = () => {
       }),
     [query, scoredSignals, selectedStyle]
   );
+  const isJapanSignal = (signal: ScoredSignal) =>
+    signal.source === "edinet" || signal.filingType === "EDINET" || signal.fund.jurisdiction === "JP";
+
   const displaySignals = useMemo(() => groupSignalsForDisplay(scoredSignals), [scoredSignals]);
-  const filteredDisplaySignals = useMemo(() => groupSignalsForDisplay(filteredSignals), [filteredSignals]);
+  const jpCount = useMemo(() => displaySignals.filter(isJapanSignal).length, [displaySignals]);
+  const usCount = useMemo(() => displaySignals.filter((signal) => !isJapanSignal(signal)).length, [displaySignals]);
   const priorityCount = displaySignals.filter((signal) => signal.verdict === "調査優先").length;
   const cautionCount = displaySignals.filter((signal) => signal.risk !== "許容").length;
   const averageScore = displaySignals.reduce((sum, signal) => sum + signal.score, 0) / Math.max(displaySignals.length, 1);
+
+  const filteredDisplaySignals = useMemo(() => {
+    const base = groupSignalsForDisplay(filteredSignals).filter((signal) => {
+      if (activeTab === "jp") return isJapanSignal(signal);
+      if (activeTab === "us") return !isJapanSignal(signal);
+      if (activeTab === "priority") return signal.verdict === "調査優先";
+      return true;
+    });
+
+    return [...base].sort((a, b) => {
+      if (sortBy === "date") return b.filingDate.localeCompare(a.filingDate) || b.score - a.score;
+      if (sortBy === "weight") return b.portfolioWeight - a.portfolioWeight || b.score - a.score;
+      if (sortBy === "move") return b.priceMoveSinceReport - a.priceMoveSinceReport || b.score - a.score;
+      return b.score - a.score;
+    });
+  }, [activeTab, filteredSignals, sortBy]);
+
+  const topCandidateSignals = useMemo(() => {
+    if (activeTab === "jp") return displaySignals.filter(isJapanSignal).slice(0, 3);
+    if (activeTab === "us") return displaySignals.filter((s) => !isJapanSignal(s)).slice(0, 3);
+    return displaySignals.slice(0, 3);
+  }, [activeTab, displaySignals]);
   const styles: Array<"すべて" | FundStyle> = ["すべて", "長期バリュー", "アクティビスト", "イベント", "グロース", "クオンツ"];
   const selectedSignal = scoredSignals.find((signal) => signal.id === selectedSignalId);
   const viewerSignal = scoredSignals.find((signal) => signal.id === viewerSignalId);
@@ -1030,839 +1140,1364 @@ const SmartMoneyPage = () => {
   const isBeginnerGuideOpen = beginnerGuideTopic !== null;
   const beginnerGuideSections = Object.values(beginnerGuides);
 
+  useEffect(() => {
+    if (selectedSignalId) {
+      setReportTab("summary");
+    }
+  }, [selectedSignalId]);
+
   return (
     <div className="min-h-screen bg-background">
       <SiteHeader activeTab="大口・ファンド" />
       <MarketTicker indices={marketIndices} />
 
-      <main className="container mx-auto px-4 py-3">
+      <main className="container mx-auto px-3 py-3 sm:px-4">
         {isUsingCache && (
-          <div className="mb-3 flex items-center gap-2 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800">
+          <div className="mb-2.5 flex items-center gap-2 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800">
             <AlertTriangle className="h-4 w-4 flex-shrink-0 text-amber-600 animate-pulse" />
             <span>ネットワーク制限または一時的エラーのため、前回のキャッシュデータを表示しています（自動復旧を再試行しています）。</span>
           </div>
         )}
-        <div className="mb-3 overflow-hidden rounded border border-border bg-card">
-          {/* タイトル + ボタン行（常に最上部） */}
-          <div className="flex flex-wrap items-center justify-between gap-1.5 border-b border-border px-3 py-1.5 sm:gap-2 sm:py-2">
-            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-              <h2 className="flex items-center gap-1.5 text-xs font-bold text-foreground sm:text-sm">
-                <Eye className="h-3.5 w-3.5 text-primary sm:h-4 sm:w-4" />
-                スマートマネー監視
-              </h2>
-              <BeginnerGuideButton topic="overview" onOpen={setBeginnerGuideTopic} label="初心者ガイド" />
-            </div>
-            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-              <span className="inline-flex items-center gap-1 whitespace-nowrap rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 sm:px-2 sm:py-1 sm:text-xs">
-                <RefreshCw className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
-                自動再評価 {formatJstDateTime(autoRefreshedAt)}
-              </span>
-              <button
-                type="button"
-                onClick={handleManualRefresh}
-                className="inline-flex h-6 items-center gap-1 whitespace-nowrap rounded border border-border bg-background px-1.5 text-[10px] font-bold text-primary transition-colors hover:bg-muted disabled:opacity-60 sm:h-7 sm:px-2 sm:text-xs"
-                disabled={smartMoneyStatus === "loading" || cooldownSeconds > 0}
-              >
-                <RefreshCw className={`h-2.5 w-2.5 sm:h-3 sm:w-3 ${smartMoneyStatus === "loading" ? "animate-spin" : ""}`} />
-                {cooldownSeconds > 0 ? `手動再評価 (${cooldownSeconds}s)` : "手動再評価"}
-              </button>
-            </div>
-          </div>
 
-          {/* 監視対象・接続状態行（スマホでは下部） */}
-          <div className="grid gap-1.5 px-3 py-1.5 sm:gap-2 sm:py-2 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
-            <div className="flex flex-wrap items-center gap-1 text-[10px] font-semibold text-slate-600 sm:gap-1.5 sm:text-xs">
-              <span className="mr-0.5 text-[9px] font-bold uppercase tracking-wide text-muted-foreground sm:mr-1 sm:text-[10px]">監視対象</span>
-              <span className="whitespace-nowrap rounded bg-muted px-1.5 py-0.5 sm:px-2 sm:py-1">SEC 13F / 13D / 13G</span>
-              <span className="whitespace-nowrap rounded bg-muted px-1.5 py-0.5 sm:px-2 sm:py-1">EDINET 大量保有</span>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-1 text-[10px] font-bold sm:gap-1.5 sm:text-xs lg:justify-end">
-              <span className="mr-0.5 text-[9px] font-bold uppercase tracking-wide text-muted-foreground sm:mr-1 sm:text-[10px]">接続状態</span>
-              <span className={`rounded px-1.5 py-0.5 sm:px-2 sm:py-1 ${isUsingCache ? "bg-amber-50 text-amber-700 border border-amber-200" : sourceStatusClass(smartMoneyData.source === "live" ? "live" : smartMoneyStatus === "error" ? "error" : "empty")}`}>
-                データ {isUsingCache ? "一時キャッシュ" : smartMoneyData.source === "live" ? "実取得" : smartMoneyStatus === "error" ? "取得失敗" : "フォールバック"}
-              </span>
-              <span className={`rounded px-1.5 py-0.5 sm:px-2 sm:py-1 ${sourceStatusClass(smartMoneyData.sourceStatus?.sec)}`}>
-                SEC {sourceStatusLabel(smartMoneyData.sourceStatus?.sec)}
-              </span>
-              <span className={`rounded px-1.5 py-0.5 sm:px-2 sm:py-1 ${sourceStatusClass(smartMoneyData.sourceStatus?.edinet)}`}>
-                EDINET {sourceStatusLabel(smartMoneyData.sourceStatus?.edinet)}
-              </span>
-              <span className={`rounded px-1.5 py-0.5 sm:px-2 sm:py-1 ${sourceStatusClass(smartMoneyData.sourceStatus?.price)}`}>
-                価格 {sourceStatusLabel(smartMoneyData.sourceStatus?.price)}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <div className="mb-3 grid grid-cols-2 gap-2 md:grid-cols-4">
-          {[
-            { label: "調査優先", value: `${priorityCount}件`, icon: CheckCircle2, tone: "text-emerald-700" },
-            { label: "平均追随価値", value: averageScore.toFixed(0), icon: Gauge, tone: "text-primary" },
-            { label: "反証注意", value: `${cautionCount}件`, icon: ShieldAlert, tone: "text-amber-700" },
-            { label: "監視ファンド", value: `${liveFunds.length}件`, icon: Building2, tone: "text-slate-700" },
-          ].map((item) => (
-            <div key={item.label} className="rounded border border-border bg-card px-3 py-2">
-              <div className="flex items-center justify-between gap-2">
-                <div>
-                  <div className="text-xs font-bold text-slate-600">{item.label}</div>
-                  <div className="mt-0.5 text-lg font-black tabular-nums text-foreground">{item.value}</div>
-                </div>
-                <item.icon className={`h-5 w-5 ${item.tone}`} />
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <section className="mb-3 overflow-hidden rounded border border-border bg-card">
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-table-header-bg px-3 py-2">
-            <div className="flex items-center gap-2">
-              <Gauge className="h-4 w-4 text-primary" />
-              <h3 className="text-xs font-bold text-foreground">追随価値トップ候補</h3>
-            </div>
-            <span className="rounded bg-muted px-2 py-1 text-xs font-bold text-slate-600">
-              鮮度・未織り込み・反証減点で順位付け
+        {/* サイト共通のフラット＆コンパクトな1行見出し */}
+        <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-2">
+            <Eye className="h-4 w-4 shrink-0 text-primary" />
+            <h1 className="whitespace-nowrap text-sm font-bold text-foreground">
+              大口・ファンド動向
+            </h1>
+            <span className="whitespace-nowrap rounded border border-border bg-muted px-1.5 py-0.5 text-xxs font-semibold text-foreground/80">
+              SEC / EDINET
+            </span>
+            <span
+              className="hidden items-center gap-1 whitespace-nowrap text-[10px] font-semibold text-muted-foreground sm:inline-flex"
+              title={`データ: ${isUsingCache ? "一時キャッシュ" : smartMoneyData.source === "live" ? "実取得" : "フォールバック"} / SEC: ${sourceStatusLabel(smartMoneyData.sourceStatus?.sec)} / EDINET: ${sourceStatusLabel(smartMoneyData.sourceStatus?.edinet)} / 価格: ${sourceStatusLabel(smartMoneyData.sourceStatus?.price)}`}
+            >
+              <span
+                className={`h-2 w-2 rounded-full ${
+                  smartMoneyData.source === "live" && !isUsingCache
+                    ? "bg-emerald-500"
+                    : isUsingCache
+                      ? "bg-amber-500"
+                      : "bg-slate-400"
+                }`}
+              />
+              {formatJstDateTime(autoRefreshedAt)} 更新
             </span>
           </div>
-          <div className="grid min-w-0 gap-2 p-3 lg:grid-cols-3">
-            {displaySignals.slice(0, 3).map((signal) => {
-              const freshness = getFreshnessBadge(signal);
-              const pricing = getPricingBadge(signal);
 
-              return (
-                <button
-                  key={signal.id}
-                  type="button"
-                  onClick={() => setSelectedSignalId(signal.id)}
-                  className="min-w-0 rounded border border-border bg-background p-3 text-left transition-colors hover:border-primary/40 hover:bg-primary/5"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      {hasDisplayTicker(signal) && (
-                        <div className="font-mono text-xs font-black text-primary">{signal.ticker}</div>
-                      )}
-                      <div className="truncate text-sm font-black text-foreground">{signal.company}</div>
-                      <div className="mt-0.5 truncate text-xs font-semibold text-slate-600" title={signal.source === "edinet" && signal.filerName ? `提出者: ${signal.filerName}` : signal.fund.name}>
-                        {signal.source === "edinet" && signal.filerName ? `提出者: ${signal.filerName}` : signal.fund.name}
+          <div className="ml-auto flex shrink-0 items-center gap-1.5">
+            <button
+              type="button"
+              onClick={handleManualRefresh}
+              className="inline-flex h-7 items-center gap-1 whitespace-nowrap rounded border border-border bg-card px-2 text-xxs font-bold text-foreground transition-colors hover:bg-muted disabled:opacity-60"
+              disabled={smartMoneyStatus === "loading" || cooldownSeconds > 0}
+              title={`接続状態 — SEC:${sourceStatusLabel(smartMoneyData.sourceStatus?.sec)} / EDINET:${sourceStatusLabel(smartMoneyData.sourceStatus?.edinet)}`}
+            >
+              <RefreshCw className={`h-3 w-3 text-primary ${smartMoneyStatus === "loading" ? "animate-spin" : ""}`} />
+              {cooldownSeconds > 0 ? `再評価 (${cooldownSeconds}s)` : "再評価"}
+            </button>
+            <BeginnerGuideButton topic="overview" onOpen={setBeginnerGuideTopic} label="見方ガイド" />
+          </div>
+        </div>
+
+        {/* 追随価値トップ候補（監視ファンドタブ以外でコンパクト表示） */}
+        {activeTab !== "funds" && topCandidateSignals.length > 0 && (
+          <section className="mb-3 overflow-hidden rounded border border-border bg-card">
+            <div className="flex items-center justify-between gap-2 border-b border-border bg-table-header-bg px-3 py-1.5">
+              <div className="flex items-center gap-1.5">
+                <Gauge className="h-3.5 w-3.5 text-primary" />
+                <h2 className="text-xs font-bold text-foreground">注目トップ候補</h2>
+                <span className="whitespace-nowrap rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] font-semibold leading-tight text-foreground/80">
+                  上位{topCandidateSignals.length}件
+                </span>
+              </div>
+              <span className="hidden text-[10px] font-semibold text-muted-foreground sm:inline">
+                タップで調査報告書・提出書類を確認
+              </span>
+            </div>
+            <div className="grid min-w-0 gap-2 p-2.5 md:grid-cols-3">
+              {topCandidateSignals.map((signal) => {
+                const freshness = getFreshnessBadge(signal);
+                const pricing = getPricingBadge(signal);
+
+                return (
+                  <button
+                    key={signal.id}
+                    type="button"
+                    onClick={() => setSelectedSignalId(signal.id)}
+                    className="group min-w-0 rounded border border-border bg-background p-2.5 text-left transition-colors hover:border-primary/50 hover:bg-primary/5"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          {hasDisplayTicker(signal) && (
+                            <span className="shrink-0 font-mono text-xxs font-black text-primary">{signal.ticker}</span>
+                          )}
+                          <span className="truncate text-sm font-extrabold text-foreground group-hover:text-primary">
+                            {signal.company}
+                          </span>
+                        </div>
+                        <div
+                          className="mt-0.5 truncate text-xxs font-semibold text-muted-foreground"
+                          title={signal.source === "edinet" && signal.filerName ? `提出者: ${signal.filerName}` : signal.fund.name}
+                        >
+                          {signal.source === "edinet" && signal.filerName ? signal.filerName : signal.fund.name}
+                        </div>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <span className={`inline-flex h-5 min-w-5 items-center justify-center rounded px-1 font-mono text-[11px] font-black leading-none ${rankBadgeClass(signal.rank)}`}>
+                            {signal.rank}
+                          </span>
+                          <span className="text-lg font-black leading-none tabular-nums text-foreground">{signal.score}</span>
+                        </div>
+                        <div className="mt-0.5 text-[10px] font-semibold text-muted-foreground">評価スコア</div>
                       </div>
                     </div>
-                    <div className="shrink-0 text-right">
-                      <div className="text-2xl font-black tabular-nums text-foreground">{signal.score}</div>
-                      <div className="text-xs font-bold text-slate-600">追随価値</div>
-                    </div>
-                  </div>
-                  <div className="mt-3 flex flex-wrap gap-1.5">
-                    <span className={`rounded border px-2 py-1 text-xs font-bold ${freshness.className}`}>{freshness.label}</span>
-                    <span className={`rounded border px-2 py-1 text-xs font-bold ${pricing.className}`}>{pricing.label}</span>
-                    <span className={`rounded border px-2 py-1 text-xs font-bold ${verdictClass(signal.verdict)}`}>{signal.verdict}</span>
-                    {signal.relatedCount > 1 && (
-                      <span className="rounded border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-bold text-slate-600">
-                        関連{signal.relatedCount}件
+
+                    <div className="mt-2 flex flex-wrap items-center gap-1">
+                      <span className={`whitespace-nowrap rounded border px-1.5 py-0.5 text-[10px] font-bold leading-tight ${verdictClass(signal.verdict)}`}>
+                        {signal.verdict}
                       </span>
-                    )}
-                  </div>
-                  <div className="mt-2 text-xs font-semibold leading-relaxed text-slate-600">{getNextAction(signal)}</div>
+                      <span className={`whitespace-nowrap rounded border px-1.5 py-0.5 text-[10px] font-bold leading-tight ${pricing.className}`}>
+                        {pricing.label}
+                      </span>
+                      <span className={`whitespace-nowrap rounded border px-1.5 py-0.5 text-[10px] font-bold leading-tight ${freshness.className}`}>
+                        {freshness.label}
+                      </span>
+                      <span className="ml-auto font-mono text-[10px] font-bold tabular-nums text-muted-foreground">
+                        比率 {formatPortfolioWeightLabel(signal)}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+        {/* 太下線タブ＋一覧の一体型カード（スクリーニングページと統一） */}
+        <section className="overflow-hidden rounded border border-border bg-card">
+          {/* 太下線タブバー */}
+          <div
+            role="tablist"
+            aria-label="大口・ファンド表示切替"
+            className="flex items-stretch overflow-x-auto border-b border-border bg-muted/40 no-scrollbar"
+          >
+            {(
+              [
+                { id: "all", label: "すべて", count: displaySignals.length },
+                { id: "jp", label: "日本株 (EDINET)", count: jpCount },
+                { id: "us", label: "米国株 (SEC)", count: usCount },
+                { id: "priority", label: "調査優先", count: priorityCount },
+                { id: "funds", label: "監視ファンド", count: liveFunds.length },
+              ] as const
+            ).map((tab) => {
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={isActive}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`relative -mb-px flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-4 px-3 py-2.5 text-xs transition-colors sm:px-4 ${
+                    isActive
+                      ? "border-primary bg-table-header-bg font-bold text-primary"
+                      : "border-transparent font-semibold text-muted-foreground hover:bg-muted/70 hover:text-foreground"
+                  }`}
+                >
+                  <span>{tab.label}</span>
+                  <span
+                    className={`rounded px-1 py-0.5 text-[10px] font-semibold tabular-nums leading-none ${
+                      isActive ? "bg-primary/10 text-primary" : "bg-background/80 text-muted-foreground"
+                    }`}
+                  >
+                    {tab.count}
+                  </span>
                 </button>
               );
             })}
           </div>
-        </section>
 
-        <div className="mb-3 rounded border border-border bg-card">
-          <div className="flex flex-wrap items-center gap-2 border-b border-border bg-table-header-bg px-3 py-2">
-            <Filter className="h-3.5 w-3.5 text-primary" />
-            <div className="flex min-w-0 flex-1 gap-1 overflow-x-auto">
-              {styles.map((style) => (
-                <button
-                  key={style}
-                  type="button"
-                  onClick={() => setSelectedStyle(style)}
-                  className={`h-7 shrink-0 whitespace-nowrap rounded border px-2 text-xs font-bold transition-colors ${
-                    selectedStyle === style
-                      ? "border-primary bg-primary text-primary-foreground"
-                      : "border-border bg-background text-slate-600 hover:bg-muted hover:text-foreground"
-                  }`}
-                >
-                  {style}
-                </button>
-              ))}
+          {activeTab === "funds" ? (
+            /* 監視ファンド一覧タブ */
+            <div className="p-3">
+              <div className="mb-2.5 flex items-center justify-between gap-2 text-xxs text-muted-foreground">
+                <span>信頼度・読解性・報告遅延リスクで各ファンドを評価しています。</span>
+                <span className="shrink-0 font-bold text-foreground">全{liveFunds.length}ファンド</span>
+              </div>
+              <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                {liveFunds.map((fund) => (
+                  <div key={fund.id} className="rounded border border-border bg-background p-2.5">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="truncate text-xs font-extrabold text-foreground">{fund.name}</div>
+                        <div className="truncate text-xxs font-semibold text-muted-foreground">{fund.manager}</div>
+                      </div>
+                      <span className={`shrink-0 whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-bold leading-tight ${styleClass(fund.style)}`}>
+                        {fund.style}
+                      </span>
+                    </div>
+                    <div className="mt-2 grid grid-cols-3 gap-1 text-center text-xxs font-semibold">
+                      <div className="rounded bg-muted/60 px-1 py-1">
+                        <div className="text-[10px] text-muted-foreground">信頼</div>
+                        <div className="text-xs font-black tabular-nums text-foreground">{fund.reliability}</div>
+                      </div>
+                      <div className="rounded bg-muted/60 px-1 py-1">
+                        <div className="text-[10px] text-muted-foreground">読解</div>
+                        <div className="text-xs font-black tabular-nums text-foreground">{fund.readable}</div>
+                      </div>
+                      <div className="rounded bg-muted/60 px-1 py-1">
+                        <div className="text-[10px] text-muted-foreground">遅延リスク</div>
+                        <div className="text-xs font-black tabular-nums text-foreground">{fund.lagRisk}</div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
-            <div className="relative w-full sm:w-72">
-              <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-              <input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="ファンド・銘柄・ティッカーで検索"
-                className="h-8 w-full rounded border border-border bg-background pl-7 pr-2 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-primary"
-              />
-            </div>
-          </div>
+          ) : (
+            <>
+              {/* 1行サマリー＆フィルターバー */}
+              <div className="border-b border-border bg-table-header-bg px-3 py-2 space-y-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xxs font-semibold">
+                    <span className="text-foreground">
+                      表示 <strong className="text-xs font-extrabold tabular-nums text-primary">{filteredDisplaySignals.length}</strong> 件
+                    </span>
+                    <span className="text-emerald-700 tabular-nums">調査優先 {priorityCount}件</span>
+                    <span className="text-muted-foreground tabular-nums">平均スコア {averageScore.toFixed(0)}</span>
+                    <span className="text-amber-700 tabular-nums">反証注意 {cautionCount}件</span>
+                  </div>
 
-          <div className="w-full overflow-x-auto overscroll-x-contain rounded-md border border-border">
-            <div className="max-h-[72vh] overflow-y-auto overscroll-y-contain">
-              <table className="w-full min-w-[1390px] table-fixed text-xs">
-              <thead className="sticky top-0 z-10 whitespace-nowrap bg-muted text-xs text-slate-600 shadow-sm">
-                <tr>
-                  <th className="w-[130px] px-3 py-2 text-left">判定 / アクション</th>
-                  <th className="w-[190px] px-3 py-2 text-left">大口ファンド</th>
-                  <th className="w-[250px] px-3 py-2 text-left">投資先銘柄 / 提出者</th>
-                  <th className="w-[92px] px-3 py-2 text-right">注目スコア</th>
-                  <th className="w-[120px] px-3 py-2 text-left">織り込み状況</th>
-                  <th className="w-[80px] px-3 py-2 text-right">保有比率</th>
-                  <th className="w-[80px] px-3 py-2 text-right">保有増減</th>
-                  <th className="w-[70px] px-3 py-2 text-right">報告遅延（日数）</th>
-                  <th className="w-[84px] px-3 py-2 text-right">開示後値動き</th>
-                  <th className="w-[250px] px-3 py-2 text-left">警戒シグナル（反証）</th>
-                  <th className="w-[250px] px-3 py-2 text-left">次の調査アクション</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
+                  <div className="flex w-full flex-wrap items-center justify-end gap-1.5 sm:w-auto">
+                    <div className="relative min-w-0 flex-1 sm:w-56 sm:flex-none">
+                      <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                      <input
+                        value={query}
+                        onChange={(event) => setQuery(event.target.value)}
+                        placeholder="ファンド・銘柄・コード検索"
+                        className="h-7 w-full rounded border border-border bg-background pl-7 pr-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                      />
+                    </div>
+                    <select
+                      aria-label="並び替え"
+                      value={sortBy}
+                      onChange={(event) => setSortBy(event.target.value as "score" | "date" | "weight" | "move")}
+                      className="h-7 shrink-0 rounded border border-border bg-background px-2 text-xxs font-bold text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                    >
+                      <option value="score">注目スコア順</option>
+                      <option value="date">提出日が新しい順</option>
+                      <option value="weight">保有比率が高い順</option>
+                      <option value="move">開示後値動き順</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* スタイル絞り込み */}
+                <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
+                  <Filter className="mr-0.5 h-3 w-3 shrink-0 text-muted-foreground" />
+                  {styles.map((style) => (
+                    <button
+                      key={style}
+                      type="button"
+                      onClick={() => setSelectedStyle(style)}
+                      className={`h-6 shrink-0 whitespace-nowrap rounded border px-2 text-xxs font-bold transition-colors ${
+                        selectedStyle === style
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
+                      }`}
+                    >
+                      {style}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* PC用スリム7列テーブル */}
+              <div className="hidden md:block">
+                <div className="max-h-[70vh] overflow-x-auto overflow-y-auto">
+                  <table className="w-full text-xs">
+                    <thead className="sticky top-0 z-10 whitespace-nowrap border-b border-border bg-muted/80 text-xxs font-semibold text-muted-foreground backdrop-blur-xs">
+                      <tr>
+                        <th className="whitespace-nowrap px-3 py-2 text-left">銘柄 / 提出日</th>
+                        <th className="whitespace-nowrap px-3 py-2 text-left">提出者 / 大口ファンド</th>
+                        <th className="whitespace-nowrap px-3 py-2 text-right">保有比率 / 増減</th>
+                        <th className="whitespace-nowrap px-3 py-2 text-right">
+                          <span className="inline-flex items-center justify-end gap-1 whitespace-nowrap">
+                            <span>開示後 / 遅延</span>
+                            <span className="group relative inline-flex" tabIndex={0}>
+                              <Info className="h-3 w-3 cursor-help text-muted-foreground hover:text-foreground" />
+                              <span className="pointer-events-none absolute right-0 top-5 z-30 hidden w-60 whitespace-normal rounded border border-border bg-popover p-2 text-left text-[10px] font-medium leading-relaxed text-popover-foreground shadow-lg group-hover:block group-focus-within:block">
+                                <span className="mb-1 block font-bold text-foreground">開示後値動きの計算方法</span>
+                                報告日の終値から最新終値までの騰落率（Yahoo Finance日足）です。当日開示や未計測時はラベル表示します。
+                              </span>
+                            </span>
+                          </span>
+                        </th>
+                        <th className="whitespace-nowrap px-3 py-2 text-left">
+                          <span className="inline-flex items-center gap-1 whitespace-nowrap">
+                            <span>ランク・織り込み</span>
+                            <span className="group relative inline-flex" tabIndex={0}>
+                              <Info className="h-3 w-3 cursor-help text-muted-foreground hover:text-foreground" />
+                              <span className="pointer-events-none absolute left-0 top-5 z-30 hidden w-56 whitespace-normal rounded border border-border bg-popover p-2 text-left text-[10px] font-medium leading-relaxed text-popover-foreground shadow-lg group-hover:block group-focus-within:block">
+                                <span className="mb-1 block font-bold text-foreground">評価ランク目安（100点満点）</span>
+                                <span className="block"><strong className="text-emerald-700">S (82〜)</strong>: 最優先の確認候補</span>
+                                <span className="block"><strong className="text-primary">A (70〜81)</strong>: 有力候補</span>
+                                <span className="block"><strong className="text-sky-700">B (55〜69)</strong>: 監視・継続確認</span>
+                                <span className="block"><strong className="text-muted-foreground">C (〜54/売却)</strong>: 注意・反証材料</span>
+                              </span>
+                            </span>
+                          </span>
+                        </th>
+                        <th className="whitespace-nowrap px-3 py-2 text-left">判定</th>
+                        <th className="whitespace-nowrap px-3 py-2 text-right">操作</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {filteredDisplaySignals.map((signal) => {
+                        const pricing = getPricingBadge(signal);
+                        const sourceUrl = getSignalSourceUrl(signal);
+
+                        return (
+                          <tr
+                            key={signal.id}
+                            onClick={() => setSelectedSignalId(signal.id)}
+                            className="cursor-pointer transition-colors hover:bg-muted/40"
+                          >
+                            <td className="px-3 py-2.5 align-top">
+                              <div className="flex items-center gap-1.5">
+                                {hasDisplayTicker(signal) && (
+                                  <span className="font-mono text-xxs font-black text-primary">{signal.ticker}</span>
+                                )}
+                                <span className="font-bold text-foreground">{signal.company}</span>
+                              </div>
+                              <div className="mt-0.5 flex flex-wrap items-center gap-1 text-[10px] text-muted-foreground">
+                                <span>{signal.filingType} / {signal.signalType}</span>
+                                <span className="rounded bg-muted px-1 py-0 font-semibold">提出 {signal.filingDate}</span>
+                                {signal.relatedCount > 1 && (
+                                  <span className="rounded bg-emerald-50 px-1 py-0 font-bold text-emerald-700">
+                                    集約{signal.relatedCount}件
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+
+                            <td className="px-3 py-2.5 align-top">
+                              <div className="font-bold text-foreground">
+                                {signal.source === "edinet" && signal.filerName ? signal.filerName : signal.fund.name}
+                              </div>
+                              <div className="mt-0.5 flex flex-wrap items-center gap-1">
+                                <span className={`whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-bold leading-tight ${styleClass(signal.fund.style)}`}>
+                                  {signal.fund.style}
+                                </span>
+                                {signal.source !== "edinet" && (
+                                  <span className="text-[10px] text-muted-foreground">{signal.fund.manager}</span>
+                                )}
+                              </div>
+                            </td>
+
+                            <td className="px-3 py-2.5 text-right align-top tabular-nums">
+                              <div className="font-bold text-foreground">{formatPortfolioWeightLabel(signal)}</div>
+                              <div
+                                className={`text-xxs font-bold ${
+                                  isPlaceholderPositionChange(signal)
+                                    ? "text-primary"
+                                    : Math.abs(signal.positionChange) < 0.05
+                                      ? "text-muted-foreground"
+                                      : signal.positionChange > 0
+                                        ? "text-stock-up"
+                                        : "text-stock-down"
+                                }`}
+                              >
+                                {formatPositionChangeLabel(signal)}
+                              </div>
+                            </td>
+
+                            <td className="px-3 py-2.5 text-right align-top tabular-nums">
+                              <div
+                                className={`font-bold ${
+                                  !isPriceMoveEvaluated(signal) || Math.abs(signal.priceMoveSinceReport) < 0.05
+                                    ? "text-muted-foreground"
+                                    : signal.priceMoveSinceReport >= 8
+                                      ? "text-amber-700"
+                                      : signal.priceMoveSinceReport > 0
+                                        ? "text-stock-up"
+                                        : "text-stock-down"
+                                }`}
+                              >
+                                {formatPriceMoveLabel(signal)}
+                              </div>
+                              <div className="text-[10px] text-muted-foreground">遅延 {signal.filingLagDays}日</div>
+                            </td>
+
+                            <td className="px-3 py-2.5 align-top">
+                              <div className="flex items-center gap-1.5">
+                                <span className={`inline-flex h-5 min-w-5 items-center justify-center rounded px-1 font-mono text-[10px] font-black leading-none ${rankBadgeClass(signal.rank)}`}>
+                                  {signal.rank}
+                                </span>
+                                <span className="w-5 font-black tabular-nums text-foreground">{signal.score}</span>
+                                <div className="h-1.5 w-12 overflow-hidden rounded-full bg-muted">
+                                  <div className="h-full rounded-full bg-primary" style={{ width: `${signal.score}%` }} />
+                                </div>
+                              </div>
+                              <div className="mt-1">
+                                <span className={`inline-flex whitespace-nowrap rounded border px-1.5 py-0.5 text-[10px] font-bold leading-tight ${pricing.className}`}>
+                                  {pricing.label}
+                                </span>
+                              </div>
+                            </td>
+
+                            <td className="px-3 py-2.5 align-top">
+                              <span className={`inline-flex whitespace-nowrap rounded border px-1.5 py-0.5 text-[10px] font-bold leading-tight ${verdictClass(signal.verdict)}`}>
+                                {signal.verdict}
+                              </span>
+                              <div className="mt-1 flex items-center gap-1 text-[10px] text-muted-foreground">
+                                {signal.risk === "許容" ? (
+                                  <CheckCircle2 className="h-3 w-3 shrink-0 text-emerald-600" />
+                                ) : (
+                                  <AlertTriangle className="h-3 w-3 shrink-0 text-amber-600" />
+                                )}
+                                <span>{signal.risk}</span>
+                              </div>
+                            </td>
+
+                            <td className="px-3 py-2.5 text-right align-top" onClick={(e) => e.stopPropagation()}>
+                              <div className="flex flex-col items-end gap-1">
+                                <div className="inline-flex items-center justify-end gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => setSelectedSignalId(signal.id)}
+                                    className="inline-flex h-7 items-center gap-1 whitespace-nowrap rounded border border-primary/40 bg-primary/5 px-2 text-xxs font-bold text-primary transition-colors hover:bg-primary hover:text-primary-foreground"
+                                  >
+                                    <BookOpenText className="h-3 w-3" />
+                                    詳細
+                                  </button>
+                                  {sourceUrl && signal.source === "edinet" && (
+                                    <button
+                                      type="button"
+                                      onClick={() => setViewerSignalId(signal.id)}
+                                      className="inline-flex h-7 items-center gap-1 whitespace-nowrap rounded border border-border bg-background px-2 text-xxs font-bold text-foreground transition-colors hover:border-primary/40 hover:text-primary"
+                                      title="提出PDFを表示"
+                                    >
+                                      <ExternalLink className="h-3 w-3" />
+                                      PDF
+                                    </button>
+                                  )}
+                                  {sourceUrl && signal.source !== "edinet" && (
+                                    <a
+                                      href={sourceUrl}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="inline-flex h-7 items-center gap-1 whitespace-nowrap rounded border border-border bg-background px-2 text-xxs font-bold text-foreground transition-colors hover:border-primary/40 hover:text-primary"
+                                      title="公式提出書類を開く"
+                                    >
+                                      <ExternalLink className="h-3 w-3" />
+                                      書類
+                                    </a>
+                                  )}
+                                </div>
+                                {signal.source === "edinet" && hasDisplayTicker(signal) && (
+                                  <Link
+                                    to={`/chart?q=${signal.ticker}`}
+                                    className="inline-flex h-7 items-center gap-1 whitespace-nowrap rounded border border-border bg-background px-2 text-xxs font-bold text-foreground transition-colors hover:border-primary/40 hover:text-primary"
+                                    title="株価チャートを表示"
+                                  >
+                                    <TrendingUp className="h-3 w-3" />
+                                    チャート
+                                  </Link>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      {filteredDisplaySignals.length === 0 && (
+                        <tr>
+                          <td colSpan={7} className="px-3 py-8 text-center text-xs font-semibold text-muted-foreground">
+                            条件に一致する大口・ファンド開示はありません。
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* モバイル用 縦型カードリスト（横スクロール不要） */}
+              <div className="divide-y divide-border md:hidden">
                 {filteredDisplaySignals.map((signal) => {
                   const pricing = getPricingBadge(signal);
                   const sourceUrl = getSignalSourceUrl(signal);
 
                   return (
-                    <tr key={signal.id} className="hover:bg-muted/30">
-                      <td className="px-3 py-2">
-                        <div className="flex flex-col items-start gap-1">
-                          <span className={`inline-flex whitespace-nowrap rounded border px-2 py-1 text-xs font-bold ${verdictClass(signal.verdict)}`}>
+                    <article
+                      key={signal.id}
+                      onClick={() => setSelectedSignalId(signal.id)}
+                      className="p-3 transition-colors active:bg-muted/40"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {hasDisplayTicker(signal) && (
+                              <span className="font-mono text-xxs font-black text-primary">{signal.ticker}</span>
+                            )}
+                            <h3 className="text-sm font-extrabold text-foreground">{signal.company}</h3>
+                          </div>
+                          <div className="mt-0.5 text-xxs font-semibold text-muted-foreground">
+                            {signal.source === "edinet" && signal.filerName ? signal.filerName : signal.fund.name}
+                          </div>
+                        </div>
+                        <div className="shrink-0 text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <span className={`inline-flex h-5 min-w-5 items-center justify-center rounded px-1 font-mono text-[11px] font-black leading-none ${rankBadgeClass(signal.rank)}`}>
+                              {signal.rank}
+                            </span>
+                            <span className="text-lg font-black leading-none tabular-nums text-foreground">{signal.score}</span>
+                          </div>
+                          <span className={`mt-1 inline-flex whitespace-nowrap rounded border px-1.5 py-0.5 text-[10px] font-bold leading-tight ${verdictClass(signal.verdict)}`}>
                             {signal.verdict}
                           </span>
-                          <button
-                            type="button"
-                            onClick={() => setSelectedSignalId(signal.id)}
-                            className="inline-flex h-7 items-center gap-1 whitespace-nowrap rounded border border-primary/30 bg-primary/5 px-2 text-xs font-bold text-primary transition-colors hover:bg-primary hover:text-primary-foreground"
-                          >
-                            <BookOpenText className="h-3 w-3" />
-                            詳細
-                          </button>
-                          {signal.source === "edinet" && hasDisplayTicker(signal) && (
-                            <Link
-                              to={`/chart?q=${signal.ticker}`}
-                              className="inline-flex h-7 items-center gap-1 whitespace-nowrap rounded border border-primary/30 bg-primary/5 px-2 text-xs font-bold text-primary transition-colors hover:bg-primary hover:text-primary-foreground"
-                              title="この銘柄の株価チャートを表示します"
-                            >
-                              <TrendingUp className="h-3 w-3" />
-                              チャート
-                            </Link>
-                          )}
-                          {sourceUrl && signal.source === "edinet" && (
-                            <button
-                              type="button"
-                              onClick={() => setViewerSignalId(signal.id)}
-                              className="inline-flex h-7 items-center gap-1 whitespace-nowrap rounded border border-primary/30 bg-primary/5 px-2 text-xs font-bold text-primary transition-colors hover:bg-primary hover:text-primary-foreground"
-                              title="画面内でEDINET提出PDFを表示します"
-                            >
-                              <ExternalLink className="h-3 w-3" />
-                              提出PDF
-                            </button>
-                          )}
-                          {sourceUrl && signal.source !== "edinet" && (
-                            <a
-                              href={sourceUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="inline-flex h-7 items-center gap-1 whitespace-nowrap rounded border border-primary/30 bg-primary/5 px-2 text-xs font-bold text-primary transition-colors hover:bg-primary hover:text-primary-foreground"
-                              title="実際の提出書類を開きます"
-                            >
-                              <ExternalLink className="h-3 w-3" />
-                              提出リンク
-                            </a>
-                          )}
                         </div>
-                      </td>
-                      <td className="px-3 py-2">
-                        <div className="font-bold leading-snug text-foreground">{signal.fund.name}</div>
-                        <div className="mt-1 flex flex-wrap items-center gap-1">
-                          <span className={`whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-bold ${styleClass(signal.fund.style)}`}>
-                            {signal.fund.style}
-                          </span>
-                          <span className="text-[10px] font-semibold text-slate-500">{signal.fund.manager}</span>
-                        </div>
-                      </td>
-                      <td className="px-3 py-2">
-                        {hasDisplayTicker(signal) && (
-                          <div className="font-mono text-xs font-black text-primary">{signal.ticker}</div>
-                        )}
-                        <div className="font-semibold text-foreground">
-                          {signal.source === "edinet" ? "対象銘柄: " : ""}
-                          {signal.company}
-                        </div>
-                        {signal.source === "edinet" && signal.filerName && (
-                          <div className="mt-0.5 text-xs font-semibold text-slate-600">
-                            提出者: {signal.filerName}
-                          </div>
-                        )}
-                        <div className="mt-0.5 flex flex-wrap items-center gap-1">
-                          <span className="text-xs font-semibold text-slate-600">{signal.filingType} / {signal.signalType}</span>
-                          <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-bold text-slate-600">
-                            提出 {signal.filingDate}
-                          </span>
-                          {signal.relatedCount > 1 && (
-                            <span
-                              className="rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700"
-                              title="同じ提出者・対象銘柄・提出日の大量保有報告書、変更報告書、訂正報告書などを1行にまとめています。"
-                            >
-                              関連書類 {signal.relatedCount}件を集約
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-3 py-2 text-right">
-                        <div className="font-black tabular-nums text-foreground">{signal.score}</div>
-                        <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-muted">
-                          <div className="h-full rounded-full bg-primary" style={{ width: `${signal.score}%` }} />
-                        </div>
-                      </td>
-                      <td className="px-3 py-2">
-                        <span className={`inline-flex whitespace-nowrap rounded border px-2 py-1 text-xs font-bold ${pricing.className}`}>
+                      </div>
+
+                      <div className="mt-2 flex flex-wrap items-center gap-1">
+                        <span className={`whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-bold leading-tight ${styleClass(signal.fund.style)}`}>
+                          {signal.fund.style}
+                        </span>
+                        <span className={`whitespace-nowrap rounded border px-1.5 py-0.5 text-[10px] font-bold leading-tight ${pricing.className}`}>
                           {pricing.label}
                         </span>
-                      </td>
-                      <td className="px-3 py-2 text-right font-bold tabular-nums">{signal.portfolioWeight.toFixed(1)}%</td>
-                      <td className={`px-3 py-2 text-right font-bold tabular-nums ${signal.positionChange >= 0 ? "text-stock-up" : "text-stock-down"}`}>
-                        {formatSignedPercent(signal.positionChange)}
-                      </td>
-                      <td className="px-3 py-2 text-right font-bold tabular-nums">{signal.filingLagDays}日</td>
-                      <td className={`px-3 py-2 text-right font-bold tabular-nums ${signal.priceMoveSinceReport >= 8 ? "text-amber-700" : "text-slate-600"}`}>
-                        {formatSignedPercent(signal.priceMoveSinceReport)}
-                      </td>
-                      <td className="px-3 py-2">
-                        <div className="flex items-start gap-1.5">
-                          {signal.risk === "許容" ? (
-                            <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" />
-                          ) : (
-                            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" />
-                          )}
-                          <div>
-                            <div className="font-bold text-foreground">{signal.risk}</div>
-                            <div className="text-xs font-semibold leading-[1.65] text-slate-600">
-                              {buildCounterReasons(signal)[0]}
-                            </div>
+                        <span className="whitespace-nowrap rounded bg-muted px-1.5 py-0.5 text-[10px] font-semibold leading-tight text-muted-foreground">
+                          {signal.filingType}・提出 {signal.filingDate}
+                        </span>
+                      </div>
+
+                      <div className="mt-2 grid grid-cols-3 gap-1.5 rounded border border-border/70 bg-muted/20 p-2 text-center text-xxs tabular-nums">
+                        <div>
+                          <div className="text-[10px] text-muted-foreground">保有比率</div>
+                          <div className="font-extrabold text-foreground">{formatPortfolioWeightLabel(signal)}</div>
+                        </div>
+                        <div>
+                          <div className="text-[10px] text-muted-foreground">保有増減</div>
+                          <div
+                            className={`font-extrabold ${
+                              isPlaceholderPositionChange(signal)
+                                ? "text-primary"
+                                : Math.abs(signal.positionChange) < 0.05
+                                  ? "text-muted-foreground"
+                                  : signal.positionChange > 0
+                                    ? "text-stock-up"
+                                    : "text-stock-down"
+                            }`}
+                          >
+                            {formatPositionChangeLabel(signal)}
                           </div>
                         </div>
-                      </td>
-                      <td className="px-3 py-2 text-xs font-semibold leading-[1.65] text-slate-600">
-                        {getNextAction(signal)}
-                      </td>
-                    </tr>
+                        <div>
+                          <div className="text-[10px] text-muted-foreground">開示後 / 遅延</div>
+                          <div
+                            className={`font-extrabold ${
+                              !isPriceMoveEvaluated(signal) || Math.abs(signal.priceMoveSinceReport) < 0.05
+                                ? "text-muted-foreground"
+                                : signal.priceMoveSinceReport >= 8
+                                  ? "text-amber-700"
+                                  : signal.priceMoveSinceReport > 0
+                                    ? "text-stock-up"
+                                    : "text-stock-down"
+                            }`}
+                          >
+                            {formatPriceMoveLabel(signal)} ({signal.filingLagDays}日)
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mt-2 flex flex-wrap items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedSignalId(signal.id)}
+                          className="inline-flex h-7 items-center gap-1 whitespace-nowrap rounded border border-primary/40 bg-primary/5 px-2.5 text-xxs font-bold text-primary"
+                        >
+                          <BookOpenText className="h-3 w-3" />
+                          詳細報告書
+                        </button>
+                        {signal.source === "edinet" && hasDisplayTicker(signal) && (
+                          <Link
+                            to={`/chart?q=${signal.ticker}`}
+                            className="inline-flex h-7 items-center gap-1 whitespace-nowrap rounded border border-border bg-background px-2.5 text-xxs font-bold text-foreground"
+                          >
+                            <TrendingUp className="h-3 w-3" />
+                            チャート
+                          </Link>
+                        )}
+                        {sourceUrl && signal.source === "edinet" && (
+                          <button
+                            type="button"
+                            onClick={() => setViewerSignalId(signal.id)}
+                            className="inline-flex h-7 items-center gap-1 whitespace-nowrap rounded border border-border bg-background px-2.5 text-xxs font-bold text-foreground"
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                            提出PDF
+                          </button>
+                        )}
+                        {sourceUrl && signal.source !== "edinet" && (
+                          <a
+                            href={sourceUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex h-7 items-center gap-1 whitespace-nowrap rounded border border-border bg-background px-2.5 text-xxs font-bold text-foreground"
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                            公式書類
+                          </a>
+                        )}
+                      </div>
+                    </article>
                   );
                 })}
-              </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        <div className="grid gap-3 lg:grid-cols-3">
-          <section className="rounded border border-border bg-card">
-            <div className="flex items-center gap-2 border-b border-border bg-table-header-bg px-3 py-2">
-              <Scale className="h-4 w-4 text-primary" />
-              <h3 className="text-xs font-bold text-foreground">判定の読み方</h3>
-            </div>
-            <div className="space-y-2 p-3 text-xs font-semibold leading-relaxed">
-              <div className="rounded border border-emerald-200 bg-emerald-50 p-2 text-emerald-800">
-                まず見るべき候補は「調査優先」{priorityCount}件。コピー買いではなく、詳細で一次開示と価格織り込みを確認します。
-              </div>
-              <div className="grid gap-2 text-xs">
-                {[
-                  ["調査優先", "高信頼ファンド、集中度上昇、複数ファンド一致、開示後未急騰が揃った候補。"],
-                  ["監視", "材料はあるが、遅延・価格上昇・単独ファンド要因が残る候補。次回提出で継続性を見る。"],
-                  ["コピー非推奨", "縮小、全売却、急騰済み、戦略不透明のどれかが強い候補。買いではなく反証材料として扱う。"],
-                ].map(([label, text]) => (
-                  <div key={label} className="rounded border border-border bg-background p-2">
-                    <div className="font-black text-foreground">{label}</div>
-                    <div className="mt-1 text-slate-600">{text}</div>
+                {filteredDisplaySignals.length === 0 && (
+                  <div className="px-3 py-8 text-center text-xs font-semibold text-muted-foreground">
+                    条件に一致する大口・ファンド開示はありません。
                   </div>
-                ))}
+                )}
               </div>
-            </div>
-          </section>
-
-          <section className="rounded border border-border bg-card">
-            <div className="flex items-center gap-2 border-b border-border bg-table-header-bg px-3 py-2">
-              <Clock3 className="h-4 w-4 text-primary" />
-              <h3 className="text-xs font-bold text-foreground">買う前の停止条件</h3>
-              <span className="whitespace-nowrap rounded bg-amber-50 px-1.5 py-0.5 text-xs font-bold text-amber-700">
-                注意 {cautionCount}件
-              </span>
-            </div>
-            <div className="grid grid-cols-1 gap-2 p-3 text-xs font-semibold">
-              {[
-                ["開示後急騰", "報告日以降に大きく上昇済みなら、良い材料でも後追い期待値を下げる。", "停止"],
-                ["13Fの遅延", "四半期末時点の保有なので、提出時点では既に売却済みの可能性がある。", "確認"],
-                ["売却・縮小", "有名ファンドの縮小は、買い材料ではなく人気銘柄の反証材料として見る。", "停止"],
-                ["本文未確認", "13D/EDINETは保有目的、共同保有者、資金源、変更理由を読んでから判断する。", "必須"],
-              ].map(([label, text, status]) => (
-                <div key={label} className="rounded border border-border bg-background p-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="font-black text-foreground">{label}</div>
-                    <span className="shrink-0 whitespace-nowrap rounded bg-muted px-1.5 py-0.5 text-xs font-bold text-slate-600">{status}</span>
-                  </div>
-                  <div className="mt-0.5 text-slate-600">{text}</div>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          <section className="rounded border border-border bg-card">
-            <div className="flex items-center gap-2 border-b border-border bg-table-header-bg px-3 py-2">
-              <Layers3 className="h-4 w-4 text-primary" />
-              <h3 className="text-xs font-bold text-foreground">次に見る公開データ</h3>
-            </div>
-            <div className="space-y-2 p-3 text-xs font-semibold">
-              {[
-                ["13D / 13G / EDINET", "5%超保有、保有目的、共同保有、変更報告。アクティビスト検知の最優先データ。", "高"],
-                ["13F / N-PORT", "四半期保有の差分。長期テーマと集中投資の痕跡を見るが、遅延を必ず補正。", "中"],
-                ["価格・出来高", "報告日、提出日、現在値、出来高急増を比較し、織り込み済みかを判定。", "高"],
-                ["空売り・信用・イベント", "空売り残高、信用残、TOB、自社株買い、増資などで大口買いの裏側を反証。", "中"],
-              ].map(([label, text, priority]) => (
-                <div key={label} className="flex items-start justify-between gap-2 rounded border border-border bg-background p-2">
-                  <div>
-                    <div className="font-black text-foreground">{label}</div>
-                    <div className="mt-0.5 text-xs text-slate-600">{text}</div>
-                  </div>
-                  <span className={`shrink-0 whitespace-nowrap rounded px-1.5 py-0.5 text-xs font-bold ${
-                    priority === "高" ? "bg-emerald-50 text-emerald-700" : "bg-sky-50 text-sky-700"
-                  }`}>
-                    優先度 {priority}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </section>
-        </div>
-
-        <section className="mt-3 rounded border border-border bg-card">
-          <div className="flex items-center gap-2 border-b border-border bg-table-header-bg px-3 py-2">
-            <ShieldAlert className="h-4 w-4 text-primary" />
-            <h3 className="text-xs font-bold text-foreground">合法ウォッチルート</h3>
-            <span className="whitespace-nowrap rounded bg-muted px-2 py-0.5 text-xs font-bold text-slate-600">
-              非公開情報・インサイダー情報は対象外
-            </span>
-          </div>
-          <div className="grid gap-2 p-3 md:grid-cols-2 xl:grid-cols-4">
-            {legalWatchRoutes.map((route) => (
-              <div key={route.title} className="rounded border border-border bg-background p-2">
-                <div className="text-xs font-black text-foreground">{route.title}</div>
-                <div className="mt-1 text-xs font-semibold leading-relaxed text-slate-600">{route.detail}</div>
-              </div>
-            ))}
-          </div>
+            </>
+          )}
         </section>
 
-        <div className="mt-3 rounded border border-border bg-card">
-          <div className="flex items-center gap-2 border-b border-border bg-table-header-bg px-3 py-2">
-            <Activity className="h-4 w-4 text-primary" />
-            <h3 className="text-xs font-bold text-foreground">監視ファンド</h3>
-          </div>
-          <div className="grid gap-2 p-3 md:grid-cols-2 xl:grid-cols-3">
-            {liveFunds.map((fund) => (
-              <div key={fund.id} className="rounded border border-border bg-background p-2">
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <div className="text-xs font-black text-foreground">{fund.name}</div>
-                    <div className="text-xs font-semibold text-slate-600">{fund.manager}</div>
+        {/* 解説・停止条件・データソース（折りたたみアコーディオン） */}
+        <section className="mt-3 overflow-hidden rounded border border-border bg-card">
+          <button
+            type="button"
+            onClick={() => setShowGuideAccordion((prev) => !prev)}
+            aria-expanded={showGuideAccordion}
+            className="flex w-full items-center justify-between gap-2 bg-table-header-bg px-3 py-2 text-left transition-colors hover:bg-muted/60"
+          >
+            <div className="flex items-center gap-1.5 text-xs font-bold text-foreground">
+              <Scale className="h-3.5 w-3.5 text-primary" />
+              <span>判定の読み方・買う前の停止条件・データソース（SEC / EDINET）</span>
+            </div>
+            <ChevronDown
+              className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 ${
+                showGuideAccordion ? "rotate-180" : ""
+              }`}
+            />
+          </button>
+
+          {showGuideAccordion && (
+            <div className="space-y-3 border-t border-border p-3">
+              <div className="grid gap-3 lg:grid-cols-3">
+                <div className="rounded border border-border bg-background p-2.5 text-xs">
+                  <div className="mb-1.5 flex items-center gap-1.5 font-bold text-foreground">
+                    <Scale className="h-3.5 w-3.5 text-primary" />
+                    判定の読み方
                   </div>
-                  <span className={`whitespace-nowrap rounded px-1.5 py-0.5 text-xs font-bold ${styleClass(fund.style)}`}>{fund.style}</span>
+                  <div className="space-y-1.5 text-xxs leading-relaxed text-muted-foreground">
+                    <p><strong className="text-foreground">調査優先:</strong> 高信頼ファンド・集中度上昇・未急騰が揃った候補。一次開示で裏取り。</p>
+                    <p><strong className="text-foreground">監視:</strong> 材料はあるが遅延や価格上昇が残る候補。次回提出で継続性を確認。</p>
+                    <p><strong className="text-foreground">コピー非推奨:</strong> 縮小・全売却・急騰済みのいずれかが強く、反証材料として扱う。</p>
+                  </div>
                 </div>
-                <div className="mt-2 grid grid-cols-3 gap-1 text-center text-xs font-semibold">
-                  <div className="rounded bg-muted px-1 py-1">
-                    <div className="text-slate-600">信頼</div>
-                    <div className="text-xs font-black text-foreground">{fund.reliability}</div>
+
+                <div className="rounded border border-border bg-background p-2.5 text-xs">
+                  <div className="mb-1.5 flex items-center gap-1.5 font-bold text-foreground">
+                    <Clock3 className="h-3.5 w-3.5 text-primary" />
+                    買う前の停止条件（注意 {cautionCount}件）
                   </div>
-                  <div className="rounded bg-muted px-1 py-1">
-                    <div className="text-slate-600">読解</div>
-                    <div className="text-xs font-black text-foreground">{fund.readable}</div>
+                  <div className="space-y-1.5 text-xxs leading-relaxed text-muted-foreground">
+                    <p><strong className="text-foreground">開示後急騰:</strong> 報告日以降に大きく上昇済みなら後追い期待値を下げる。</p>
+                    <p><strong className="text-foreground">13F遅延:</strong> 四半期末時点の保有のため、提出時点で売却済みの可能性あり。</p>
+                    <p><strong className="text-foreground">本文未確認:</strong> 13D/EDINETは保有目的・共同保有・資金源を読んで判断。</p>
                   </div>
-                  <div className="rounded bg-muted px-1 py-1">
-                    <div className="text-slate-600">遅延</div>
-                    <div className="text-xs font-black text-foreground">{fund.lagRisk}</div>
+                </div>
+
+                <div className="rounded border border-border bg-background p-2.5 text-xs">
+                  <div className="mb-1.5 flex items-center gap-1.5 font-bold text-foreground">
+                    <ShieldAlert className="h-3.5 w-3.5 text-primary" />
+                    合法公開データのみ監視
+                  </div>
+                  <div className="space-y-1.5 text-xxs leading-relaxed text-muted-foreground">
+                    {legalWatchRoutes.map((route) => (
+                      <p key={route.title}>
+                        <strong className="text-foreground">{route.title}:</strong> {route.detail}
+                      </p>
+                    ))}
                   </div>
                 </div>
               </div>
-            ))}
-          </div>
-        </div>
+            </div>
+          )}
+        </section>
       </main>
       {isBeginnerGuideOpen && (
         <div
-          className="fixed inset-0 z-[60] flex items-start justify-center overflow-y-auto bg-slate-950/55 px-3 py-4 backdrop-blur-sm sm:items-center sm:px-4 sm:py-6"
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/60 p-2.5 backdrop-blur-xs sm:p-4"
           role="dialog"
           aria-modal="true"
-          aria-label="初心者ガイド"
+          aria-label="見方ガイド"
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) setBeginnerGuideTopic(null);
           }}
         >
-          <div className="w-full max-w-5xl overflow-hidden rounded-lg border border-emerald-200 bg-white shadow-2xl">
-            <div className="flex items-start justify-between gap-3 border-b border-emerald-100 bg-emerald-50 px-4 py-3">
+          <div className="flex max-h-[88dvh] w-full max-w-2xl flex-col overflow-hidden rounded-lg border border-border bg-card shadow-2xl">
+            {/* 固定ヘッダー */}
+            <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border bg-table-header-bg px-4 py-3">
               <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <span aria-hidden="true" className="text-lg leading-none">🔰</span>
-                  <h3 className="text-base font-black leading-tight text-emerald-950">初心者ガイド</h3>
+                <div className="flex items-center gap-1.5">
+                  <BookOpenText className="h-4 w-4 shrink-0 text-primary" />
+                  <h3 className="text-sm font-extrabold text-foreground">大口・ファンド動向の見方ガイド</h3>
                 </div>
-                <p className="mt-1 text-xs font-semibold leading-relaxed text-emerald-800">
-                  このページの見方、接続状態、候補、一覧表の専門用語、監視ファンドの意味をまとめています。
+                <p className="mt-0.5 text-xxs text-muted-foreground">
+                  大口投資家の公開書類から「次に調べるべき銘柄」を効率よく見つける手順です
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setBeginnerGuideTopic(null)}
-                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded border border-emerald-200 bg-white text-emerald-700 transition-colors hover:bg-emerald-100"
-                aria-label="初心者向け説明を閉じる"
+                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded border border-border bg-background text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                aria-label="見方ガイドを閉じる"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <div className="max-h-[calc(100dvh-9rem)] overflow-y-auto p-4">
-              <div className="space-y-4">
-                {beginnerGuideSections.map((section) => (
-                  <section key={section.title} className="rounded border border-slate-200 bg-white">
-                    <div className="border-b border-slate-200 bg-slate-50 px-3 py-2">
-                      <div className="text-sm font-black text-slate-950">{section.title}</div>
-                      <p className="mt-1 text-xs font-semibold leading-relaxed text-slate-600">{section.lead}</p>
+
+            {/* 3タブ切替（太下線・固定） */}
+            <div
+              role="tablist"
+              aria-label="見方ガイドタブ"
+              className="flex shrink-0 items-stretch overflow-x-auto border-b border-border bg-muted/40 no-scrollbar"
+            >
+              {(
+                [
+                  { id: "steps", label: "3ステップの見方" },
+                  { id: "metrics", label: "スコア・一覧の見方" },
+                  { id: "glossary", label: "専門用語ミニ辞典" },
+                ] as const
+              ).map((tab) => {
+                const isActive = guideTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={isActive}
+                    onClick={() => setGuideTab(tab.id)}
+                    className={`relative -mb-px flex-1 whitespace-nowrap border-b-4 px-3 py-2 text-xs transition-colors ${
+                      isActive
+                        ? "border-primary bg-card font-bold text-primary"
+                        : "border-transparent font-semibold text-muted-foreground hover:bg-muted/70 hover:text-foreground"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* スクロール本体 */}
+            <div className="always-scrollbar min-h-0 flex-1 space-y-3 overflow-y-auto p-3.5 sm:p-4 text-xs">
+              {guideTab === "steps" && (
+                <>
+                  <div className="space-y-2">
+                    {[
+                      {
+                        step: "STEP 1",
+                        title: "タブで「日本株 (EDINET)」か「米国株 (SEC)」を選ぶ",
+                        body: "まずは自分の投資対象に合わせてタブを切り替えます。優先度の高い銘柄だけに絞るなら「調査優先」タブが近道です。",
+                      },
+                      {
+                        step: "STEP 2",
+                        title: "「注目スコア」と「織り込み状況」をチェック",
+                        body: "スコアが高く、開示後にまだ急騰しすぎていない（「未織り込み」など）銘柄を候補としてピックアップします。",
+                      },
+                      {
+                        step: "STEP 3",
+                        title: "行をタップして「調査報告書」と「公式提出PDF」を確認",
+                        body: "コピー買いはせず、保有目的・共同保有者・反証リスク・株価チャートを確認したうえで最終判断します。",
+                      },
+                    ].map((item) => (
+                      <div key={item.step} className="rounded-md border border-border bg-background p-3">
+                        <div className="flex items-center gap-2">
+                          <span className="shrink-0 whitespace-nowrap rounded bg-primary/10 px-1.5 py-0.5 font-mono text-[10px] font-black text-primary">
+                            {item.step}
+                          </span>
+                          <span className="text-xs font-extrabold text-foreground">{item.title}</span>
+                        </div>
+                        <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">{item.body}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="rounded-md border border-amber-200 bg-amber-50/70 p-3 text-xs leading-relaxed text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200">
+                    <div className="mb-1 flex items-center gap-1.5 font-extrabold">
+                      <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-600" />
+                      ご利用上の注意
                     </div>
-                    <div className="grid gap-2 p-3 md:grid-cols-2">
-                      {section.points.map((point) => (
-                        <div key={point.label} className="rounded border border-slate-200 bg-slate-50 p-3">
-                          <div className="text-sm font-black text-slate-950">{point.label}</div>
-                          <p className="mt-1 text-xs font-semibold leading-relaxed text-slate-600">{point.body}</p>
+                    このページは「調べる優先順位」を決める補助ツールです。有名ファンドが買ったから即買い（コピー買い）するのではなく、提出書類の本文・決算・チャートを必ずご自身で確認してください。
+                  </div>
+                </>
+              )}
+
+              {guideTab === "metrics" && (
+                <div className="space-y-2.5">
+                  <div className="rounded-md border border-border bg-background p-3">
+                    <div className="mb-2 text-xs font-extrabold text-foreground">評価ランク（S / A / B / C）の目安</div>
+                    <div className="grid gap-1.5 sm:grid-cols-2">
+                      {(
+                        [
+                          { rank: "S" as ScoreRank, range: "82点以上", desc: "高信頼・高確信・鮮度良好・未急騰が揃った最優先の確認候補" },
+                          { rank: "A" as ScoreRank, range: "70〜81点", desc: "一次開示とチャートを確認する価値が高い有力候補" },
+                          { rank: "B" as ScoreRank, range: "55〜69点", desc: "材料はあるが遅延や織り込みなどの確認事項が残る監視枠" },
+                          { rank: "C" as ScoreRank, range: "54点以下 / 売却系", desc: "縮小・全売却・急騰済み・遅延大。反証材料や参考情報として扱う" },
+                        ]
+                      ).map((item) => (
+                        <div key={item.rank} className="flex items-start gap-2 rounded border border-border/70 bg-muted/20 p-2">
+                          <span className={`mt-0.5 inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded px-1 font-mono text-[11px] font-black leading-none ${rankBadgeClass(item.rank)}`}>
+                            {item.rank}
+                          </span>
+                          <div className="min-w-0">
+                            <div className="text-xxs font-extrabold text-foreground">{item.range}</div>
+                            <div className="mt-0.5 text-[11px] leading-snug text-muted-foreground">{item.desc}</div>
+                          </div>
                         </div>
                       ))}
                     </div>
-                    {section.terms && (
-                      <div className="border-t border-slate-100 p-3 pt-2">
-                        <div className="mb-2 text-xs font-black text-slate-700">専門用語ミニ辞典</div>
-                        <div className="grid gap-2 md:grid-cols-2">
-                          {section.terms.map((item) => (
-                            <div key={item.term} className="rounded border border-emerald-100 bg-emerald-50/60 p-3">
-                              <div className="text-xs font-black text-emerald-900">{item.term}</div>
-                              <p className="mt-1 text-xs font-semibold leading-relaxed text-emerald-800">{item.body}</p>
-                            </div>
-                          ))}
-                        </div>
+                  </div>
+                  {[
+                    {
+                      title: "判定バッジの意味",
+                      items: [
+                        { label: "調査優先", desc: "高信頼ファンド・集中度・未急騰が揃った最優先の確認候補。" },
+                        { label: "監視", desc: "材料はあるが、報告遅延や価格上昇などの懸念が残る候補。" },
+                        { label: "コピー非推奨", desc: "縮小・全売却・急騰済みなど。買い材料ではなく反証材料として見る。" },
+                      ],
+                    },
+                    {
+                      title: "一覧の数値カラム",
+                      items: [
+                        { label: "保有比率 / 増減", desc: "ファンドの保有ウェイトと前回比の増減。大きいほど本気度が高い目安。" },
+                        { label: "開示後値動き", desc: "報告日以降の株価変化。大きく上昇済みなら後追いリスクに注意。" },
+                        { label: "報告遅延", desc: "基準日から提出までの日数。13Fは最大45日遅れるため鮮度確認が必須。" },
+                      ],
+                    },
+                  ].map((group) => (
+                    <div key={group.title} className="rounded-md border border-border bg-background p-3">
+                      <div className="mb-2 text-xs font-extrabold text-foreground">{group.title}</div>
+                      <div className="divide-y divide-border/70">
+                        {group.items.map((row) => (
+                          <div key={row.label} className="py-1.5 first:pt-0 last:pb-0">
+                            <div className="text-xs font-bold text-foreground">{row.label}</div>
+                            <div className="mt-0.5 text-xxs leading-relaxed text-muted-foreground">{row.desc}</div>
+                          </div>
+                        ))}
                       </div>
-                    )}
-                  </section>
-                ))}
-              </div>
-              <div className="mt-4 rounded border border-amber-200 bg-amber-50 p-3 text-xs font-semibold leading-relaxed text-amber-800">
-                このページは投資候補を探すための補助ツールです。最終判断では、提出書類の本文、決算、チャート、リスクを自分で確認してください。
-              </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {guideTab === "glossary" && (
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {[
+                    { term: "スマートマネー", body: "有名ファンド、機関投資家、アクティビストなど、市場で影響力が大きい大口資金の動き。" },
+                    { term: "EDINET 大量保有", body: "日本株で発行済株式の5%超を保有した際に提出が義務付けられる公式報告書（5営業日以内）。" },
+                    { term: "SEC Form 13F", body: "米国の運用資産1億ドル超の機関投資家が四半期ごとに提出する保有銘柄一覧。遅延に注意。" },
+                    { term: "SEC Form 13D / 13G", body: "米国株で5%超を保有した際の提出書類。13Dは経営関与（アクティビスト）意図あり。" },
+                    { term: "未織り込み / 急騰済み", body: "開示後に株価がまだ反応していないか、既に大きく織り込んで上がったかの目安。" },
+                    { term: "監視ファンドの信頼・読解", body: "過去の実績・長期方針の読みやすさ・報告遅延リスクを数値化した参考指標。" },
+                  ].map((item) => (
+                    <div key={item.term} className="rounded-md border border-border bg-background p-2.5">
+                      <div className="text-xs font-extrabold text-primary">{item.term}</div>
+                      <p className="mt-1 text-xxs leading-relaxed text-muted-foreground">{item.body}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* 固定フッター */}
+            <div className="flex shrink-0 items-center justify-end border-t border-border bg-muted/20 px-4 py-2.5">
+              <button
+                type="button"
+                onClick={() => setBeginnerGuideTopic(null)}
+                className="shrink-0 whitespace-nowrap rounded bg-primary px-4 py-1.5 text-xs font-bold text-primary-foreground hover:bg-primary/90"
+              >
+                閉じる
+              </button>
             </div>
           </div>
         </div>
       )}
       {selectedSignal && (
         <div
-          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/60 px-3 py-3 backdrop-blur-sm sm:items-center sm:px-4 sm:py-6"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-2.5 backdrop-blur-xs sm:p-4"
           role="dialog"
           aria-modal="true"
-          aria-label={`${selectedSignal.ticker} 調査報告書`}
+          aria-label={`${selectedSignal.company} 調査報告書`}
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) setSelectedSignalId(null);
           }}
         >
-          <div className="flex max-h-[calc(100dvh-1.5rem)] w-full max-w-6xl flex-col overflow-hidden rounded-lg border border-slate-300 bg-slate-50 shadow-2xl sm:max-h-[calc(100dvh-3rem)]">
-            <div className="shrink-0 flex items-start justify-between gap-4 border-b border-slate-300 bg-white px-4 py-3 sm:px-5 sm:py-4">
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="text-lg font-black leading-tight text-slate-950">{selectedSignal.ticker} 調査報告書</h3>
-                  <span className={`whitespace-nowrap rounded border px-2 py-1 text-xs font-bold ${verdictClass(selectedSignal.verdict)}`}>
-                    {selectedSignal.verdict}
-                  </span>
-                  <span className="inline-flex items-center gap-1 whitespace-nowrap rounded bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-700">
-                    <RefreshCw className="h-3 w-3" />
-                    自動再評価 {formatJstDateTime(autoRefreshedAt)}
-                  </span>
+          <div className="flex max-h-[90dvh] w-full max-w-3xl flex-col overflow-hidden rounded-lg border border-border bg-card shadow-2xl">
+            {/* 固定ヘッダー */}
+            <div className="shrink-0 border-b border-border bg-table-header-bg px-4 py-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {hasDisplayTicker(selectedSignal) && (
+                      <span className="font-mono text-xs font-black text-primary">{selectedSignal.ticker}</span>
+                    )}
+                    <h3 className="truncate text-sm font-extrabold text-foreground sm:text-base">
+                      {selectedSignal.company}
+                    </h3>
+                    <span className={`whitespace-nowrap rounded border px-1.5 py-0.5 text-[10px] font-bold leading-tight ${verdictClass(selectedSignal.verdict)}`}>
+                      {selectedSignal.verdict}
+                    </span>
+                    <span className={`whitespace-nowrap rounded border px-1.5 py-0.5 text-[10px] font-bold leading-tight ${getPricingBadge(selectedSignal).className}`}>
+                      {getPricingBadge(selectedSignal).label}
+                    </span>
+                    <span className={`whitespace-nowrap rounded border px-1.5 py-0.5 text-[10px] font-bold leading-tight ${getFreshnessBadge(selectedSignal).className}`}>
+                      {getFreshnessBadge(selectedSignal).label}
+                    </span>
+                  </div>
+                  <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xxs font-semibold text-muted-foreground">
+                    <span>
+                      {selectedSignal.source === "edinet" && selectedSignal.filerName
+                        ? `提出者: ${selectedSignal.filerName}`
+                        : selectedSignal.fund.name}
+                    </span>
+                    <span>・</span>
+                    <span>{selectedSignal.filingType} / {selectedSignal.signalType}</span>
+                    <span>・</span>
+                    <span>提出 {selectedSignal.filingDate}</span>
+                  </div>
                 </div>
-                <div className="mt-1 text-sm font-bold text-slate-700">
-                  {selectedSignal.company} / {selectedSignal.fund.name} / {selectedSignal.filingType} {selectedSignal.signalType}
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedSignalId(null)}
+                  className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded border border-border bg-background text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  aria-label="閉じる"
+                >
+                  <X className="h-4 w-4" />
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => setSelectedSignalId(null)}
-                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded border border-slate-300 bg-white text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-950"
-                aria-label="閉じる"
-              >
-                <X className="h-4 w-4" />
-              </button>
+
+              {/* クイックアクションバー */}
+              <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+                {selectedSignal.source === "edinet" && hasDisplayTicker(selectedSignal) && (
+                  <Link
+                    to={`/chart?q=${selectedSignal.ticker}`}
+                    onClick={() => setSelectedSignalId(null)}
+                    className="inline-flex h-7 items-center gap-1 whitespace-nowrap rounded border border-primary/40 bg-primary/10 px-2.5 text-xxs font-bold text-primary transition-colors hover:bg-primary hover:text-primary-foreground"
+                  >
+                    <TrendingUp className="h-3 w-3" />
+                    株価チャートを見る
+                  </Link>
+                )}
+                {getSignalSourceUrl(selectedSignal) && selectedSignal.source === "edinet" && (
+                  <button
+                    type="button"
+                    onClick={() => setViewerSignalId(selectedSignal.id)}
+                    className="inline-flex h-7 items-center gap-1 whitespace-nowrap rounded border border-emerald-300 bg-emerald-50 px-2.5 text-xxs font-bold text-emerald-700 transition-colors hover:bg-emerald-100"
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                    公式提出PDFを開く
+                  </button>
+                )}
+                {getSignalSourceUrl(selectedSignal) && selectedSignal.source !== "edinet" && (
+                  <a
+                    href={getSignalSourceUrl(selectedSignal)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex h-7 items-center gap-1 whitespace-nowrap rounded border border-emerald-300 bg-emerald-50 px-2.5 text-xxs font-bold text-emerald-700 transition-colors hover:bg-emerald-100"
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                    SEC公式提出書類
+                  </a>
+                )}
+              </div>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 sm:p-5">
-              <div className="mb-4 grid gap-3 md:grid-cols-5">
-                {[
-                  ["追随価値", `${selectedSignal.score}`, Gauge],
-                  ["保有比率", `${selectedSignal.portfolioWeight.toFixed(1)}%`, Layers3],
-                  ["ポジション変化", formatSignedPercent(selectedSignal.positionChange), TrendingUp],
-                  ["開示遅延", `${selectedSignal.filingLagDays}日`, Clock3],
-                  ["開示後", formatSignedPercent(selectedSignal.priceMoveSinceReport), AlertTriangle],
-                ].map(([label, value, Icon]) => (
-                  <div key={label as string} className="rounded-md border border-slate-300 bg-white p-3 shadow-sm">
-                    <div className="flex items-center justify-between gap-2">
-                      <div>
-                        <div className="text-xs font-black text-slate-600">{label as string}</div>
-                        <div className="mt-1 text-xl font-black tabular-nums text-slate-950">{value as string}</div>
-                      </div>
-                      <div className="flex h-8 w-8 items-center justify-center rounded bg-primary/10">
-                        <Icon className="h-4 w-4 text-primary" />
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+            {/* 主要5メトリクス（固定・コンパクト） */}
+            <div className="grid shrink-0 grid-cols-3 gap-px border-b border-border bg-border sm:grid-cols-5">
+              {[
+                { label: "ランク / スコア", value: `${selectedSignal.rank} (${selectedSignal.score})`, tone: "text-primary" },
+                { label: "保有比率", value: formatPortfolioWeightLabel(selectedSignal), tone: "text-foreground" },
+                {
+                  label: "保有増減",
+                  value: formatPositionChangeLabel(selectedSignal),
+                  tone: isPlaceholderPositionChange(selectedSignal)
+                    ? "text-primary"
+                    : Math.abs(selectedSignal.positionChange) < 0.05
+                      ? "text-muted-foreground"
+                      : selectedSignal.positionChange > 0
+                        ? "text-stock-up"
+                        : "text-stock-down",
+                },
+                {
+                  label: "開示後値動き",
+                  value: formatPriceMoveLabel(selectedSignal),
+                  tone:
+                    !isPriceMoveEvaluated(selectedSignal) || Math.abs(selectedSignal.priceMoveSinceReport) < 0.05
+                      ? "text-muted-foreground"
+                      : selectedSignal.priceMoveSinceReport >= 8
+                        ? "text-amber-700"
+                        : selectedSignal.priceMoveSinceReport > 0
+                          ? "text-stock-up"
+                          : "text-stock-down",
+                },
+                { label: "報告遅延", value: `${selectedSignal.filingLagDays}日`, tone: "text-foreground" },
+              ].map((metric) => (
+                <div key={metric.label} className="bg-background px-2.5 py-2 text-center">
+                  <div className="text-[10px] font-semibold text-muted-foreground">{metric.label}</div>
+                  <div className={`mt-0.5 text-sm font-black tabular-nums ${metric.tone}`}>{metric.value}</div>
+                </div>
+              ))}
+            </div>
 
-              <div className="grid gap-4 xl:grid-cols-[1.35fr_1fr]">
-                <div className="space-y-4">
-                  <section className="overflow-hidden rounded-md border border-slate-300 bg-white shadow-sm">
-                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-300 bg-slate-100 px-4 py-2">
-                      <div>
-                        <div className="text-sm font-black text-slate-950">追随価値スコア分解</div>
-                        <div className="mt-0.5 text-xs font-semibold leading-relaxed text-slate-600">
-                          大口投資家の開示をそのまま真似せず、鮮度・本気度・株価の織り込み・反証材料に分けて再評価しています。
-                        </div>
-                      </div>
-                      <span className={`rounded border px-2 py-1 text-xs font-bold ${getPricingBadge(selectedSignal).className}`}>
-                        {getPricingBadge(selectedSignal).label}
+            {/* 3タブ切替（太下線・固定） */}
+            <div
+              role="tablist"
+              aria-label="調査報告書タブ"
+              className="flex shrink-0 items-stretch overflow-x-auto border-b border-border bg-muted/40 no-scrollbar"
+            >
+              {(
+                [
+                  { id: "summary", label: "要点・結論" },
+                  { id: "analysis", label: "詳細分析・チェック" },
+                  { id: "sources", label: "一次情報・リンク" },
+                ] as const
+              ).map((tab) => {
+                const isActive = reportTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={isActive}
+                    onClick={() => setReportTab(tab.id)}
+                    className={`relative -mb-px flex-1 whitespace-nowrap border-b-4 px-3 py-2 text-xs transition-colors ${
+                      isActive
+                        ? "border-primary bg-card font-bold text-primary"
+                        : "border-transparent font-semibold text-muted-foreground hover:bg-muted/70 hover:text-foreground"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* スクロール本体 */}
+            <div className="always-scrollbar min-h-0 flex-1 space-y-3 overflow-y-auto p-3.5 sm:p-4">
+              {reportTab === "summary" && (
+                <>
+                  {/* 次アクション（最優先の結論） */}
+                  <div className="rounded-md border border-primary/30 bg-primary/5 p-3">
+                    <div className="mb-1 flex items-center gap-1.5 text-xxs font-extrabold text-primary">
+                      <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                      <span>推奨される次アクション</span>
+                    </div>
+                    <p className="text-xs font-bold leading-relaxed text-foreground">
+                      {getNextAction(selectedSignal)}
+                    </p>
+                  </div>
+
+                  {/* 反証・注意点 */}
+                  <div className="rounded-md border border-amber-200/80 bg-amber-50/50 p-3 dark:border-amber-900/50 dark:bg-amber-950/20">
+                    <div className="mb-1.5 flex items-center justify-between gap-2">
+                      <span className="flex items-center gap-1.5 text-xxs font-extrabold text-amber-900 dark:text-amber-300">
+                        <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-600" />
+                        反証・確認すべきリスク
+                      </span>
+                      <span className="whitespace-nowrap rounded bg-white/80 px-1.5 py-0.5 text-[10px] font-bold text-amber-800">
+                        リスク判定: {selectedSignal.risk}
                       </span>
                     </div>
-                    <div className="grid gap-3 p-4 md:grid-cols-2">
+                    <ul className="space-y-1 text-xs leading-relaxed text-foreground/90">
+                      {selectedCounterReasons.map((reason) => (
+                        <li key={reason} className="flex items-start gap-1.5">
+                          <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />
+                          <span>{reason}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  {/* 追随価値スコア分解 */}
+                  <div className="rounded-md border border-border bg-background p-3">
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <span className="text-xs font-extrabold text-foreground">スコア分解（鮮度・本気度・織り込み・反証）</span>
+                      <span className="font-mono text-xs font-black text-primary">合計 {selectedSignal.score}</span>
+                    </div>
+                    <div className="grid gap-2 sm:grid-cols-2">
                       {selectedFollowBreakdown.map((item) => {
-                        const width = item.value < 0 ? Math.min(100, Math.abs(item.value / item.max) * 100) : Math.min(100, (item.value / item.max) * 100);
+                        const width =
+                          item.value < 0
+                            ? Math.min(100, Math.abs(item.value / item.max) * 100)
+                            : Math.min(100, (item.value / item.max) * 100);
 
                         return (
-                          <div key={item.label} className="rounded-md border border-slate-200 bg-slate-50 p-3">
-                            <div className="mb-2 flex items-center justify-between gap-2">
-                              <div className="text-xs font-black text-slate-950">{item.label}</div>
-                              <div className={`font-mono text-xs font-black ${item.value < 0 ? "text-rose-700" : "text-slate-700"}`}>
+                          <div key={item.label} className="rounded border border-border/70 bg-muted/20 p-2.5">
+                            <div className="mb-1 flex items-center justify-between gap-2">
+                              <span className="text-xxs font-bold text-foreground">{item.label}</span>
+                              <span className={`font-mono text-xxs font-black ${item.value < 0 ? "text-rose-700" : "text-foreground"}`}>
                                 {item.value > 0 ? "+" : ""}{item.value}
-                              </div>
+                              </span>
                             </div>
-                            <div className="h-2 overflow-hidden rounded-full bg-white ring-1 ring-slate-200">
+                            <div className="h-1.5 overflow-hidden rounded-full bg-muted">
                               <div className={`h-full rounded-full ${item.tone}`} style={{ width: `${width}%` }} />
                             </div>
-                            <p className="mt-2 text-xs font-semibold leading-relaxed text-slate-600">{item.note}</p>
+                            <p className="mt-1 text-[11px] leading-snug text-muted-foreground">{item.note}</p>
                           </div>
                         );
                       })}
                     </div>
-                  </section>
+                  </div>
 
-                  <section className="overflow-hidden rounded-md border border-slate-300 bg-white shadow-sm">
-                    <div className="border-b border-slate-300 bg-slate-100 px-4 py-2 text-sm font-black text-slate-950">株価反応と織り込み診断</div>
-                    <div className="grid gap-3 p-4 md:grid-cols-3">
+                  {/* 株価反応と織り込み診断 */}
+                  <div className="rounded-md border border-border bg-background p-3">
+                    <div className="mb-2 text-xs font-extrabold text-foreground">株価反応と織り込み診断</div>
+                    <div className="grid gap-2 sm:grid-cols-3">
                       {selectedPriceReactionRows.map((row) => (
-                        <div key={row.label} className="rounded-md border border-slate-200 bg-slate-50 p-3">
-                          <div className="text-xs font-black text-slate-600">{row.label}</div>
-                          <div className={`mt-1 text-xl font-black tabular-nums ${row.value.startsWith("+") ? "text-stock-up" : row.value.startsWith("-") ? "text-stock-down" : "text-slate-950"}`}>
+                        <div key={row.label} className="rounded border border-border/70 bg-muted/20 p-2.5">
+                          <div className="text-[10px] font-bold text-muted-foreground">{row.label}</div>
+                          <div className={`mt-0.5 text-base font-black tabular-nums ${row.value.startsWith("+") ? "text-stock-up" : row.value.startsWith("-") ? "text-stock-down" : "text-foreground"}`}>
                             {row.value}
                           </div>
-                          <div className="mt-1 text-xs font-semibold leading-relaxed text-slate-600">{row.memo}</div>
+                          <div className="mt-0.5 text-[11px] leading-snug text-muted-foreground">{row.memo}</div>
                         </div>
                       ))}
                     </div>
-                    <div className="border-t border-slate-200 bg-slate-50 px-4 py-3 text-xs font-semibold leading-relaxed text-slate-600">
+                    <p className="mt-2 text-xxs leading-relaxed text-muted-foreground">
                       {getPricingBadge(selectedSignal).detail}
-                    </div>
-                  </section>
+                    </p>
+                  </div>
+                </>
+              )}
 
-                  <section className="overflow-hidden rounded-md border border-slate-300 bg-white shadow-sm">
-                    <div className="border-b border-slate-300 bg-slate-100 px-4 py-2 text-sm font-black text-slate-950">この判定の根拠</div>
-                    <div className="grid gap-3 p-4 md:grid-cols-2">
-                      {[
-                        ["ファンド品質", `${selectedSignal.fund.name} は ${selectedSignal.fund.style}。信頼 ${selectedSignal.fund.reliability} / 読解 ${selectedSignal.fund.readable}`],
-                        ["開示種類", `${selectedSignal.filingType} は ${selectedSignal.filingType === "13F" ? "遅延が大きいが長期保有の痕跡を見やすい" : "大量保有・関与意図を読みやすい"}開示です。`],
-                        ["集中度", `ポートフォリオ比率 ${selectedSignal.portfolioWeight.toFixed(1)}%、集中順位 ${selectedSignal.concentrationRank} 位。`],
-                        ["複数一致", `${selectedSignal.multiFundCount}ファンド一致。多いほど単独ノイズではない可能性が高いです。`],
-                        ["織り込み", `報告日から提出後まで ${selectedSignal.priceMoveSinceReport >= 0 ? "+" : ""}${selectedSignal.priceMoveSinceReport.toFixed(1)}%。急騰済みなら追随期待値を下げます。`],
-                        ["反証", `${selectedSignal.risk}。${selectedSignal.note}`],
-                      ].map(([label, text]) => (
-                        <div key={label} className="rounded-md border border-slate-200 bg-slate-50 p-3">
-                          <div className="text-xs font-black text-slate-950">{label}</div>
-                          <p className="mt-1 text-xs font-semibold leading-relaxed text-slate-600">{text}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </section>
-
-                  <section className="overflow-hidden rounded-md border border-slate-300 bg-white shadow-sm">
-                    <div className="border-b border-slate-300 bg-slate-100 px-4 py-2 text-sm font-black text-slate-950">調査報告書</div>
-                    <div className="grid gap-3 p-4 md:grid-cols-2">
-                      {selectedReportCards.map((section) => (
-                        <article key={section.title} className="rounded-md border border-slate-200 bg-slate-50 p-3">
-                          <div className="mb-2 flex items-center gap-2">
-                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-primary/10">
-                              <section.icon className="h-3.5 w-3.5 text-primary" />
-                            </span>
-                            <h4 className="text-xs font-black text-slate-950">{section.title}</h4>
-                          </div>
-                          <p className="text-xs font-semibold leading-relaxed text-slate-600">{section.body}</p>
-                          <div className="mt-2 space-y-1">
-                            {section.points.map((point) => (
-                              <div key={point} className="rounded bg-white px-2 py-1 text-xs font-bold leading-relaxed text-slate-600 ring-1 ring-slate-200">
-                                {point}
-                              </div>
-                            ))}
-                          </div>
-                        </article>
-                      ))}
-                    </div>
-                  </section>
-                </div>
-
-                <div className="space-y-4">
-                  <section className="overflow-hidden rounded-md border border-slate-300 bg-white shadow-sm">
-                    <div className="flex items-center justify-between gap-2 border-b border-slate-300 bg-slate-100 px-4 py-2">
-                      <div className="text-sm font-black text-slate-950">反証理由</div>
-                      <span className={`shrink-0 rounded border px-2 py-1 text-xs font-bold ${getFreshnessBadge(selectedSignal).className}`}>
-                        {getFreshnessBadge(selectedSignal).label}
-                      </span>
-                    </div>
-                    <div className="space-y-2 p-4">
-                      {selectedCounterReasons.map((reason) => (
-                        <div key={reason} className="flex gap-2 rounded-md border border-slate-200 bg-slate-50 p-3">
-                          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" />
-                          <div className="text-xs font-semibold leading-relaxed text-slate-600">{reason}</div>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="border-t border-slate-200 bg-white px-4 py-3">
-                      <div className="text-xs font-black text-slate-950">次アクション</div>
-                      <div className="mt-1 text-xs font-semibold leading-relaxed text-slate-600">{getNextAction(selectedSignal)}</div>
-                    </div>
-                  </section>
-
-                  <section className="overflow-hidden rounded-md border border-slate-300 bg-white shadow-sm">
-                    <div className="border-b border-slate-300 bg-slate-100 px-4 py-2 text-sm font-black text-slate-950">公式提出書類</div>
-                    <div className="divide-y divide-slate-200">
-                      {selectedSignal.source === "edinet" && hasDisplayTicker(selectedSignal) && (
-                        <Link
-                          to={`/chart?q=${selectedSignal.ticker}`}
-                          className="block w-full bg-primary/5 px-4 py-3 text-left transition-colors hover:bg-primary/10"
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-sm font-black text-primary flex items-center gap-1">
-                              <TrendingUp className="h-4 w-4" />
-                              株価チャートを見る
-                            </span>
-                            <span className="whitespace-nowrap rounded bg-white border border-primary/20 px-1.5 py-0.5 text-xs font-bold text-primary">連携</span>
-                          </div>
-                          <p className="mt-1 text-xs font-semibold leading-relaxed text-slate-600">
-                            この銘柄（{selectedSignal.ticker}）の対話型株価チャートを開きます。
-                          </p>
-                        </Link>
-                      )}
-                      {getSignalSourceUrl(selectedSignal) && selectedSignal.source === "edinet" && (
-                        <button
-                          type="button"
-                          onClick={() => setViewerSignalId(selectedSignal.id)}
-                          className="block w-full bg-emerald-50/70 px-4 py-3 text-left transition-colors hover:bg-emerald-50"
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-sm font-black text-emerald-700">公式提出PDF</span>
-                            <span className="whitespace-nowrap rounded bg-white px-1.5 py-0.5 text-xs font-bold text-emerald-700">実データ</span>
-                          </div>
-                          <p className="mt-1 text-xs font-semibold leading-relaxed text-emerald-800">
-                            EDINET APIで取得する大量保有関連書類PDFを画面内で表示します。
-                          </p>
-                        </button>
-                      )}
-                      {getSignalSourceUrl(selectedSignal) && selectedSignal.source !== "edinet" && (
-                        <a
-                          href={getSignalSourceUrl(selectedSignal)}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="block bg-emerald-50/70 px-4 py-3 transition-colors hover:bg-emerald-50"
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-sm font-black text-emerald-700">公式提出リンク</span>
-                            <span className="whitespace-nowrap rounded bg-white px-1.5 py-0.5 text-xs font-bold text-emerald-700">実データ</span>
-                          </div>
-                          <p className="mt-1 text-xs font-semibold leading-relaxed text-emerald-800">
-                            SEC EDGARで検知した提出書類です。
-                          </p>
-                        </a>
-                      )}
-                      {researchSources.map((source) => (
-                        <a
-                          key={source.label}
-                          href={source.url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="block px-4 py-3 transition-colors hover:bg-slate-50"
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-sm font-black text-primary">{source.label}</span>
-                            <span className="whitespace-nowrap rounded bg-slate-100 px-1.5 py-0.5 text-xs font-bold text-slate-600">公式</span>
-                          </div>
-                          <p className="mt-1 text-xs font-semibold leading-relaxed text-slate-600">{source.memo}</p>
-                        </a>
-                      ))}
-                    </div>
-                  </section>
-
-                  <section className="overflow-hidden rounded-md border border-slate-300 bg-white shadow-sm">
-                    <div className="border-b border-slate-300 bg-slate-100 px-4 py-2 text-sm font-black text-slate-950">調査チェックリスト</div>
-                    <div className="space-y-2 p-4">
+              {reportTab === "analysis" && (
+                <>
+                  {/* 調査チェックリスト */}
+                  <div className="rounded-md border border-border bg-background p-3">
+                    <div className="mb-2 text-xs font-extrabold text-foreground">調査チェックリスト</div>
+                    <div className="divide-y divide-border/70">
                       {selectedChecklist.map((item) => (
-                        <div key={item.label} className="rounded-md border border-slate-200 bg-slate-50 p-3">
-                          <div className="mb-2 flex items-center justify-between gap-2">
-                            <div className="text-sm font-black text-slate-950">{item.label}</div>
-                            <span className={`shrink-0 whitespace-nowrap rounded px-2 py-1 text-xs font-black ${checklistStatusClass(item.status)}`}>
-                              {item.status}
-                            </span>
+                        <div key={item.label} className="flex items-start justify-between gap-2 py-2 first:pt-0 last:pb-0">
+                          <div className="min-w-0">
+                            <div className="text-xs font-bold text-foreground">{item.label}</div>
+                            <div className="mt-0.5 text-xxs leading-relaxed text-muted-foreground">{item.detail}</div>
                           </div>
-                          <div>
-                            <div className="text-xs font-semibold leading-relaxed text-slate-600">{item.detail}</div>
-                          </div>
+                          <span className={`shrink-0 whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-bold leading-tight ${checklistStatusClass(item.status)}`}>
+                            {item.status}
+                          </span>
                         </div>
                       ))}
                     </div>
-                  </section>
+                  </div>
+
+                  {/* この判定の根拠 */}
+                  <div className="rounded-md border border-border bg-background p-3">
+                    <div className="mb-2 text-xs font-extrabold text-foreground">この判定の根拠</div>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {[
+                        ["ファンド品質", `${selectedSignal.fund.name}（${selectedSignal.fund.style}）。信頼 ${selectedSignal.fund.reliability} / 読解 ${selectedSignal.fund.readable}`],
+                        ["開示種類", `${selectedSignal.filingType}：${selectedSignal.filingType === "13F" ? "遅延が大きいが長期保有の痕跡を確認可能" : "大量保有・関与意図を読みやすい一次開示"}`],
+                        ["集中度", `ポートフォリオ比率 ${selectedSignal.portfolioWeight.toFixed(1)}%、集中順位 ${selectedSignal.concentrationRank}位`],
+                        ["複数一致", `${selectedSignal.multiFundCount}ファンド一致（多いほど単独ノイズではない可能性が高い）`],
+                        ["織り込み", `報告日から提出後まで ${formatSignedPercent(selectedSignal.priceMoveSinceReport)}`],
+                        ["反証メモ", `${selectedSignal.risk}：${selectedSignal.note}`],
+                      ].map(([label, text]) => (
+                        <div key={label} className="rounded border border-border/70 bg-muted/20 p-2.5">
+                          <div className="text-xxs font-extrabold text-foreground">{label}</div>
+                          <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">{text}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* 4観点レポート */}
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {selectedReportCards.map((section) => (
+                      <article key={section.title} className="rounded-md border border-border bg-background p-3">
+                        <div className="mb-1.5 flex items-center gap-1.5">
+                          <section.icon className="h-3.5 w-3.5 shrink-0 text-primary" />
+                          <h4 className="text-xs font-extrabold text-foreground">{section.title}</h4>
+                        </div>
+                        <p className="text-xxs leading-relaxed text-muted-foreground">{section.body}</p>
+                        <ul className="mt-2 space-y-1">
+                          {section.points.map((point) => (
+                            <li key={point} className="rounded bg-muted/40 px-2 py-1 text-[11px] font-semibold leading-snug text-foreground/85">
+                              {point}
+                            </li>
+                          ))}
+                        </ul>
+                      </article>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {reportTab === "sources" && (
+                <div className="overflow-hidden rounded-md border border-border bg-background">
+                  <div className="divide-y divide-border">
+                    {selectedSignal.source === "edinet" && hasDisplayTicker(selectedSignal) && (
+                      <Link
+                        to={`/chart?q=${selectedSignal.ticker}`}
+                        onClick={() => setSelectedSignalId(null)}
+                        className="flex items-center justify-between gap-2 bg-primary/5 px-3.5 py-2.5 transition-colors hover:bg-primary/10"
+                      >
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5 text-xs font-extrabold text-primary">
+                            <TrendingUp className="h-3.5 w-3.5" />
+                            株価チャートを見る（{selectedSignal.ticker}）
+                          </div>
+                          <p className="mt-0.5 text-xxs text-muted-foreground">
+                            この銘柄のローソク足・出来高・移動平均線を確認します。
+                          </p>
+                        </div>
+                        <span className="shrink-0 whitespace-nowrap rounded border border-primary/30 bg-background px-1.5 py-0.5 text-[10px] font-bold text-primary">
+                          連携
+                        </span>
+                      </Link>
+                    )}
+                    {getSignalSourceUrl(selectedSignal) && selectedSignal.source === "edinet" && (
+                      <button
+                        type="button"
+                        onClick={() => setViewerSignalId(selectedSignal.id)}
+                        className="flex w-full items-center justify-between gap-2 bg-emerald-50/60 px-3.5 py-2.5 text-left transition-colors hover:bg-emerald-50"
+                      >
+                        <div className="min-w-0">
+                          <div className="text-xs font-extrabold text-emerald-800">公式提出PDF（EDINET）</div>
+                          <p className="mt-0.5 text-xxs text-emerald-700/90">
+                            大量保有報告書・変更報告書の原本PDFを画面内で開きます。
+                          </p>
+                        </div>
+                        <span className="shrink-0 whitespace-nowrap rounded bg-white px-1.5 py-0.5 text-[10px] font-bold text-emerald-700">
+                          実データ
+                        </span>
+                      </button>
+                    )}
+                    {getSignalSourceUrl(selectedSignal) && selectedSignal.source !== "edinet" && (
+                      <a
+                        href={getSignalSourceUrl(selectedSignal)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center justify-between gap-2 bg-emerald-50/60 px-3.5 py-2.5 transition-colors hover:bg-emerald-50"
+                      >
+                        <div className="min-w-0">
+                          <div className="text-xs font-extrabold text-emerald-800">公式提出リンク（SEC EDGAR）</div>
+                          <p className="mt-0.5 text-xxs text-emerald-700/90">
+                            SEC EDGARで検知した一次提出書類を別タブで開きます。
+                          </p>
+                        </div>
+                        <span className="shrink-0 whitespace-nowrap rounded bg-white px-1.5 py-0.5 text-[10px] font-bold text-emerald-700">
+                          実データ
+                        </span>
+                      </a>
+                    )}
+                    {researchSources.map((source) => (
+                      <a
+                        key={source.label}
+                        href={source.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center justify-between gap-2 px-3.5 py-2.5 transition-colors hover:bg-muted/40"
+                      >
+                        <div className="min-w-0">
+                          <div className="text-xs font-bold text-foreground hover:text-primary">{source.label}</div>
+                          <p className="mt-0.5 text-xxs text-muted-foreground">{source.memo}</p>
+                        </div>
+                        <ExternalLink className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                      </a>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
+            </div>
+
+            {/* 固定フッター */}
+            <div className="flex shrink-0 items-center justify-between gap-2 border-t border-border bg-muted/20 px-4 py-2.5">
+              <span className="text-[10px] font-semibold text-muted-foreground">
+                評価更新: {formatJstDateTime(autoRefreshedAt)}
+              </span>
+              <button
+                type="button"
+                onClick={() => setSelectedSignalId(null)}
+                className="ml-auto shrink-0 whitespace-nowrap rounded bg-primary px-4 py-1.5 text-xs font-bold text-primary-foreground hover:bg-primary/90"
+              >
+                閉じる
+              </button>
             </div>
           </div>
         </div>
       )}
       {viewerSignal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-3">
-          <div className="flex h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-md border border-slate-300 bg-white shadow-2xl">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-300 bg-slate-100 px-4 py-2">
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/70 p-2 sm:p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`${viewerSignal.company} 公式提出PDF`}
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              setViewerSignalId(null);
+              const root = document.getElementById("root");
+              if (root) {
+                const prev = root.scrollTop;
+                window.requestAnimationFrame(() => {
+                  root.scrollTop = prev + 1;
+                  root.scrollTop = prev;
+                });
+              }
+            }
+          }}
+        >
+          <div className="flex h-[90dvh] w-full max-w-5xl flex-col overflow-hidden rounded-lg border border-border bg-card shadow-2xl">
+            <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border bg-table-header-bg px-3.5 py-2.5">
               <div className="min-w-0">
-                <div className="text-sm font-black text-slate-950">公式提出PDF</div>
-                <div className="truncate text-xs font-semibold text-slate-600">
+                <div className="text-sm font-extrabold text-foreground">公式提出PDF</div>
+                <div className="truncate text-xxs font-semibold text-muted-foreground">
                   {hasDisplayTicker(viewerSignal) ? `${viewerSignal.ticker} / ` : ""}
                   {viewerSignal.company}
                   {viewerSignal.filerName ? ` / 提出者: ${viewerSignal.filerName}` : ""}
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex shrink-0 items-center gap-1.5">
                 <a
                   href={getSignalSourceUrl(viewerSignal)}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex h-8 items-center gap-1 whitespace-nowrap rounded border border-slate-300 bg-white px-2 text-xs font-bold text-slate-700 transition-colors hover:bg-slate-50"
+                  className="inline-flex h-8 items-center gap-1 whitespace-nowrap rounded border border-border bg-background px-2.5 text-xxs font-bold text-foreground transition-colors hover:bg-muted"
                 >
                   <ExternalLink className="h-3.5 w-3.5" />
                   別タブ
                 </a>
                 <button
                   type="button"
-                  onClick={() => setViewerSignalId(null)}
-                  className="inline-flex h-8 w-8 items-center justify-center rounded border border-slate-300 bg-white text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-950"
+                  onClick={() => {
+                    setViewerSignalId(null);
+                    const root = document.getElementById("root");
+                    if (root) {
+                      const prev = root.scrollTop;
+                      window.requestAnimationFrame(() => {
+                        root.scrollTop = prev + 1;
+                        root.scrollTop = prev;
+                      });
+                    }
+                  }}
+                  className="inline-flex h-8 w-8 items-center justify-center rounded border border-border bg-background text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                   aria-label="PDFビューアを閉じる"
                 >
                   <X className="h-4 w-4" />
                 </button>
               </div>
             </div>
-            <iframe
+            <InlinePdfViewer
+              key={viewerSignal.id}
+              url={getSignalSourceUrl(viewerSignal)}
               title={`${viewerSignal.company} 公式提出PDF`}
-              src={getSignalViewerUrl(viewerSignal)}
-              className="min-h-0 flex-1 border-0 bg-slate-200"
             />
           </div>
         </div>

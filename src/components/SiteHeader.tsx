@@ -3,7 +3,6 @@ import {
   Bot,
   Calendar,
   ChevronRight,
-  Flame,
   Home,
   Info,
   Layers,
@@ -31,13 +30,12 @@ interface SiteHeaderProps {
 
 const navItems = [
   { label: "トップ", path: "/", icon: Home, desc: "市況概況・シグナル・注目銘柄" },
-  { label: "スクリーニング", path: "/market", icon: SlidersHorizontal, desc: "6指数・条件絞り込みスクリーナー" },
+  { label: "スクリーニング", path: "/market", icon: SlidersHorizontal, desc: "6指数・条件絞り込み・ランキング" },
   { label: "銘柄・チャート", path: "/chart", icon: BarChart3, desc: "高機能チャート・テクニカル分析" },
   { label: "チャートパターン", path: "/patterns", icon: TrendingUp, desc: "反転・継続20パターンの解説" },
   { label: "銘柄診断", path: "/advisor", icon: Bot, desc: "シミュレーター・スタイル診断" },
   { label: "大口・ファンド", path: "/smart-money", icon: ShieldAlert, desc: "EDINET大量保有・機関投資家動向" },
   { label: "テーマ別", path: "/themes", icon: Layers, desc: "AI・半導体・国策テーマ銘柄" },
-  { label: "ランキング", path: "/ranking", icon: Flame, desc: "値上がり・値下がり・売買代金" },
   { label: "決算・IPO", path: "/earnings", icon: Calendar, desc: "決算発表予定・IPO新規上場情報" },
   { label: "ニュース", path: "/news", icon: Newspaper, desc: "速報・主要経済ニュースまとめ" },
 ];

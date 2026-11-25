@@ -382,8 +382,20 @@ const parseEdinetLargeHoldingXbrl = (xbrlText, fallback = {}) => {
     || getXmlTag(xbrlText, "FilerNameInJapaneseDEI")
     || fallback.filerName
     || "";
-  const holdingRatioRaw = getXmlTagFromContext(xbrlText, "HoldingRatioOfShareCertificatesEtc", "FilingDateInstant");
-  const holdingRatio = Number(holdingRatioRaw);
+  const holdingRatioRaw =
+    getXmlTagFromContext(xbrlText, "HoldingRatioOfShareCertificatesEtc", "FilingDateInstant")
+    || getXmlTag(xbrlText, "HoldingRatioOfShareCertificatesEtc");
+  const prevHoldingRatioRaw =
+    getXmlTagFromContext(xbrlText, "HoldingRatioOfShareCertificatesEtcPerLastReport", "FilingDateInstant")
+    || getXmlTag(xbrlText, "HoldingRatioOfShareCertificatesEtcPerLastReport");
+  const parsedHolding = holdingRatioRaw ? Number(holdingRatioRaw) : Number.NaN;
+  const parsedPrevHolding = prevHoldingRatioRaw ? Number(prevHoldingRatioRaw) : Number.NaN;
+  const holdingRatio = Number.isFinite(parsedHolding) ? Number((parsedHolding * 100).toFixed(2)) : null;
+  const prevHoldingRatio = Number.isFinite(parsedPrevHolding) ? Number((parsedPrevHolding * 100).toFixed(2)) : null;
+  const holdingRatioDelta =
+    holdingRatio !== null && prevHoldingRatio !== null
+      ? Number((holdingRatio - prevHoldingRatio).toFixed(2))
+      : null;
   const purpose = getXmlTag(xbrlText, "PurposeOfHolding");
 
   return {
@@ -391,7 +403,9 @@ const parseEdinetLargeHoldingXbrl = (xbrlText, fallback = {}) => {
     issuerCode,
     filerName,
     purpose,
-    holdingRatio: Number.isFinite(holdingRatio) ? holdingRatio * 100 : null,
+    holdingRatio,
+    prevHoldingRatio,
+    holdingRatioDelta,
   };
 };
 
@@ -687,7 +701,21 @@ const fetchEdinetSignals = async () => {
     const issuerName = detail.issuerName || "対象銘柄不明";
     const issuerCode = detail.issuerCode || "";
     const filerName = detail.filerName || listedFilerName || "提出者不明";
-    const holdingRatio = detail.holdingRatio ?? 5;
+    const holdingRatio = detail.holdingRatio ?? 0;
+    const hasDelta = typeof detail.holdingRatioDelta === "number" && Number.isFinite(detail.holdingRatioDelta);
+    const signalType = hasDelta
+      ? detail.holdingRatioDelta > 0
+        ? "買い増し"
+        : detail.holdingRatioDelta < 0
+          ? "縮小"
+          : "大量保有"
+      : description.includes("変更報告書")
+        ? "大量保有"
+        : "新規買い";
+    const positionChange = hasDelta ? detail.holdingRatioDelta : 100;
+    const deltaNote = hasDelta && typeof detail.prevHoldingRatio === "number"
+      ? `（保有割合 ${detail.prevHoldingRatio.toFixed(2)}% → ${holdingRatio.toFixed(2)}%、前回比 ${detail.holdingRatioDelta >= 0 ? "+" : ""}${detail.holdingRatioDelta.toFixed(2)}pt）`
+      : "";
     return {
       id: `edinet-${doc.docID}`,
       fundId: "japan-activist",
@@ -695,16 +723,16 @@ const fetchEdinetSignals = async () => {
       company: issuerName,
       filerName,
       filingType: "EDINET",
-      signalType: "大量保有",
+      signalType,
       reportDate: doc.periodEnd ?? doc._date,
       filingDate: doc._date,
       portfolioWeight: holdingRatio,
-      positionChange: 100,
+      positionChange,
       priceMoveSinceReport: 0,
       multiFundCount: 1,
       activistIntent: true,
       concentrationRank: 4,
-      note: `${description}をEDINET APIから自動検知。${detail.issuerName ? "XBRLから対象銘柄を解析済み。" : "対象銘柄はXBRLから自動特定できませんでした。"}保有目的、共同保有者、変更理由の本文確認が必要です。`,
+      note: `${description}をEDINET APIから自動検知。${deltaNote}${detail.issuerName ? "XBRLから対象銘柄を解析済み。" : "対象銘柄はXBRLから自動特定できませんでした。"}保有目的、共同保有者、変更理由の本文確認が必要です。`,
       source: "edinet",
       sourceUrl: makeEdinetDocumentUrl(doc.docID),
     };
@@ -798,6 +826,7 @@ const enrichPriceMoves = async (signals) => {
       enriched.push({
         ...signal,
         priceMoveSinceReport: priceMove,
+        priceEvaluated: true,
         note: `${signal.note} 報告日以降の価格反応をYahoo Finance日足で再評価済み。`,
       });
     } catch {

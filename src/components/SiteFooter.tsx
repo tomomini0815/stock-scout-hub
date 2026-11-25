@@ -11,28 +11,27 @@ const footerSections = [
     ],
   },
   {
-    title: "マーケット",
+    title: "銘柄探し",
     links: [
-      { label: "個別銘柄一覧", path: "/stocks" },
-      { label: "ランキング", path: "/ranking" },
+      { label: "市場ランキング", path: "/market?index=ranking" },
       { label: "テーマ別", path: "/themes" },
+      { label: "個別銘柄一覧", path: "/stocks" },
+      { label: "東証グロース250", path: "/market?index=growth250" },
     ],
   },
   {
-    title: "ツール",
+    title: "分析・診断",
     links: [
-      { label: "日経225スクリーニング", path: "/market" },
-      { label: "銘柄検索・チャート", path: "/chart" },
-      { label: "チャートパターン一覧", path: "/patterns" },
-      { label: "EDINET検知", path: "/smart-money" },
+      { label: "チャートパターン", path: "/patterns" },
+      { label: "銘柄診断", path: "/advisor" },
+      { label: "投資指標ガイド", path: "/metrics-guide" },
     ],
   },
   {
-    title: "情報",
+    title: "情報・規約",
     links: [
       { label: "ニュース", path: "/news" },
-      { label: "決算", path: "/earnings" },
-      { label: "IPO", path: "/ipo" },
+      { label: "決算・IPO", path: "/earnings" },
       { label: "利用規約", path: "/terms" },
     ],
   },
@@ -42,13 +41,13 @@ const SiteFooter = () => {
   return (
     <footer className="mt-6 bg-header-bg text-header-foreground">
       <div className="container mx-auto px-4 py-4">
-        <div className="grid grid-cols-3 gap-x-3 gap-y-4 text-xxs text-nav-foreground/80 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-x-4 gap-y-4 text-xxs text-nav-foreground/80 sm:grid-cols-4">
           {footerSections.map((section) => (
             <div key={section.title}>
               <h4 className="mb-2 text-xs font-bold text-header-foreground">{section.title}</h4>
               <ul className="space-y-1">
                 {section.links.map((link) => (
-                  <li key={link.path}>
+                  <li key={`${section.title}-${link.path}`}>
                     <Link to={link.path} className="transition-colors hover:text-header-accent">
                       {link.label}
                     </Link>

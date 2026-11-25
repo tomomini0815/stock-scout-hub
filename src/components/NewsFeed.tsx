@@ -442,7 +442,7 @@ const NewsColumn = ({
         <div className="min-w-0">
           <div className="flex min-w-0 items-center gap-1.5">
             <h3 className="truncate text-xs font-bold text-foreground">{column.title}</h3>
-            <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-xxs font-bold text-slate-600">
+            <span className="shrink-0 whitespace-nowrap rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold leading-tight text-slate-600">
               記事本文要約
             </span>
           </div>
@@ -450,7 +450,7 @@ const NewsColumn = ({
         </div>
       </div>
       <span
-        className={`shrink-0 rounded px-1.5 py-0.5 text-xxs font-bold ${
+        className={`shrink-0 whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-bold leading-tight ${
           column.status === "live"
             ? "bg-stock-up-bg text-stock-up"
             : column.status === "loading"
@@ -489,28 +489,28 @@ const NewsColumn = ({
                 {item.time || "--:--"}
               </span>
               <span
-                className={`shrink-0 rounded px-1.5 py-0.5 text-xxs font-bold ${
+                className={`shrink-0 whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-bold leading-tight ${
                   categoryColors[item.category] || "border border-slate-300 bg-slate-100 text-slate-700"
                 }`}
               >
                 {item.category}
               </span>
               {item.isNew && (
-                <span className="inline-flex shrink-0 items-center rounded bg-badge-new px-1.5 py-0 text-[10px] font-bold text-primary-foreground">
+                <span className="inline-flex shrink-0 items-center whitespace-nowrap rounded bg-badge-new px-1.5 py-0.5 text-[10px] font-bold leading-tight text-primary-foreground">
                   NEW
                 </span>
               )}
               {item.isHot && (
-                <span className="inline-flex shrink-0 items-center rounded bg-badge-hot px-1.5 py-0 text-[10px] font-bold text-primary-foreground">
+                <span className="inline-flex shrink-0 items-center whitespace-nowrap rounded bg-badge-hot px-1.5 py-0.5 text-[10px] font-bold leading-tight text-primary-foreground">
                   注目
                 </span>
               )}
               {item.url && <ExternalLink className="ml-auto h-3 w-3 shrink-0 text-slate-500" />}
             </div>
-            <div className="line-clamp-2 text-[13px] font-bold leading-relaxed text-slate-950 hover:text-primary">
+            <div className="line-clamp-2 text-sm font-bold leading-relaxed text-slate-950 hover:text-primary">
               {item.title}
             </div>
-            <div className="mt-1 text-xs font-medium leading-relaxed text-slate-600">
+            <div className="mt-1 text-[13px] font-medium leading-relaxed text-slate-600">
               {articleState?.status === "loading" ? (
                 <span className="text-slate-500">記事本文を取得して要約しています。</span>
               ) : articleState?.status === "ready" ? (
@@ -702,22 +702,22 @@ const NewsFeed = ({ news: incomingNews }: NewsFeedProps) => {
             key={column.id}
             type="button"
             onClick={() => setActiveColumnId(column.id)}
-            className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded px-1.5 py-0.5 text-[11px] font-bold transition-colors ${
+            className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded px-2 py-1 text-xs font-bold transition-colors ${
               activeColumn.id === column.id
                 ? "bg-primary text-primary-foreground"
                 : "text-muted-foreground hover:bg-muted hover:text-foreground"
             }`}
           >
             {column.id === "market" ? (
-              <TrendingUp className="h-3 w-3 shrink-0" />
+              <TrendingUp className="h-3.5 w-3.5 shrink-0" />
             ) : column.id === "gdelt" ? (
-              <Radio className="h-3 w-3 shrink-0" />
+              <Radio className="h-3.5 w-3.5 shrink-0" />
             ) : (
-              <Newspaper className="h-3 w-3 shrink-0" />
+              <Newspaper className="h-3.5 w-3.5 shrink-0" />
             )}
             <span>{column.title}</span>
             <span
-              className={`rounded px-1 py-0 text-[10px] leading-tight ${
+              className={`rounded px-1 py-0 text-xxs ${
                 activeColumn.id === column.id
                   ? "bg-primary-foreground/20 text-primary-foreground"
                   : "bg-muted text-muted-foreground"

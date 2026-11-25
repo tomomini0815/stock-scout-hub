@@ -269,7 +269,7 @@ const TradingViewMarketNews = () => {
           {formatPublished(item.published)}
         </span>
         <span
-          className={`rounded border px-1.5 py-0.2 text-[11px] font-bold leading-none ${
+          className={`whitespace-nowrap rounded border px-1.5 py-0.5 text-[10px] font-bold leading-tight ${
             item.isFree
               ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/70 dark:bg-emerald-950/40 dark:text-emerald-300"
               : "border-border bg-muted text-muted-foreground"
@@ -281,7 +281,7 @@ const TradingViewMarketNews = () => {
         {item.symbols.slice(0, 2).map((sym) => (
           <span
             key={sym}
-            className="rounded border border-border bg-muted/60 px-1.5 py-0.2 font-mono text-[11px] font-semibold text-foreground/80"
+            className="whitespace-nowrap rounded border border-border bg-muted/60 px-1.5 py-0.5 font-mono text-[10px] font-semibold leading-tight text-foreground/80"
           >
             {shortSymbol(sym)}
           </span>
@@ -291,7 +291,7 @@ const TradingViewMarketNews = () => {
         href={item.url}
         target="_blank"
         rel="noopener noreferrer"
-        className="group inline-flex items-start gap-1 text-xs sm:text-[13px] font-semibold leading-snug text-foreground hover:text-primary hover:underline"
+        className="group inline-flex items-start gap-1 text-[13px] sm:text-sm font-semibold leading-snug text-foreground hover:text-primary hover:underline"
       >
         <span>{item.title}</span>
         <ExternalLink className="mt-0.5 h-3 w-3 shrink-0 opacity-60 group-hover:opacity-100" />
@@ -364,7 +364,7 @@ const TradingViewMarketNews = () => {
         <button
           type="button"
           onClick={() => setActiveSector("all")}
-          className={`rounded border px-2.5 py-1 text-xs font-bold transition-colors ${
+          className={`whitespace-nowrap rounded border px-2.5 py-1 text-xs font-bold transition-colors ${
             activeSector === "all"
               ? "border-primary bg-primary text-primary-foreground"
               : "border-border bg-background text-foreground/80 hover:bg-muted"
@@ -377,7 +377,7 @@ const TradingViewMarketNews = () => {
             key={sector.id}
             type="button"
             onClick={() => setActiveSector(sector.id)}
-            className={`rounded border px-2.5 py-1 text-xs font-bold transition-colors ${
+            className={`whitespace-nowrap rounded border px-2.5 py-1 text-xs font-bold transition-colors ${
               activeSector === sector.id
                 ? "border-primary bg-primary text-primary-foreground"
                 : "border-border bg-background text-foreground/80 hover:bg-muted"
