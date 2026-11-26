@@ -1,4 +1,5 @@
 import {
+  fetchTradingViewExtraIndicators,
   fetchTradingViewMacroAssets,
   fetchTradingViewMarketIndices,
   fetchWithTimeout,
@@ -16,9 +17,10 @@ import {
 
 export default async function handler(_req, res) {
   try {
-    const [tradingViewIndices, tradingViewMacro] = await Promise.all([
+    const [tradingViewIndices, tradingViewMacro, extraIndices] = await Promise.all([
       fetchTradingViewMarketIndices(),
       fetchTradingViewMacroAssets(),
+      fetchTradingViewExtraIndicators(),
     ]);
     const results = tradingViewIndices.length
       ? []
@@ -59,16 +61,23 @@ export default async function handler(_req, res) {
       ...tradingViewMacro,
     ];
 
-    sendJson(res, {
-      indices: mergeMarketIndices(indices),
-      macroAssets: mergeMacroAssets(macroLive),
-      updatedAt: new Date().toISOString(),
-      source: indices.length ? "live" : "fallback",
-    });
+    res.setHeader("Cache-Control", "s-maxage=15, stale-while-revalidate=30");
+    res.statusCode = 200;
+    res.setHeader("Content-Type", "application/json; charset=utf-8");
+    res.end(
+      JSON.stringify({
+        indices: mergeMarketIndices(indices),
+        macroAssets: mergeMacroAssets(macroLive),
+        extraIndices,
+        updatedAt: new Date().toISOString(),
+        source: indices.length ? "live" : "fallback",
+      })
+    );
   } catch {
     sendJson(res, {
       indices: marketFallbackIndices,
       macroAssets: macroFallbackAssets,
+      extraIndices: [],
       updatedAt: new Date().toISOString(),
       source: "fallback",
     });

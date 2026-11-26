@@ -23,6 +23,19 @@ export const tradingViewMacroQuotes = [
   { name: "原油(WTI)", symbol: "NYMEX:CL1!", yahooSymbol: "CL=F" },
 ];
 
+export const tradingViewExtraQuotes = [
+  { name: "東証グロース250", symbol: "TSE:2516" },
+  { name: "半導体指数 SOX", symbol: "NASDAQ:SOX" },
+  { name: "ラッセル2000", symbol: "TVC:RUT" },
+  { name: "EUR/JPY", symbol: "FX:EURJPY" },
+  { name: "米ドル指数 DXY", symbol: "TVC:DXY" },
+  { name: "米10年国債利回り", symbol: "TVC:US10Y" },
+  { name: "米5年国債利回り", symbol: "TVC:US05Y" },
+  { name: "恐怖指数 VIX", symbol: "TVC:VIX" },
+  { name: "原油 WTI", symbol: "NYMEX:CL1!" },
+  { name: "銅先物 Copper", symbol: "COMEX:HG1!" },
+];
+
 export const marketFallbackIndices = [
   { name: "日経平均", value: 39098.68, change: 435.62, changePercent: 1.13 },
   { name: "TOPIX", value: 2768.54, change: 28.17, changePercent: 1.03 },
@@ -397,6 +410,51 @@ export const fetchTradingViewMarketIndices = async () => {
       };
     })
     .filter(Boolean);
+};
+
+export const fetchTradingViewExtraIndicators = async () => {
+  const tvUrl = "https://scanner.tradingview.com/global/scan";
+  if (isCircuitOpen(tvUrl)) return [];
+  try {
+    const response = await fetchWithTimeout(tvUrl, 7000, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        symbols: {
+          tickers: tradingViewExtraQuotes.map((quote) => quote.symbol),
+          query: { types: [] },
+        },
+        columns: ["close", "change", "change_abs"],
+      }),
+    });
+    if (!response.ok) {
+      if (response.status === 403) tripCircuit(tvUrl);
+      return [];
+    }
+    resolveCircuit(tvUrl);
+    const payload = await response.json();
+    const rows = Array.isArray(payload?.data) ? payload.data : [];
+    const nameBySymbol = new Map(tradingViewExtraQuotes.map((q) => [q.symbol, q.name]));
+    return rows
+      .map((row) => {
+        const name = nameBySymbol.get(row?.s);
+        const [value, changePercent, change] = row?.d ?? [];
+        if (!name || ![value, changePercent, change].every((item) => Number.isFinite(Number(item)))) {
+          return null;
+        }
+        return {
+          name,
+          value: Number(value),
+          change: Number(change),
+          changePercent: Number(changePercent),
+        };
+      })
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
 };
 
 export const fetchTradingViewMacroAssets = async () => {

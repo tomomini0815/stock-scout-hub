@@ -775,6 +775,56 @@ const fetchYahooMetrics = async (symbol: string) => {
   return parseQuoteMetrics(await quoteResponse.json(), symbol);
 };
 
+const tradingViewExtraQuotes = [
+  { name: "東証グロース250", symbol: "TSE:2516" },
+  { name: "半導体指数 SOX", symbol: "NASDAQ:SOX" },
+  { name: "ラッセル2000", symbol: "TVC:RUT" },
+  { name: "EUR/JPY", symbol: "FX:EURJPY" },
+  { name: "米ドル指数 DXY", symbol: "TVC:DXY" },
+  { name: "米10年国債利回り", symbol: "TVC:US10Y" },
+  { name: "米5年国債利回り", symbol: "TVC:US05Y" },
+  { name: "恐怖指数 VIX", symbol: "TVC:VIX" },
+  { name: "原油 WTI", symbol: "NYMEX:CL1!" },
+  { name: "銅先物 Copper", symbol: "COMEX:HG1!" },
+];
+
+const fetchTradingViewExtraIndicators = async () => {
+  try {
+    const response = await fetchWithTimeout("https://scanner.tradingview.com/global/scan", 7000, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        symbols: {
+          tickers: tradingViewExtraQuotes.map((quote) => quote.symbol),
+          query: { types: [] },
+        },
+        columns: ["close", "change", "change_abs"],
+      }),
+    });
+    if (!response.ok) return [];
+    const payload = await response.json();
+    const rows = Array.isArray(payload?.data) ? payload.data : [];
+    const nameBySymbol = new Map(tradingViewExtraQuotes.map((q) => [q.symbol, q.name]));
+    return rows
+      .map((row: { s?: string; d?: unknown[] }) => {
+        const name = nameBySymbol.get(row?.s ?? "");
+        const [value, changePercent, change] = row?.d ?? [];
+        if (!name || ![value, changePercent, change].every((item) => Number.isFinite(Number(item)))) {
+          return null;
+        }
+        return {
+          name,
+          value: Number(value),
+          change: Number(change),
+          changePercent: Number(changePercent),
+        };
+      })
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
+};
+
 const fetchTradingViewMacroAssets = async () => {
   const response = await fetchWithTimeout(
     "https://scanner.tradingview.com/global/scan",
@@ -831,9 +881,10 @@ const marketDataPlugin = () => ({
   configureServer(server) {
     server.middlewares.use("/api/market-data", async (_req, res) => {
       try {
-        const [tradingViewIndices, tradingViewMacro] = await Promise.all([
+        const [tradingViewIndices, tradingViewMacro, extraIndices] = await Promise.all([
           fetchTradingViewMarketIndices(),
           fetchTradingViewMacroAssets(),
+          fetchTradingViewExtraIndicators(),
         ]);
         const results = tradingViewIndices.length
           ? []
@@ -882,6 +933,7 @@ const marketDataPlugin = () => ({
         marketDataCache = {
           indices: mergedIndices,
           macroAssets: mergedMacro,
+          extraIndices,
           updatedAt,
           source,
         };

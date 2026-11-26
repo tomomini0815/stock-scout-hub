@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { Link } from "react-router-dom";
 import {
   Activity,
@@ -31,6 +31,7 @@ import {
   type StockDetailedMetrics,
 } from "@/lib/stockMetricsData";
 import { generateStockHealthReport, resolveEffectiveStock } from "@/data/advisorData";
+import { useLiveStockQuote } from "@/hooks/useLiveStockQuote";
 import { StyleMatchWizard } from "@/components/advisor/StyleMatchWizard";
 
 export type SimulatorMode = "versus" | "scenario" | "portfolio";
@@ -153,6 +154,11 @@ export const StockDecisionSimulator = ({
   const [scenarioStockCode, setScenarioStockCode] = useState<string>(
     initialStockCode || "7203"
   );
+  useEffect(() => {
+    if (initialStockCode) {
+      setScenarioStockCode(initialStockCode);
+    }
+  }, [initialStockCode]);
   const [scenarioSearchQuery, setScenarioSearchQuery] = useState<string>("");
   const [tradeStance, setTradeStance] = useState<"income" | "swing" | "value">(
     "income"
@@ -171,8 +177,10 @@ export const StockDecisionSimulator = ({
   // ==========================================
   // 1. ガチンコ比較の計算ロジック
   // ==========================================
-  const stockA = useMemo(() => resolveStock(stockCodeA), [stockCodeA]);
-  const stockB = useMemo(() => resolveStock(stockCodeB), [stockCodeB]);
+  const baseStockA = useMemo(() => resolveStock(stockCodeA), [stockCodeA]);
+  const baseStockB = useMemo(() => resolveStock(stockCodeB), [stockCodeB]);
+  const { stock: stockA } = useLiveStockQuote(baseStockA);
+  const { stock: stockB } = useLiveStockQuote(baseStockB);
 
   const metricsA = useMemo(() => calculateStockMetrics(stockA), [stockA]);
   const metricsB = useMemo(() => calculateStockMetrics(stockB), [stockB]);
@@ -269,10 +277,12 @@ export const StockDecisionSimulator = ({
   // ==========================================
   // 2. 売買シナリオ判定の計算ロジック
   // ==========================================
-  const scenarioStock = useMemo(
+  const baseScenarioStock = useMemo(
     () => resolveStock(scenarioStockCode),
     [scenarioStockCode]
   );
+  const { stock: scenarioStock, status: scenarioQuoteStatus } =
+    useLiveStockQuote(baseScenarioStock);
   const scenarioReport = useMemo(
     () => generateStockHealthReport(scenarioStock),
     [scenarioStock]
@@ -339,6 +349,7 @@ export const StockDecisionSimulator = ({
     const stopLossPrice = Math.round(price * stopLossRate);
 
     const upsidePct = ((targetPrice1 - price) / price) * 100;
+    const upsidePct2 = ((targetPrice2 - price) / price) * 100;
     const downsidePct = ((price - stopLossPrice) / price) * 100;
     const riskReward = (upsidePct / Math.max(0.5, downsidePct)).toFixed(1);
 
@@ -350,6 +361,7 @@ export const StockDecisionSimulator = ({
       targetPrice2,
       stopLossPrice,
       upsidePct,
+      upsidePct2,
       downsidePct,
       riskReward,
     };
@@ -865,6 +877,12 @@ export const StockDecisionSimulator = ({
                   <span className="font-mono text-xs font-bold text-muted-foreground">
                     ¥{scenarioStock.price.toLocaleString()}
                   </span>
+                  {scenarioQuoteStatus === "live" && (
+                    <span className="inline-flex items-center gap-1 rounded border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                      LIVE
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -1064,7 +1082,7 @@ export const StockDecisionSimulator = ({
                   ¥{calculatedScenario.targetPrice2.toLocaleString()}
                 </div>
                 <span className="text-xs text-stock-up font-bold">
-                  想定 +{Math.round(calculatedScenario.upsidePct * 2.2)}%
+                  想定 +{calculatedScenario.upsidePct2.toFixed(1)}%
                 </span>
               </div>
 

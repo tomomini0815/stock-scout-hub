@@ -4,6 +4,7 @@ import {
   Activity,
   BookOpen,
   Cpu,
+  PiggyBank,
 } from "lucide-react";
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
@@ -12,12 +13,14 @@ import { marketIndices } from "@/data/stockData";
 import { StockDecisionSimulator } from "@/components/advisor/StockDecisionSimulator";
 import { StockHealthCheck } from "@/components/advisor/StockHealthCheck";
 import { ProMetricsGuide } from "@/components/advisor/ProMetricsGuide";
+import { NewNisaSimulator } from "@/components/advisor/NewNisaSimulator";
 
-type TabType = "simulator" | "health" | "guide";
+type TabType = "simulator" | "nisa" | "health" | "guide";
 
 const AdvisorPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const resolveTab = (param: string | null): TabType => {
+    if (param === "nisa") return "nisa";
     if (param === "health" || param === "health-check" || param === "karute") return "health";
     if (param === "guide") return "guide";
     return "simulator";
@@ -77,7 +80,6 @@ const AdvisorPage = () => {
   const handleAskAdvisorWithStock = (code: string) => {
     setSelectedStockCode(code);
     handleTabChange("simulator");
-    // シナリオ判定セクションへスクロール
     setTimeout(() => {
       const el = document.getElementById("scenario-section");
       if (el) {
@@ -93,12 +95,19 @@ const AdvisorPage = () => {
   const tabs: Array<{
     id: TabType;
     label: string;
+    badge?: string;
     icon: typeof Cpu;
   }> = [
     {
       id: "simulator",
       label: "投資シミュレーター & 診断",
       icon: Cpu,
+    },
+    {
+      id: "nisa",
+      label: "新NISAシミュレーター",
+      badge: "1,800万",
+      icon: PiggyBank,
     },
     {
       id: "health",
@@ -117,53 +126,69 @@ const AdvisorPage = () => {
       <SiteHeader activeTab="銘柄診断" />
       <MarketTicker indices={marketIndices} />
 
-      <main className="container mx-auto space-y-3 px-2 py-2 sm:px-4 sm:py-3">
-        {/* ページタイトル & タブナビゲーション（背景なし） */}
-        <div className="flex flex-col gap-2 py-1 md:flex-row md:items-center md:justify-between">
-          <div className="flex items-center gap-2 min-w-0">
-            <h1 className="text-xs sm:text-sm font-bold text-foreground whitespace-nowrap">
+      <main className="container mx-auto px-3 py-3 sm:px-4">
+        {/* サイト共通のフラット＆コンパクトな見出し行（スクリーニングページ準拠） */}
+        <div className="mb-2.5 flex items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-2">
+            <Cpu className="h-4 w-4 shrink-0 text-primary" />
+            <h1 className="whitespace-nowrap text-sm font-bold text-foreground">
               銘柄診断 & 投資シミュレーター
             </h1>
-            <span className="hidden xl:inline text-xxs text-muted-foreground truncate">
-              「2銘柄ガチンコ比較」「売買シナリオ」「予算別ポートフォリオ」「銘柄カルテ」で投資判断をサポート
+            <span className="whitespace-nowrap rounded border border-border bg-muted px-1.5 py-0.5 text-xxs font-semibold text-foreground/80">
+              新NISA・カルテ対応
             </span>
           </div>
-
-          {/* セグメントコントロール・タブナビゲーション */}
-          <div className="flex items-center">
-            <div className="flex max-w-full rounded-md border border-border/70 bg-card p-0.5 text-xs font-semibold whitespace-nowrap shadow-2xs">
-              {tabs.map((tab) => {
-                const isActive = activeTab === tab.id;
-
-                return (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() => handleTabChange(tab.id)}
-                    className={`relative flex shrink-0 items-center rounded px-3 py-1 text-xs transition-colors ${
-                      isActive
-                        ? "bg-muted text-foreground font-bold shadow-2xs"
-                        : "text-muted-foreground hover:text-foreground hover:bg-muted/40 font-medium"
-                    }`}
-                  >
-                    <span>{tab.label}</span>
-                    {isActive && (
-                      <span
-                        aria-hidden="true"
-                        className="absolute bottom-0 left-2 right-2 h-0.5 rounded-full bg-primary"
-                      />
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+          <span className="hidden truncate text-xxs text-muted-foreground lg:inline">
+            2銘柄比較・売買シナリオ・新NISA試算・銘柄カルテを1ページで確認
+          </span>
         </div>
 
-        {/* タブコンテンツ */}
-        <div>
+        {/* 下線タブの一体型カード（スクリーニングページ準拠） */}
+        <section className="overflow-hidden rounded border border-border bg-card">
+          <div
+            role="tablist"
+            aria-label="銘柄診断・投資シミュレーター機能切替"
+            className="flex items-stretch overflow-x-auto border-b border-border bg-muted/40 no-scrollbar"
+          >
+            {tabs.map((tab) => {
+              const isActive = activeTab === tab.id;
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={isActive}
+                  onClick={() => handleTabChange(tab.id)}
+                  className={`relative -mb-px flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-4 px-3 py-2.5 text-xs transition-colors sm:px-4 ${
+                    isActive
+                      ? "border-primary bg-table-header-bg font-bold text-primary"
+                      : "border-transparent font-semibold text-muted-foreground hover:bg-muted/70 hover:text-foreground"
+                  }`}
+                >
+                  <Icon className={`h-3.5 w-3.5 shrink-0 ${isActive ? "text-primary" : "text-muted-foreground"}`} />
+                  <span>{tab.label}</span>
+                  {tab.badge && (
+                    <span
+                      className={`rounded px-1 py-0.5 text-[10px] font-semibold tabular-nums leading-none ${
+                        isActive
+                          ? "bg-primary/10 text-primary"
+                          : "bg-background/80 text-muted-foreground"
+                      }`}
+                    >
+                      {tab.badge}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* 選択中タブの本体 */}
+          {activeTab === "nisa" && <NewNisaSimulator />}
+
           {activeTab === "simulator" && (
-            <div className="animate-in fade-in-50 duration-200">
+            <div className="p-2.5 sm:p-3">
               <StockDecisionSimulator
                 initialStockCode={selectedStockCode}
                 onInspectStockInHealthCheck={handleInspectStockInHealthCheck}
@@ -172,7 +197,7 @@ const AdvisorPage = () => {
           )}
 
           {activeTab === "health" && (
-            <div className="animate-in fade-in-50 duration-200">
+            <div className="p-2.5 sm:p-3">
               <StockHealthCheck
                 initialCode={selectedStockCode}
                 onAskAdvisorWithStock={handleAskAdvisorWithStock}
@@ -182,14 +207,14 @@ const AdvisorPage = () => {
           )}
 
           {activeTab === "guide" && (
-            <div className="animate-in fade-in-50 duration-200">
+            <div className="p-2.5 sm:p-3">
               <ProMetricsGuide
                 initialMetric={selectedMetric}
                 onNavigateToStockSearch={(code) => handleInspectStockInHealthCheck(code)}
               />
             </div>
           )}
-        </div>
+        </section>
       </main>
 
       <SiteFooter />

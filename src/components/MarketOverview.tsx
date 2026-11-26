@@ -738,6 +738,7 @@ const MarketOverview = ({ indices, detailed = false }: MarketOverviewProps) => {
   const [urgentDrivers, setUrgentDrivers] = useState<Record<string, { status: UrgentDriverStatus; text: string }>>({});
   const {
     indices: displayIndices,
+    extraIndices: liveExtraIndices,
     status,
     updatedAt,
   } = useLiveMarketData(indices);
@@ -762,6 +763,7 @@ const MarketOverview = ({ indices, detailed = false }: MarketOverviewProps) => {
 
   const visibleIndices = useMemo<MarketIndex[]>(() => {
     const coreMap = new Map(displayIndices.map((idx) => [idx.name, idx]));
+    const extraMap = new Map(liveExtraIndices.map((idx) => [idx.name, idx]));
     const selectedSet = new Set(selectedIndicatorNames);
     const list: MarketIndex[] = [];
 
@@ -770,6 +772,11 @@ const MarketOverview = ({ indices, detailed = false }: MarketOverviewProps) => {
       const core = coreMap.get(def.name);
       if (core) {
         list.push(core);
+        continue;
+      }
+      const liveExtra = extraMap.get(def.name);
+      if (liveExtra) {
+        list.push(liveExtra);
         continue;
       }
       const snap = snapshotsByName[def.name];
@@ -790,7 +797,7 @@ const MarketOverview = ({ indices, detailed = false }: MarketOverviewProps) => {
       }
     }
     return list;
-  }, [displayIndices, selectedIndicatorNames, snapshotsByName]);
+  }, [displayIndices, liveExtraIndices, selectedIndicatorNames, snapshotsByName]);
 
   const marketDriverByName = useMemo(
     () => buildMarketDriverMap(visibleIndices, driverNews),
@@ -830,6 +837,7 @@ const MarketOverview = ({ indices, detailed = false }: MarketOverviewProps) => {
         day: "2-digit",
         hour: "2-digit",
         minute: "2-digit",
+        second: "2-digit",
       }).format(new Date(updatedAt))
     : "";
 
