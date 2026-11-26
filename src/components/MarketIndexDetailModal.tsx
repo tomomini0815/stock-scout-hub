@@ -108,6 +108,8 @@ const PeriodSparklineSvg = ({
   points,
   baseline,
   currentValue,
+  overrideHigh,
+  overrideLow,
   startDateLabel,
   endDateLabel,
 }: {
@@ -115,16 +117,36 @@ const PeriodSparklineSvg = ({
   points: number[];
   baseline: number;
   currentValue: number;
+  overrideHigh?: number;
+  overrideLow?: number;
   startDateLabel?: string;
   endDateLabel?: string;
 }) => {
-  const safePoints = points.length >= 2 ? points : [baseline || currentValue || 1, currentValue || 1];
+  const rawSafePoints = points.length >= 2 ? points : [baseline || currentValue || 1, currentValue || 1];
+  const hasOfficialRange =
+    typeof overrideHigh === "number" &&
+    Number.isFinite(overrideHigh) &&
+    overrideHigh > 0 &&
+    typeof overrideLow === "number" &&
+    Number.isFinite(overrideLow) &&
+    overrideLow > 0 &&
+    overrideHigh >= overrideLow;
+
+  const high = hasOfficialRange
+    ? Math.max(overrideHigh!, currentValue)
+    : Math.max(...rawSafePoints, baseline);
+  const low = hasOfficialRange
+    ? Math.min(overrideLow!, currentValue)
+    : Math.min(...rawSafePoints, baseline);
+  const safePoints = hasOfficialRange
+    ? rawSafePoints.map((v, i) =>
+        i === rawSafePoints.length - 1 ? currentValue : Math.min(high, Math.max(low, v))
+      )
+    : rawSafePoints;
   const lastVal = safePoints[safePoints.length - 1];
   const isUp = lastVal > baseline;
   const isDown = lastVal < baseline;
 
-  const high = Math.max(...safePoints, baseline);
-  const low = Math.min(...safePoints, baseline);
   const pad = (high - low) * 0.1 || Math.abs(lastVal) * 0.005 || 1;
   const minY = low - pad;
   const maxY = high + pad;
@@ -326,13 +348,37 @@ const MarketIndexDetailModal = ({
   const isUp = mainChange > 0;
   const isDown = mainChange < 0;
 
+  // 異常値除外＆プロキシ銘柄（TOPIX 1306.T / GOLD GC=F等）のスケール正規化
+  const normalizedDailyCandles = useMemo(() => {
+    if (!dailyCandles.length) return [];
+    const sortedCloses = dailyCandles.map((c) => c.close).sort((a, b) => a - b);
+    const median = sortedCloses[Math.floor(sortedCloses.length / 2)] || 1;
+    // 分割・データ欠損等による極端な外れ値（中央値の35%未満 or 3倍超）を除外
+    const cleaned = dailyCandles.filter(
+      (c) => c.close >= median * 0.35 && c.close <= median * 3
+    );
+    if (!cleaned.length) return [];
+    const lastClose = cleaned[cleaned.length - 1].close;
+    const scale =
+      mainValue > 0 && lastClose > 0 && Math.abs(mainValue / lastClose - 1) > 0.002
+        ? mainValue / lastClose
+        : 1;
+    if (scale === 1) return cleaned;
+    return cleaned.map((c) => ({
+      date: c.date,
+      close: c.close * scale,
+      high: (c.high ?? c.close) * scale,
+      low: (c.low ?? c.close) * scale,
+    }));
+  }, [dailyCandles, mainValue]);
+
   // 期間別パフォーマンス & テクニカル計算
   const analytics = useMemo(() => {
-    if (!dailyCandles.length || !mainValue) {
+    if (!normalizedDailyCandles.length || !mainValue) {
       return null;
     }
 
-    const closes = dailyCandles.map((c) => c.close);
+    const closes = normalizedDailyCandles.map((c) => c.close);
     const latestPrice = mainValue > 0 ? mainValue : closes[closes.length - 1];
 
     const calcReturnByOffset = (tradingDaysBack: number): number | null => {
@@ -342,8 +388,31 @@ const MarketIndexDetailModal = ({
     };
 
     const currentYear = new Date().getFullYear().toString();
-    const ytdBaseCandle =
-      dailyCandles.find((c) => c.date.startsWith(currentYear)) ?? dailyCandles[0];
+    // /api/stock-chart の date は "M/D" 形式（年なし）のため、後ろから年またぎ（1月→前年12月）を検出して前年末終値を基準にする
+    const parseMonth = (dateStr: string): number | null => {
+      const isoMatch = dateStr.match(/^\d{4}-(\d{1,2})-/);
+      if (isoMatch) return Number(isoMatch[1]);
+      const mdMatch = dateStr.match(/^(\d{1,2})\//);
+      if (mdMatch) return Number(mdMatch[1]);
+      return null;
+    };
+
+    let ytdBaseCandle =
+      normalizedDailyCandles.find((c) => c.date.startsWith(currentYear)) ?? null;
+    if (!ytdBaseCandle) {
+      for (let i = normalizedDailyCandles.length - 1; i >= 1; i -= 1) {
+        const curMonth = parseMonth(normalizedDailyCandles[i].date);
+        const prevMonth = parseMonth(normalizedDailyCandles[i - 1].date);
+        if (curMonth !== null && prevMonth !== null && prevMonth > curMonth) {
+          // 年またぎ境界の直前（前年末の最終営業日終値）を年初来基準にする
+          ytdBaseCandle = normalizedDailyCandles[i - 1];
+          break;
+        }
+      }
+    }
+    if (!ytdBaseCandle) {
+      ytdBaseCandle = normalizedDailyCandles[0];
+    }
     const ytdReturn =
       ytdBaseCandle && ytdBaseCandle.close > 0
         ? ((latestPrice - ytdBaseCandle.close) / ytdBaseCandle.close) * 100
@@ -352,8 +421,21 @@ const MarketIndexDetailModal = ({
     const oneYearBase = closes[0];
     const oneYearReturn = oneYearBase > 0 ? ((latestPrice - oneYearBase) / oneYearBase) * 100 : null;
 
-    const high52w = Math.max(...dailyCandles.map((c) => c.high ?? c.close), latestPrice);
-    const low52w = Math.min(...dailyCandles.map((c) => c.low ?? c.close), latestPrice);
+    const hasOfficial52w =
+      typeof detailIndex?.high52w === "number" &&
+      Number.isFinite(detailIndex.high52w) &&
+      detailIndex.high52w > 0 &&
+      typeof detailIndex?.low52w === "number" &&
+      Number.isFinite(detailIndex.low52w) &&
+      detailIndex.low52w > 0 &&
+      detailIndex.high52w >= detailIndex.low52w;
+
+    const high52w = hasOfficial52w
+      ? Math.max(detailIndex!.high52w!, latestPrice)
+      : Math.max(...normalizedDailyCandles.map((c) => c.high ?? c.close), latestPrice);
+    const low52w = hasOfficial52w
+      ? Math.min(detailIndex!.low52w!, latestPrice)
+      : Math.min(...normalizedDailyCandles.map((c) => c.low ?? c.close), latestPrice);
     const range52w = high52w - low52w;
     const positionPct52w = range52w > 0 ? Math.min(100, Math.max(0, ((latestPrice - low52w) / range52w) * 100)) : 50;
     const fromHighPct = high52w > 0 ? ((latestPrice - high52w) / high52w) * 100 : 0;
@@ -381,28 +463,35 @@ const MarketIndexDetailModal = ({
         { label: "200日線", value: sma200, diffPct: sma200 ? ((latestPrice - sma200) / sma200) * 100 : null },
       ],
     };
-  }, [dailyCandles, mainChangePercent, mainValue]);
+  }, [normalizedDailyCandles, mainChangePercent, mainValue, detailIndex]);
 
   // 選択中期間のチャート系列
   const chartSeries = useMemo(() => {
     if (selectedPeriod === "1D") {
-      const pts = intradayPoints && intradayPoints.length >= 2 ? intradayPoints : [prevClose || mainValue, mainValue];
+      const rawPts = intradayPoints && intradayPoints.length >= 2 ? intradayPoints : [prevClose || mainValue, mainValue];
+      const lastRaw = rawPts[rawPts.length - 1];
+      const scale = lastRaw > 0 && mainValue > 0 ? mainValue / lastRaw : 1;
+      const pts = rawPts.map((v, i) => (i === rawPts.length - 1 ? mainValue : v * scale));
       return {
         points: pts,
         baseline: prevClose || pts[0],
+        overrideHigh: hasFutures ? detailIndex?.futuresHigh ?? detailIndex?.dayHigh : detailIndex?.dayHigh,
+        overrideLow: hasFutures ? detailIndex?.futuresLow ?? detailIndex?.dayLow : detailIndex?.dayLow,
         startDateLabel: "前日終値基準",
         endDateLabel: "現在値",
       };
     }
 
     const sliceCount =
-      selectedPeriod === "1W" ? 6 : selectedPeriod === "1M" ? 22 : selectedPeriod === "3M" ? 65 : dailyCandles.length;
-    const sliced = dailyCandles.slice(-sliceCount);
+      selectedPeriod === "1W" ? 6 : selectedPeriod === "1M" ? 22 : selectedPeriod === "3M" ? 65 : normalizedDailyCandles.length;
+    const sliced = normalizedDailyCandles.slice(-sliceCount);
     if (sliced.length < 2) {
       const pts = intradayPoints && intradayPoints.length >= 2 ? intradayPoints : [prevClose || mainValue, mainValue];
       return {
         points: pts,
         baseline: prevClose || pts[0],
+        overrideHigh: undefined,
+        overrideLow: undefined,
         startDateLabel: "",
         endDateLabel: "",
       };
@@ -413,13 +502,43 @@ const MarketIndexDetailModal = ({
       pts[pts.length - 1] = mainValue;
     }
 
+    const currentDayHigh = hasFutures
+      ? detailIndex?.futuresHigh ?? detailIndex?.dayHigh
+      : detailIndex?.dayHigh;
+    const currentDayLow = hasFutures
+      ? detailIndex?.futuresLow ?? detailIndex?.dayLow
+      : detailIndex?.dayLow;
+
+    let periodHigh = Math.max(
+      ...sliced.map((c) => c.high ?? c.close),
+      ...(mainValue > 0 ? [mainValue] : []),
+      ...(typeof currentDayHigh === "number" && currentDayHigh > 0 ? [currentDayHigh] : [])
+    );
+    let periodLow = Math.min(
+      ...sliced.map((c) => c.low ?? c.close),
+      ...(mainValue > 0 ? [mainValue] : []),
+      ...(typeof currentDayLow === "number" && currentDayLow > 0 ? [currentDayLow] : [])
+    );
+
+    // 1Y表示時は52週レンジバーの公式高値・安値と完全一致させる
+    if (selectedPeriod === "1Y") {
+      if (typeof detailIndex?.high52w === "number" && detailIndex.high52w > 0) {
+        periodHigh = Math.max(periodHigh, detailIndex.high52w);
+      }
+      if (typeof detailIndex?.low52w === "number" && detailIndex.low52w > 0) {
+        periodLow = Math.min(periodLow, detailIndex.low52w);
+      }
+    }
+
     return {
       points: pts,
       baseline: pts[0],
+      overrideHigh: periodHigh,
+      overrideLow: periodLow,
       startDateLabel: sliced[0].date,
       endDateLabel: sliced[sliced.length - 1].date,
     };
-  }, [dailyCandles, intradayPoints, mainValue, prevClose, selectedPeriod]);
+  }, [normalizedDailyCandles, intradayPoints, mainValue, prevClose, selectedPeriod, hasFutures, detailIndex]);
 
   if (!detailIndex) return null;
 
@@ -441,8 +560,8 @@ const MarketIndexDetailModal = ({
             <span aria-hidden="true">{def?.flag ?? "📊"}</span>
             <span>{detailIndex.name}</span>
             {hasFutures ? (
-              <span className="whitespace-nowrap rounded border border-red-600 bg-white px-1.5 py-0.5 text-[10px] font-bold text-red-600">
-                LIVE 先物
+              <span className="whitespace-nowrap rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] font-bold text-foreground/80">
+                先物連動
               </span>
             ) : isAfterHours ? (
               <span className="whitespace-nowrap rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
@@ -539,6 +658,8 @@ const MarketIndexDetailModal = ({
                 points={chartSeries.points}
                 baseline={chartSeries.baseline}
                 currentValue={mainValue || 1}
+                overrideHigh={chartSeries.overrideHigh}
+                overrideLow={chartSeries.overrideLow}
                 startDateLabel={chartSeries.startDateLabel}
                 endDateLabel={chartSeries.endDateLabel}
               />

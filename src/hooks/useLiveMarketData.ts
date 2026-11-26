@@ -4,7 +4,7 @@ import { type MarketIndex } from "@/data/stockData";
 
 export type LiveMarketStatus = "live" | "cached" | "fallback";
 
-const MARKET_CACHE_KEY = "stock-scout-market-data-v1";
+const MARKET_CACHE_KEY = "stock-scout-market-data-v2";
 const MARKET_STALE_TIME_MS = 10 * 1000;
 const MARKET_BASE_REFETCH_MS = 20 * 1000;
 const MARKET_MAX_REFETCH_MS = 5 * 60 * 1000;

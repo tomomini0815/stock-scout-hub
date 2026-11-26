@@ -6,6 +6,7 @@ import {
   ArrowUpRight,
   BarChart2,
   BookOpen,
+  Check,
   CheckCircle2,
   Compass,
   ExternalLink,
@@ -15,6 +16,7 @@ import {
   Layers,
   LineChart,
   Newspaper,
+  Plus,
   Search,
   ShieldAlert,
   Sparkles,
@@ -42,6 +44,13 @@ import {
 import { type StockDetailedMetrics } from "@/lib/stockMetricsData";
 import { useLiveStockQuote } from "@/hooks/useLiveStockQuote";
 import { findSearchableStock } from "@/lib/stockSearch";
+import {
+  addChartWatchlistStock,
+  CHART_WATCHLIST_UPDATED_EVENT,
+  readChartWatchlist,
+  removeChartWatchlistStock,
+} from "@/lib/chartWatchlist";
+import { toast } from "@/components/ui/sonner";
 import { stockUniverse, type StockData, type NewsItem } from "@/data/stockData";
 
 interface StockHealthCheckProps {
@@ -71,6 +80,31 @@ export const StockHealthCheck = ({
   const [stockNews, setStockNews] = useState<NewsItem[]>([]);
   const [isLoadingNews, setIsLoadingNews] = useState(false);
   const [liveMetrics, setLiveMetrics] = useState<Partial<StockDetailedMetrics> | null>(null);
+  const [watchlistCodes, setWatchlistCodes] = useState<string[]>(() =>
+    readChartWatchlist().map((item) => item.code)
+  );
+
+  useEffect(() => {
+    const sync = () => setWatchlistCodes(readChartWatchlist().map((item) => item.code));
+    window.addEventListener(CHART_WATCHLIST_UPDATED_EVENT, sync);
+    window.addEventListener("storage", sync);
+    return () => {
+      window.removeEventListener(CHART_WATCHLIST_UPDATED_EVENT, sync);
+      window.removeEventListener("storage", sync);
+    };
+  }, []);
+
+  const handleToggleWatchlist = (stock: StockData) => {
+    if (watchlistCodes.includes(stock.code)) {
+      const next = removeChartWatchlistStock(stock.code);
+      setWatchlistCodes(next.map((item) => item.code));
+      toast.info(`${stock.code} ${stock.name}をチャート監視から外しました`);
+    } else {
+      const next = addChartWatchlistStock({ ...stock, sourceLabel: "銘柄カルテ" });
+      setWatchlistCodes(next.map((item) => item.code));
+      toast.success(`${stock.code} ${stock.name}をチャート監視に追加しました`);
+    }
+  };
 
   const isNikkei = selectedCode === "N225" || selectedCode === "^N225";
 
@@ -352,16 +386,41 @@ export const StockHealthCheck = ({
                 <span className="text-xxs font-bold text-muted-foreground uppercase tracking-wider">
                   {isNikkei ? "現在値・市場動向" : "主要財務・バリュエーション指標"}
                 </span>
-                {!isNikkei && onOpenMetricsGuide && (
-                  <button
-                    type="button"
-                    onClick={() => onOpenMetricsGuide("overview")}
-                    className="inline-flex items-center gap-1 sm:gap-1.5 rounded-md border border-border bg-background px-2 py-0.5 text-xxs font-bold text-primary hover:bg-muted transition-colors"
-                  >
-                    <BookOpen className="h-3 w-3" />
-                    <span>指標ガイド →</span>
-                  </button>
-                )}
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {!isNikkei && (
+                    <button
+                      type="button"
+                      onClick={() => handleToggleWatchlist(report.stock)}
+                      className={`inline-flex items-center gap-1 whitespace-nowrap rounded border px-2 py-0.5 text-xxs font-bold transition-colors ${
+                        watchlistCodes.includes(report.stock.code)
+                          ? "border-primary/60 bg-primary/10 text-primary"
+                          : "border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
+                      }`}
+                    >
+                      {watchlistCodes.includes(report.stock.code) ? (
+                        <>
+                          <Check className="h-3 w-3" />
+                          <span>チャート監視中</span>
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="h-3 w-3" />
+                          <span>チャート監視に追加</span>
+                        </>
+                      )}
+                    </button>
+                  )}
+                  {!isNikkei && onOpenMetricsGuide && (
+                    <button
+                      type="button"
+                      onClick={() => onOpenMetricsGuide("overview")}
+                      className="inline-flex items-center gap-1 sm:gap-1.5 rounded border border-border bg-background px-2 py-0.5 text-xxs font-bold text-primary hover:bg-muted transition-colors"
+                    >
+                      <BookOpen className="h-3 w-3" />
+                      <span>指標ガイド →</span>
+                    </button>
+                  )}
+                </div>
               </div>
 
               {isNikkei ? (
@@ -371,9 +430,9 @@ export const StockHealthCheck = ({
                       <div className="flex items-start justify-between gap-1">
                         <span className="text-muted-foreground text-xxs block font-sans">指数現在値</span>
                         {liveStatus === "live" && (
-                          <span className="ml-auto inline-flex shrink-0 self-start items-center gap-1 rounded border border-red-600 bg-white px-1.5 py-0.2 text-[10px] font-bold text-red-600">
-                            <span className="h-1.5 w-1.5 rounded-full bg-red-600" />
-                            LIVE
+                          <span className="ml-auto inline-flex shrink-0 self-start items-center gap-1 rounded border border-border bg-background px-1.5 py-0.2 text-[10px] font-semibold text-foreground/80">
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                            最新値
                           </span>
                         )}
                       </div>
@@ -394,9 +453,9 @@ export const StockHealthCheck = ({
                     <div className="flex items-start justify-between gap-1">
                       <span className="text-muted-foreground text-xxs block font-sans">現在値</span>
                       {liveStatus === "live" && (
-                        <span className="ml-auto inline-flex shrink-0 self-start items-center gap-1 rounded border border-red-600 bg-white px-1.5 py-0.2 text-[10px] font-bold text-red-600">
-                          <span className="h-1.5 w-1.5 rounded-full bg-red-600" />
-                          LIVE
+                        <span className="ml-auto inline-flex shrink-0 self-start items-center gap-1 rounded border border-border bg-background px-1.5 py-0.2 text-[10px] font-semibold text-foreground/80">
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                          最新値
                         </span>
                       )}
                     </div>

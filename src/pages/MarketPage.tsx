@@ -1237,7 +1237,7 @@ const MarketPage = () => {
                   ))}
                 </div>
                 <span className="text-xxs font-semibold text-muted-foreground">
-                  リアルタイム株価ベース・銘柄クリックでチャートへ移動
+                  最新株価ベース・銘柄クリックでチャートへ移動
                 </span>
               </div>
               <div className="p-2.5 sm:p-3">

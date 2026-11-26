@@ -620,6 +620,8 @@ const IndexMiniChartSvg = ({
   rawPoints,
   currentValue,
   prevClose,
+  dayHigh,
+  dayLow,
   isUp,
   isDown,
 }: {
@@ -627,23 +629,52 @@ const IndexMiniChartSvg = ({
   rawPoints?: number[];
   currentValue: number;
   prevClose: number;
+  dayHigh?: number;
+  dayLow?: number;
   isUp: boolean;
   isDown: boolean;
 }) => {
-  const scaledPoints = useMemo(() => {
-    if (!rawPoints || rawPoints.length < 2) {
-      // データ取得中の仮ライン（前日終値→現在値）
-      return [prevClose, (prevClose + currentValue) / 2, currentValue];
-    }
-    const last = rawPoints[rawPoints.length - 1];
-    const scale = last > 0 && currentValue > 0 ? currentValue / last : 1;
-    const mapped = rawPoints.map((v) => v * scale);
-    mapped[mapped.length - 1] = currentValue;
-    return mapped;
-  }, [rawPoints, currentValue, prevClose]);
+  const hasOfficialRange =
+    typeof dayHigh === "number" &&
+    Number.isFinite(dayHigh) &&
+    dayHigh > 0 &&
+    typeof dayLow === "number" &&
+    Number.isFinite(dayLow) &&
+    dayLow > 0 &&
+    dayHigh >= dayLow;
 
-  const high = Math.max(...scaledPoints, prevClose);
-  const low = Math.min(...scaledPoints, prevClose);
+  const { scaledPoints, high, low } = useMemo(() => {
+    const basePoints =
+      !rawPoints || rawPoints.length < 2
+        ? [prevClose, (prevClose + currentValue) / 2, currentValue]
+        : (() => {
+            const last = rawPoints[rawPoints.length - 1];
+            const scale = last > 0 && currentValue > 0 ? currentValue / last : 1;
+            const mapped = rawPoints.map((v) => v * scale);
+            mapped[mapped.length - 1] = currentValue;
+            return mapped;
+          })();
+
+    if (hasOfficialRange) {
+      const officialHigh = Math.max(dayHigh!, currentValue);
+      const officialLow = Math.min(dayLow!, currentValue);
+      // スパークラインの軌跡を公式当日レンジ内へ自然に収める
+      const clamped = basePoints.map((v) => Math.min(officialHigh, Math.max(officialLow, v)));
+      clamped[clamped.length - 1] = currentValue;
+      return {
+        scaledPoints: clamped,
+        high: officialHigh,
+        low: officialLow,
+      };
+    }
+
+    return {
+      scaledPoints: basePoints,
+      high: Math.max(...basePoints, prevClose),
+      low: Math.min(...basePoints, prevClose),
+    };
+  }, [rawPoints, currentValue, prevClose, hasOfficialRange, dayHigh, dayLow]);
+
   const span = Math.max(high - low, Math.abs(currentValue) * 0.002 || 1);
   const pad = span * 0.1;
   const maxY = high + pad;
@@ -817,7 +848,7 @@ const MarketOverview = ({ indices, detailed = false }: MarketOverviewProps) => {
           const isWhole = config.id === "nikkei" || config.id === "dow";
           return {
             ...config,
-            currentPrice: `先物RT ${matchingIndex.futuresValue.toLocaleString(undefined, {
+            currentPrice: `先物 ${matchingIndex.futuresValue.toLocaleString(undefined, {
               minimumFractionDigits: isWhole ? 0 : 2,
               maximumFractionDigits: isWhole ? 0 : 2,
             })} (${sign}${pct.toFixed(2)}%)`,
@@ -1006,15 +1037,15 @@ const MarketOverview = ({ indices, detailed = false }: MarketOverviewProps) => {
               <span className="whitespace-nowrap text-blue-600 dark:text-blue-400">青▼</span>
             </span>
             <span
-              className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded px-1.5 py-0.5 font-bold ${
+              className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded border px-1.5 py-0.5 font-semibold ${
                 status === "live"
-                  ? "border border-red-600 bg-white text-red-600"
-                  : "bg-muted text-muted-foreground"
+                  ? "border-border bg-background text-foreground/85"
+                  : "border-border/70 bg-muted text-muted-foreground"
               }`}
-              title={updatedLabel ? `更新 ${updatedLabel}` : undefined}
+              title={updatedLabel ? `最終更新 ${updatedLabel}（約20秒ごとに自動更新）` : "約20秒ごとに自動更新"}
             >
-              {status === "live" && <span className="h-1.5 w-1.5 rounded-full bg-red-600" />}
-              {status === "live" ? "LIVE" : status === "cached" ? "前回値" : "確認中"}
+              {status === "live" && <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />}
+              {status === "live" ? "20秒更新" : status === "cached" ? "前回値" : "確認中"}
             </span>
           </div>
         </div>
@@ -1119,7 +1150,7 @@ const MarketOverview = ({ indices, detailed = false }: MarketOverviewProps) => {
                     </span>
                   ) : hasFutures ? (
                     <span className="shrink-0 rounded border border-border/80 bg-background px-1 py-0 text-[9px] font-bold text-muted-foreground">
-                      RT
+                      先物
                     </span>
                   ) : null}
                 </div>
@@ -1147,12 +1178,14 @@ const MarketOverview = ({ indices, detailed = false }: MarketOverviewProps) => {
                   )}
                 </div>
 
-                {/* ライブミニラインチャート（基準線＋塗りつぶし＋高値/安値） */}
+                {/* ライブミニラインチャート（基準線＋塗りつぶし＋公式当日高値/安値） */}
                 <IndexMiniChartSvg
                   name={index.name}
                   rawPoints={snapshotsByName[index.name]?.points}
                   currentValue={mainValue || 1}
                   prevClose={prevClose || 1}
+                  dayHigh={hasFutures ? index.futuresHigh ?? index.dayHigh : index.dayHigh}
+                  dayLow={hasFutures ? index.futuresLow ?? index.dayLow : index.dayLow}
                   isUp={isUp}
                   isDown={isDown}
                 />

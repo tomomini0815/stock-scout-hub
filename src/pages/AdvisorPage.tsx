@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   Activity,
@@ -10,10 +10,33 @@ import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
 import MarketTicker from "@/components/MarketTicker";
 import { marketIndices } from "@/data/stockData";
-import { StockDecisionSimulator } from "@/components/advisor/StockDecisionSimulator";
-import { StockHealthCheck } from "@/components/advisor/StockHealthCheck";
-import { ProMetricsGuide } from "@/components/advisor/ProMetricsGuide";
-import { NewNisaSimulator } from "@/components/advisor/NewNisaSimulator";
+
+const StockDecisionSimulator = lazy(() =>
+  import("@/components/advisor/StockDecisionSimulator").then((m) => ({
+    default: m.StockDecisionSimulator,
+  }))
+);
+const StockHealthCheck = lazy(() =>
+  import("@/components/advisor/StockHealthCheck").then((m) => ({
+    default: m.StockHealthCheck,
+  }))
+);
+const ProMetricsGuide = lazy(() =>
+  import("@/components/advisor/ProMetricsGuide").then((m) => ({
+    default: m.ProMetricsGuide,
+  }))
+);
+const NewNisaSimulator = lazy(() =>
+  import("@/components/advisor/NewNisaSimulator").then((m) => ({
+    default: m.NewNisaSimulator,
+  }))
+);
+
+const TabLoadingFallback = () => (
+  <div className="flex min-h-[260px] items-center justify-center p-6 text-xs text-muted-foreground">
+    読み込み中...
+  </div>
+);
 
 type TabType = "simulator" | "nisa" | "health" | "guide";
 
@@ -184,36 +207,38 @@ const AdvisorPage = () => {
             })}
           </div>
 
-          {/* 選択中タブの本体 */}
-          {activeTab === "nisa" && <NewNisaSimulator />}
+          {/* 選択中タブの本体（タブ別に遅延読み込み） */}
+          <Suspense fallback={<TabLoadingFallback />}>
+            {activeTab === "nisa" && <NewNisaSimulator />}
 
-          {activeTab === "simulator" && (
-            <div className="p-2.5 sm:p-3">
-              <StockDecisionSimulator
-                initialStockCode={selectedStockCode}
-                onInspectStockInHealthCheck={handleInspectStockInHealthCheck}
-              />
-            </div>
-          )}
+            {activeTab === "simulator" && (
+              <div className="p-2.5 sm:p-3">
+                <StockDecisionSimulator
+                  initialStockCode={selectedStockCode}
+                  onInspectStockInHealthCheck={handleInspectStockInHealthCheck}
+                />
+              </div>
+            )}
 
-          {activeTab === "health" && (
-            <div className="p-2.5 sm:p-3">
-              <StockHealthCheck
-                initialCode={selectedStockCode}
-                onAskAdvisorWithStock={handleAskAdvisorWithStock}
-                onOpenMetricsGuide={handleOpenMetricsGuide}
-              />
-            </div>
-          )}
+            {activeTab === "health" && (
+              <div className="p-2.5 sm:p-3">
+                <StockHealthCheck
+                  initialCode={selectedStockCode}
+                  onAskAdvisorWithStock={handleAskAdvisorWithStock}
+                  onOpenMetricsGuide={handleOpenMetricsGuide}
+                />
+              </div>
+            )}
 
-          {activeTab === "guide" && (
-            <div className="p-2.5 sm:p-3">
-              <ProMetricsGuide
-                initialMetric={selectedMetric}
-                onNavigateToStockSearch={(code) => handleInspectStockInHealthCheck(code)}
-              />
-            </div>
-          )}
+            {activeTab === "guide" && (
+              <div className="p-2.5 sm:p-3">
+                <ProMetricsGuide
+                  initialMetric={selectedMetric}
+                  onNavigateToStockSearch={(code) => handleInspectStockInHealthCheck(code)}
+                />
+              </div>
+            )}
+          </Suspense>
         </section>
       </main>
 

@@ -6,12 +6,14 @@ import {
   ArrowUpDown,
   Award,
   BarChart3,
+  Check,
   CheckCircle2,
   ChevronRight,
   Compass,
   Cpu,
   Flame,
   Layers,
+  Plus,
   Scale,
   Search,
   Shield,
@@ -31,7 +33,14 @@ import {
   type StockDetailedMetrics,
 } from "@/lib/stockMetricsData";
 import { generateStockHealthReport, resolveEffectiveStock } from "@/data/advisorData";
-import { useLiveStockQuote } from "@/hooks/useLiveStockQuote";
+import { useLiveStockQuote, useLiveStockQuotes } from "@/hooks/useLiveStockQuote";
+import {
+  addChartWatchlistStock,
+  CHART_WATCHLIST_UPDATED_EVENT,
+  readChartWatchlist,
+  removeChartWatchlistStock,
+} from "@/lib/chartWatchlist";
+import { toast } from "@/components/ui/sonner";
 import { StyleMatchWizard } from "@/components/advisor/StyleMatchWizard";
 
 export type SimulatorMode = "versus" | "scenario" | "portfolio";
@@ -173,6 +182,32 @@ export const StockDecisionSimulator = ({
     "dividend" | "growth" | "balanced"
   >("dividend");
   const [allowOddLot, setAllowOddLot] = useState<boolean>(true); // 単元未満株（1株投資）対応
+
+  // --- チャートウォッチリスト連携 ---
+  const [watchlistCodes, setWatchlistCodes] = useState<string[]>(() =>
+    readChartWatchlist().map((item) => item.code)
+  );
+  useEffect(() => {
+    const sync = () => setWatchlistCodes(readChartWatchlist().map((item) => item.code));
+    window.addEventListener(CHART_WATCHLIST_UPDATED_EVENT, sync);
+    window.addEventListener("storage", sync);
+    return () => {
+      window.removeEventListener(CHART_WATCHLIST_UPDATED_EVENT, sync);
+      window.removeEventListener("storage", sync);
+    };
+  }, []);
+
+  const handleToggleWatchlist = (stock: StockData) => {
+    if (watchlistCodes.includes(stock.code)) {
+      const next = removeChartWatchlistStock(stock.code);
+      setWatchlistCodes(next.map((item) => item.code));
+      toast.info(`${stock.code} ${stock.name}をチャート監視から外しました`);
+    } else {
+      const next = addChartWatchlistStock({ ...stock, sourceLabel: "銘柄診断" });
+      setWatchlistCodes(next.map((item) => item.code));
+      toast.success(`${stock.code} ${stock.name}をチャート監視に追加しました`);
+    }
+  };
 
   // ==========================================
   // 1. ガチンコ比較の計算ロジック
@@ -370,8 +405,21 @@ export const StockDecisionSimulator = ({
   // ==========================================
   // 3. 予算別ポートフォリオの計算ロジック
   // ==========================================
+  const portfolioBaseStocks = useMemo(
+    () =>
+      ["8306", "8058", "9432", "7203", "8035", "6146", "7011", "4502"].map((code) =>
+        resolveStock(code)
+      ),
+    []
+  );
+  const { stocks: portfolioLiveStocks } = useLiveStockQuotes(portfolioBaseStocks);
+
   const generatedPortfolio = useMemo(() => {
-    // 候補プール
+    const livePriceByCode = new Map(
+      portfolioLiveStocks.map((st) => [st.code, st.price])
+    );
+
+    // 候補プール（ライブ株価を優先反映）
     const pool = [
       {
         code: "8306",
@@ -379,7 +427,7 @@ export const StockDecisionSimulator = ({
         sector: "金融",
         role: "利上げ恩恵・高配当・累進配当",
         dividendYield: 3.8,
-        price: 1850,
+        price: livePriceByCode.get("8306") || 1850,
         type: ["dividend", "balanced"],
       },
       {
@@ -388,7 +436,7 @@ export const StockDecisionSimulator = ({
         sector: "商社",
         role: "バフェット保有・手元キャッシュ潤沢",
         dividendYield: 3.5,
-        price: 3150,
+        price: livePriceByCode.get("8058") || 3150,
         type: ["dividend", "balanced", "growth"],
       },
       {
@@ -397,7 +445,7 @@ export const StockDecisionSimulator = ({
         sector: "通信",
         role: "生活必需・連続増配・ディフェンシブ",
         dividendYield: 3.6,
-        price: 155,
+        price: livePriceByCode.get("9432") || 155,
         type: ["dividend", "balanced"],
       },
       {
@@ -406,7 +454,7 @@ export const StockDecisionSimulator = ({
         sector: "自動車",
         role: "世界最高峰の収益力・割安放置",
         dividendYield: 3.1,
-        price: 2850,
+        price: livePriceByCode.get("7203") || 2850,
         type: ["balanced", "growth"],
       },
       {
@@ -415,7 +463,7 @@ export const StockDecisionSimulator = ({
         sector: "半導体",
         role: "AIデータセンター向け製造装置世界シェア首位",
         dividendYield: 2.2,
-        price: 24500,
+        price: livePriceByCode.get("8035") || 24500,
         type: ["growth"],
       },
       {
@@ -424,7 +472,7 @@ export const StockDecisionSimulator = ({
         sector: "精密半導体",
         role: "精密加工装置で世界シェア7〜8割独占",
         dividendYield: 1.8,
-        price: 43000,
+        price: livePriceByCode.get("6146") || 43000,
         type: ["growth"],
       },
       {
@@ -433,7 +481,7 @@ export const StockDecisionSimulator = ({
         sector: "防衛・重工",
         role: "国家予算倍増に伴う国策受注残高拡大",
         dividendYield: 1.9,
-        price: 2150,
+        price: livePriceByCode.get("7011") || 2150,
         type: ["growth", "balanced"],
       },
       {
@@ -442,7 +490,7 @@ export const StockDecisionSimulator = ({
         sector: "医薬品",
         role: "国内製薬最大手・高配当ディフェンシブ",
         dividendYield: 4.6,
-        price: 4250,
+        price: livePriceByCode.get("4502") || 4250,
         type: ["dividend"],
       },
     ];
@@ -500,7 +548,7 @@ export const StockDecisionSimulator = ({
       totalExpectedDividend,
       overallYield,
     };
-  }, [budget, portfolioStrategy, allowOddLot]);
+  }, [budget, portfolioStrategy, allowOddLot, portfolioLiveStocks]);
 
   return (
     <div className="space-y-4">
@@ -864,13 +912,13 @@ export const StockDecisionSimulator = ({
         </div>
         <div className="p-3 sm:p-4 space-y-3 sm:space-y-4">
           {/* 銘柄選択・検索バー */}
-          <div className="rounded-xl border border-border/80 bg-card p-4 shadow-2xs space-y-3">
+          <div className="rounded border border-border bg-card p-3.5 space-y-3">
             <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
               <div>
                 <span className="text-xxs font-bold text-muted-foreground">
                   診断対象の銘柄
                 </span>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <h3 className="text-base font-black text-foreground">
                     {scenarioStock.name} ({scenarioStock.code})
                   </h3>
@@ -878,11 +926,32 @@ export const StockDecisionSimulator = ({
                     ¥{scenarioStock.price.toLocaleString()}
                   </span>
                   {scenarioQuoteStatus === "live" && (
-                    <span className="inline-flex items-center gap-1 rounded border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                    <span className="inline-flex items-center gap-1 rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-foreground/80">
                       <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                      LIVE
+                      最新値
                     </span>
                   )}
+                  <button
+                    type="button"
+                    onClick={() => handleToggleWatchlist(scenarioStock)}
+                    className={`inline-flex h-6 items-center gap-1 whitespace-nowrap rounded border px-2 text-[10px] font-bold transition-colors ${
+                      watchlistCodes.includes(scenarioStock.code)
+                        ? "border-primary/60 bg-primary/10 text-primary"
+                        : "border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
+                    }`}
+                  >
+                    {watchlistCodes.includes(scenarioStock.code) ? (
+                      <>
+                        <Check className="h-3 w-3" />
+                        <span>チャート監視中</span>
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="h-3 w-3" />
+                        <span>チャート監視に追加</span>
+                      </>
+                    )}
+                  </button>
                 </div>
               </div>
 
@@ -952,7 +1021,7 @@ export const StockDecisionSimulator = ({
           {/* 投資パラメータ選択フォーム（スタンス ＆ リスク許容度） */}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             {/* 投資スタンス */}
-            <div className="rounded-xl border border-border/80 bg-card p-4 shadow-2xs space-y-2">
+            <div className="rounded border border-border bg-card p-3.5 space-y-2">
               <span className="text-xs font-bold text-foreground block">
                 1. 投資スタンスを選ぶ
               </span>
@@ -998,7 +1067,7 @@ export const StockDecisionSimulator = ({
             </div>
 
             {/* リスク許容度 */}
-            <div className="rounded-xl border border-border/80 bg-card p-4 shadow-2xs space-y-2">
+            <div className="rounded border border-border bg-card p-3.5 space-y-2">
               <span className="text-xs font-bold text-foreground block">
                 2. リスク許容度を選ぶ
               </span>
@@ -1047,7 +1116,7 @@ export const StockDecisionSimulator = ({
           </div>
 
           {/* 自動算出された売買シナリオカード */}
-          <div className="rounded-xl border border-border/80 bg-card p-4 shadow-xs space-y-4">
+          <div className="rounded border border-border bg-card p-3.5 space-y-4">
             <div className="flex flex-col justify-between gap-2 border-b border-border/70 pb-3 sm:flex-row sm:items-center">
               <div className="flex items-center gap-2">
                 <span className="rounded bg-blue-500/15 px-2 py-0.5 text-xxs font-black text-blue-600 dark:text-blue-400">
@@ -1199,7 +1268,7 @@ export const StockDecisionSimulator = ({
         </div>
         <div className="p-3 sm:p-4 space-y-3 sm:space-y-4">
           {/* パラメータ設定カード */}
-          <div className="rounded-xl border border-border/80 bg-card p-4 shadow-2xs space-y-4">
+          <div className="rounded border border-border bg-card p-3.5 space-y-4">
             {/* 予算選択 */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between text-xs font-bold">
@@ -1295,7 +1364,7 @@ export const StockDecisionSimulator = ({
           </div>
 
           {/* 生成されたポートフォリオ結果 */}
-          <div className="rounded-xl border border-border/80 bg-card p-4 shadow-xs space-y-4">
+          <div className="rounded border border-border bg-card p-3.5 space-y-4">
             {/* KPIサマリー */}
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               <div className="rounded-lg border border-border/60 bg-muted/20 p-3 text-center space-y-0.5">

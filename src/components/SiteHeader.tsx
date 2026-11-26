@@ -167,7 +167,7 @@ const SiteHeader = ({ activeTab = "トップ" }: SiteHeaderProps) => {
                   <div className="flex items-center justify-between text-xxs text-muted-foreground">
                     <div className="flex items-center gap-1">
                       <Info className="h-3 w-3 text-primary" />
-                      <span>LIVE以外は約5分更新</span>
+                      <span>市況20秒・ニュース定期更新</span>
                     </div>
                     <button
                       type="button"
@@ -210,7 +210,7 @@ const SiteHeader = ({ activeTab = "トップ" }: SiteHeaderProps) => {
           </ul>
           <div className="hidden shrink-0 items-center gap-1.5 text-xs font-medium text-nav-foreground/90 lg:flex">
             <Info className="h-3.5 w-3.5 text-header-accent" />
-            <span>LIVE以外は約5分更新</span>
+            <span>市況20秒・ニュース定期更新</span>
             <button
               type="button"
               onClick={handleManualRefresh}

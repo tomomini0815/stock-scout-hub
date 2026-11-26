@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Area,
   AreaChart,
@@ -17,6 +17,7 @@ import {
   Calculator,
   CheckCircle2,
   PiggyBank,
+  RotateCcw,
   Sparkles,
   Table2,
   Target,
@@ -65,6 +66,34 @@ const formatMonthsToYears = (months: number | null): string => {
 
 const TARGET_ASSET_PRESETS = [500, 1000, 2000, 3000, 5000, 10000];
 const TARGET_DIVIDEND_PRESETS = [3, 5, 10, 15, 20];
+const NISA_STORAGE_KEY = "stock-scout-nisa-simulator-v1";
+
+const loadSavedNisaInput = (): { input: NisaSimulationInput; presetId: string | null } => {
+  if (typeof window === "undefined") {
+    return { input: NISA_PRESETS[0].input, presetId: NISA_PRESETS[0].id };
+  }
+  try {
+    const raw = localStorage.getItem(NISA_STORAGE_KEY);
+    if (!raw) return { input: NISA_PRESETS[0].input, presetId: NISA_PRESETS[0].id };
+    const parsed = JSON.parse(raw) as Partial<NisaSimulationInput> & { _presetId?: string | null };
+    const base = NISA_PRESETS[0].input;
+    const restored: NisaSimulationInput = {
+      tsumitateMonthly: Number.isFinite(parsed.tsumitateMonthly) ? Number(parsed.tsumitateMonthly) : base.tsumitateMonthly,
+      growthMonthly: Number.isFinite(parsed.growthMonthly) ? Number(parsed.growthMonthly) : base.growthMonthly,
+      growthAnnualBonus: Number.isFinite(parsed.growthAnnualBonus) ? Number(parsed.growthAnnualBonus) : base.growthAnnualBonus,
+      years: Number.isFinite(parsed.years) ? Number(parsed.years) : base.years,
+      tsumitateReturnPct: Number.isFinite(parsed.tsumitateReturnPct) ? Number(parsed.tsumitateReturnPct) : base.tsumitateReturnPct,
+      growthCapitalReturnPct: Number.isFinite(parsed.growthCapitalReturnPct) ? Number(parsed.growthCapitalReturnPct) : base.growthCapitalReturnPct,
+      growthDividendYieldPct: Number.isFinite(parsed.growthDividendYieldPct) ? Number(parsed.growthDividendYieldPct) : base.growthDividendYieldPct,
+      growthDividendGrowthPct: Number.isFinite(parsed.growthDividendGrowthPct) ? Number(parsed.growthDividendGrowthPct) : base.growthDividendGrowthPct,
+      dividendMode: parsed.dividendMode === "receive" ? "receive" : "reinvest",
+      postLimitBehavior: parsed.postLimitBehavior === "taxable" ? "taxable" : "hold",
+    };
+    return { input: restored, presetId: typeof parsed._presetId === "string" ? parsed._presetId : null };
+  } catch {
+    return { input: NISA_PRESETS[0].input, presetId: NISA_PRESETS[0].id };
+  }
+};
 
 // 各切り替えボタン共通（角丸四角＋淡いティント選択カラー）
 const toggleButtonClass = (isActive: boolean) =>
@@ -83,12 +112,31 @@ const presetChipClass = (isActive: boolean) =>
   }`;
 
 export const NewNisaSimulator = () => {
-  const [input, setInput] = useState<NisaSimulationInput>(NISA_PRESETS[0].input);
-  const [activePresetId, setActivePresetId] = useState<string | null>(NISA_PRESETS[0].id);
+  const initialSaved = useMemo(() => loadSavedNisaInput(), []);
+  const [input, setInput] = useState<NisaSimulationInput>(initialSaved.input);
+  const [activePresetId, setActivePresetId] = useState<string | null>(initialSaved.presetId);
   const [inputMode, setInputMode] = useState<"direct" | "reverse">("direct");
   const [chartTab, setChartTab] = useState<"assets" | "dividends">("assets");
   const [reverseTab, setReverseTab] = useState<"asset" | "dividend">("asset");
   const [showAllYears, setShowAllYears] = useState<boolean>(false);
+
+  // 入力条件を自動保存（リロード時も前回の試算条件を維持）
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        NISA_STORAGE_KEY,
+        JSON.stringify({ ...input, _presetId: activePresetId })
+      );
+    } catch {
+      // ignore storage quota errors
+    }
+  }, [input, activePresetId]);
+
+  const handleResetDefault = () => {
+    setActivePresetId(NISA_PRESETS[0].id);
+    setInput(NISA_PRESETS[0].input);
+    setInputMode("direct");
+  };
 
   // 逆算用ステート
   const [targetAssetMan, setTargetAssetMan] = useState<number>(3000);
@@ -242,8 +290,20 @@ export const NewNisaSimulator = () => {
               </button>
             );
           })}
-        </div>
-      </div>
+              <span className="text-xxs text-muted-foreground">
+                ※ 条件は自動保存されます
+              </span>
+              <button
+                type="button"
+                onClick={handleResetDefault}
+                className="ml-auto inline-flex h-7 items-center gap-1 whitespace-nowrap rounded border border-border bg-background px-2 text-xxs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                title="初期条件（王道インデックス）に戻す"
+              >
+                <RotateCcw className="h-3 w-3" />
+                <span>リセット</span>
+              </button>
+            </div>
+          </div>
 
       {/* メインコンテンツ領域 */}
       <div className="space-y-4 p-3 sm:p-4">
@@ -1112,7 +1172,10 @@ export const NewNisaSimulator = () => {
                 <tr className="border-b border-table-border bg-muted/40 text-xxs text-muted-foreground">
                   <th className="px-3 py-2 text-left font-bold whitespace-nowrap">年次</th>
                   <th className="px-3 py-2 text-right font-bold whitespace-nowrap">累計元本</th>
-                  <th className="px-3 py-2 text-right font-bold whitespace-nowrap">NISA枠消化</th>
+                  <th className="px-3 py-2 text-right font-bold whitespace-nowrap">NISA枠消化率</th>
+                  {finalRow.taxablePrincipal > 0 && (
+                    <th className="px-3 py-2 text-right font-bold whitespace-nowrap">特定口座元本</th>
+                  )}
                   <th className="px-3 py-2 text-right font-bold whitespace-nowrap">NISA総資産</th>
                   <th className="px-3 py-2 text-right font-bold whitespace-nowrap">特定口座(税引後)</th>
                   <th className="px-3 py-2 text-right font-bold whitespace-nowrap">年間配当</th>
@@ -1121,34 +1184,54 @@ export const NewNisaSimulator = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-table-border/60 tabular-nums">
-                {displayedRows.map((row) => (
-                  <tr key={row.year} className="odd:bg-card even:bg-table-stripe hover:bg-muted/50 transition-colors">
-                    <td className="px-3 py-2 font-bold text-foreground whitespace-nowrap">
-                      {row.year}年目
-                    </td>
-                    <td className="px-3 py-2 text-right text-muted-foreground whitespace-nowrap">
-                      {formatManYen(row.totalPrincipal, 0)}
-                    </td>
-                    <td className="px-3 py-2 text-right text-muted-foreground whitespace-nowrap">
-                      {formatManYen(row.nisaPrincipal, 0)}
-                    </td>
-                    <td className="px-3 py-2 text-right font-bold text-foreground whitespace-nowrap">
-                      {formatManYen(row.totalAsset, 0)}
-                    </td>
-                    <td className="px-3 py-2 text-right text-muted-foreground whitespace-nowrap">
-                      {formatManYen(row.allTaxableNetAsset, 0)}
-                    </td>
-                    <td className="px-3 py-2 text-right font-semibold text-amber-600 dark:text-amber-400 whitespace-nowrap">
-                      {formatManYen(row.annualDividend, 1)}
-                    </td>
-                    <td className="px-3 py-2 text-right text-muted-foreground whitespace-nowrap">
-                      {formatManYen(row.monthlyDividend, 1)}
-                    </td>
-                    <td className="px-3 py-2 text-right font-bold text-emerald-600 dark:text-emerald-400 whitespace-nowrap">
-                      +{formatManYen(row.taxSavedTotal, 0)}
-                    </td>
-                  </tr>
-                ))}
+                {displayedRows.map((row) => {
+                  const rowUsagePct = Math.min(
+                    100,
+                    (row.nisaPrincipal / NISA_CONSTANTS.LIFETIME_TOTAL_LIMIT) * 100
+                  );
+                  const isFull = rowUsagePct >= 99.95;
+                  return (
+                    <tr key={row.year} className="odd:bg-card even:bg-table-stripe hover:bg-muted/50 transition-colors">
+                      <td className="px-3 py-2 font-bold text-foreground whitespace-nowrap">
+                        {row.year}年目
+                      </td>
+                      <td className="px-3 py-2 text-right text-muted-foreground whitespace-nowrap">
+                        {formatManYen(row.totalPrincipal, 0)}
+                      </td>
+                      <td className="px-3 py-2 text-right whitespace-nowrap">
+                        <span
+                          className={
+                            isFull
+                              ? "font-bold text-primary"
+                              : "text-muted-foreground"
+                          }
+                        >
+                          {isFull ? "100% (満額)" : `${rowUsagePct.toFixed(1)}%`}
+                        </span>
+                      </td>
+                      {finalRow.taxablePrincipal > 0 && (
+                        <td className="px-3 py-2 text-right text-amber-600 dark:text-amber-400 font-medium whitespace-nowrap">
+                          {row.taxablePrincipal > 0 ? formatManYen(row.taxablePrincipal, 0) : "—"}
+                        </td>
+                      )}
+                      <td className="px-3 py-2 text-right font-bold text-foreground whitespace-nowrap">
+                        {formatManYen(row.totalAsset, 0)}
+                      </td>
+                      <td className="px-3 py-2 text-right text-muted-foreground whitespace-nowrap">
+                        {formatManYen(row.allTaxableNetAsset, 0)}
+                      </td>
+                      <td className="px-3 py-2 text-right font-semibold text-amber-600 dark:text-amber-400 whitespace-nowrap">
+                        {formatManYen(row.annualDividend, 1)}
+                      </td>
+                      <td className="px-3 py-2 text-right text-muted-foreground whitespace-nowrap">
+                        {formatManYen(row.monthlyDividend, 1)}
+                      </td>
+                      <td className="px-3 py-2 text-right font-bold text-emerald-600 dark:text-emerald-400 whitespace-nowrap">
+                        +{formatManYen(row.taxSavedTotal, 0)}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

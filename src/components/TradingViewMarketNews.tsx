@@ -313,13 +313,13 @@ const TradingViewMarketNews = () => {
           <span
             className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded px-1.5 py-0.5 text-xxs font-bold sm:hidden ${
               status === "live"
-                ? "border border-red-600 bg-white text-red-600"
+                ? "border border-border bg-background text-foreground/85"
                 : "bg-muted text-muted-foreground"
             }`}
             title={updatedLabel ? `更新 ${updatedLabel}` : undefined}
           >
-            {status === "live" && <span className="h-1.5 w-1.5 rounded-full bg-red-600" />}
-            {status === "live" ? "LIVE" : status === "cached" ? "前回値" : "確認中"}
+            {status === "live" && <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />}
+            {status === "live" ? "最新" : status === "cached" ? "前回値" : "確認中"}
           </span>
         </div>
 
@@ -348,13 +348,13 @@ const TradingViewMarketNews = () => {
           <span
             className={`hidden shrink-0 items-center gap-1 whitespace-nowrap rounded px-1.5 py-0.5 text-xxs font-bold sm:inline-flex ${
               status === "live"
-                ? "border border-red-600 bg-white text-red-600"
+                ? "border border-border bg-background text-foreground/85"
                 : "bg-muted text-muted-foreground"
             }`}
             title={updatedLabel ? `更新 ${updatedLabel}` : undefined}
           >
-            {status === "live" && <span className="h-1.5 w-1.5 rounded-full bg-red-600" />}
-            {status === "live" ? "LIVE" : status === "cached" ? "前回値" : "確認中"}
+            {status === "live" && <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />}
+            {status === "live" ? "最新" : status === "cached" ? "前回値" : "確認中"}
           </span>
         </div>
       </div>

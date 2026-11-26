@@ -2,6 +2,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { fetchEdinetDocumentArchive, fetchSmartMoneyData } from "./api/_shared/smart-money.js";
+import marketDataHandler from "./api/market-data.js";
 import { synthesizeWebVoicevoxMp3 } from "./api/tts.js";
 
 const googleQuotes = [
@@ -365,6 +366,11 @@ const fetchYahooNikkeiCash = async () => {
   }
 };
 
+const toPositiveNumber = (value: unknown) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+};
+
 const fetchTradingViewMarketIndices = async () => {
   const futuresTickers = Object.values(tradingViewFuturesByName);
   const [tvRows, nikkeiCash] = await Promise.all([
@@ -382,7 +388,17 @@ const fetchTradingViewMarketIndices = async () => {
               tickers: [...tradingViewQuotes.map((quote) => quote.symbol), ...futuresTickers],
               query: { types: [] },
             },
-            columns: ["close", "change", "change_abs", "Perf.W", "Perf.1M"],
+            columns: [
+              "close",
+              "change",
+              "change_abs",
+              "Perf.W",
+              "Perf.1M",
+              "high",
+              "low",
+              "price_52_week_high",
+              "price_52_week_low",
+            ],
           }),
         }
       );
@@ -400,20 +416,24 @@ const fetchTradingViewMarketIndices = async () => {
   return rows
     .map((row) => {
       const name = nameBySymbol.get(row?.s);
-      const [value, changePercent, change, perfW, perf1M] = row?.d ?? [];
+      const [value, changePercent, change, perfW, perf1M, high, low, high52w, low52w] = row?.d ?? [];
       if (!name || ![value, changePercent, change].every((item) => Number.isFinite(Number(item)))) {
         return null;
       }
 
       const futSymbol = tradingViewFuturesByName[name];
       const futRow = futSymbol ? rowBySymbol.get(futSymbol) : null;
-      const [fVal, fChgPct, fChg, fPerfW, fPerf1M] = futRow?.d ?? [];
+      const [fVal, fChgPct, fChg, fPerfW, fPerf1M, fHigh, fLow] = futRow?.d ?? [];
       const hasTvFutures = [fVal, fChgPct, fChg].every((item) => Number.isFinite(Number(item)));
+      const futHighNum = toPositiveNumber(fHigh);
+      const futLowNum = toPositiveNumber(fLow);
       const futuresFields = hasTvFutures
         ? {
             futuresValue: Number(fVal),
             futuresChange: Number(fChg),
             futuresChangePercent: Number(fChgPct),
+            ...(futHighNum !== undefined ? { futuresHigh: futHighNum } : {}),
+            ...(futLowNum !== undefined ? { futuresLow: futLowNum } : {}),
           }
         : {};
 
@@ -428,6 +448,11 @@ const fetchTradingViewMarketIndices = async () => {
           ? Number(perf1M)
           : undefined;
 
+      const tvHighNum = toPositiveNumber(high);
+      const tvLowNum = toPositiveNumber(low);
+      const high52wNum = toPositiveNumber(high52w);
+      const low52wNum = toPositiveNumber(low52w);
+
       if (name === "日経平均") {
         return {
           name,
@@ -436,6 +461,10 @@ const fetchTradingViewMarketIndices = async () => {
           changePercent: nikkeiCash ? nikkeiCash.changePercent : Number(changePercent),
           ...(resolvedPerfW !== undefined ? { changePercent1W: resolvedPerfW } : {}),
           ...(resolvedPerf1M !== undefined ? { changePercent1M: resolvedPerf1M } : {}),
+          ...(tvHighNum !== undefined ? { dayHigh: tvHighNum } : {}),
+          ...(tvLowNum !== undefined ? { dayLow: tvLowNum } : {}),
+          ...(high52wNum !== undefined ? { high52w: high52wNum } : {}),
+          ...(low52wNum !== undefined ? { low52w: low52wNum } : {}),
           ...futuresFields,
         };
       }
@@ -446,6 +475,10 @@ const fetchTradingViewMarketIndices = async () => {
         changePercent: Number(changePercent),
         ...(resolvedPerfW !== undefined ? { changePercent1W: resolvedPerfW } : {}),
         ...(resolvedPerf1M !== undefined ? { changePercent1M: resolvedPerf1M } : {}),
+        ...(tvHighNum !== undefined ? { dayHigh: tvHighNum } : {}),
+        ...(tvLowNum !== undefined ? { dayLow: tvLowNum } : {}),
+        ...(high52wNum !== undefined ? { high52w: high52wNum } : {}),
+        ...(low52wNum !== undefined ? { low52w: low52wNum } : {}),
         ...futuresFields,
       };
     })
@@ -798,7 +831,7 @@ const fetchTradingViewExtraIndicators = async () => {
           tickers: tradingViewExtraQuotes.map((quote) => quote.symbol),
           query: { types: [] },
         },
-        columns: ["close", "change", "change_abs"],
+        columns: ["close", "change", "change_abs", "high", "low", "price_52_week_high", "price_52_week_low"],
       }),
     });
     if (!response.ok) return [];
@@ -808,15 +841,23 @@ const fetchTradingViewExtraIndicators = async () => {
     return rows
       .map((row: { s?: string; d?: unknown[] }) => {
         const name = nameBySymbol.get(row?.s ?? "");
-        const [value, changePercent, change] = row?.d ?? [];
+        const [value, changePercent, change, high, low, high52w, low52w] = row?.d ?? [];
         if (!name || ![value, changePercent, change].every((item) => Number.isFinite(Number(item)))) {
           return null;
         }
+        const dayHigh = toPositiveNumber(high);
+        const dayLow = toPositiveNumber(low);
+        const high52wNum = toPositiveNumber(high52w);
+        const low52wNum = toPositiveNumber(low52w);
         return {
           name,
           value: Number(value),
           change: Number(change),
           changePercent: Number(changePercent),
+          ...(dayHigh !== undefined ? { dayHigh } : {}),
+          ...(dayLow !== undefined ? { dayLow } : {}),
+          ...(high52wNum !== undefined ? { high52w: high52wNum } : {}),
+          ...(low52wNum !== undefined ? { low52w: low52wNum } : {}),
         };
       })
       .filter(Boolean);
@@ -879,71 +920,9 @@ const mergeMacroAssets = (liveAssets = []) => {
 const marketDataPlugin = () => ({
   name: "market-data-api",
   configureServer(server) {
-    server.middlewares.use("/api/market-data", async (_req, res) => {
-      try {
-        const [tradingViewIndices, tradingViewMacro, extraIndices] = await Promise.all([
-          fetchTradingViewMarketIndices(),
-          fetchTradingViewMacroAssets(),
-          fetchTradingViewExtraIndicators(),
-        ]);
-        const results = tradingViewIndices.length
-          ? []
-          : await Promise.allSettled([
-              ...googleQuotes.map(async (quote) => {
-                const response = await fetchWithTimeout(`https://www.google.com/finance/quote/${quote.path}`);
-                if (!response.ok) return null;
-                const html = await response.text();
-                const parsed = parseGoogleQuote(html, quote.ticker, quote.exchange);
-                return parsed ? { name: quote.name, ...parsed } : null;
-              }),
-              (async () => {
-                const response = await fetchWithTimeout("https://www.google.com/finance/quote/USD-JPY");
-                if (!response.ok) return null;
-                const html = await response.text();
-                return parseUsdJpy(html);
-              })(),
-              parseYahooMarketAsset("GOLD", "GC=F"),
-              parseYahooMarketAsset("BTC/USDT", "BTC-USD"),
-            ]);
-
-        const macroFallbackResults =
-          tradingViewMacro.length >= tradingViewMacroQuotes.length
-            ? []
-            : await Promise.allSettled(
-                tradingViewMacroQuotes.map((quote) =>
-                  parseYahooMarketAsset(quote.name, quote.yahooSymbol)
-                )
-              );
-
-        const fallbackIndices = results
-          .map((result) => (result.status === "fulfilled" ? result.value : null))
-          .filter(Boolean);
-        const indices = tradingViewIndices.length ? tradingViewIndices : fallbackIndices;
-        const macroLive = [
-          ...macroFallbackResults
-            .map((result) => (result.status === "fulfilled" ? result.value : null))
-            .filter(Boolean),
-          ...tradingViewMacro,
-        ];
-        const mergedIndices = mergeMarketIndices(indices);
-        const mergedMacro = mergeMacroAssets(macroLive);
-        const source = indices.length === marketDisplayOrder.length ? "live" : indices.length ? "cache" : marketDataCache.source;
-        const updatedAt = new Date().toISOString();
-
-        marketDataCache = {
-          indices: mergedIndices,
-          macroAssets: mergedMacro,
-          extraIndices,
-          updatedAt,
-          source,
-        };
-
-        res.setHeader("Content-Type", "application/json; charset=utf-8");
-        res.end(JSON.stringify(marketDataCache));
-      } catch (error) {
-        res.setHeader("Content-Type", "application/json; charset=utf-8");
-        res.end(JSON.stringify(marketDataCache));
-      }
+    // 本番と同じ api/market-data.js（api/_shared/market.js）を直接利用して二重管理を解消
+    server.middlewares.use("/api/market-data", async (req, res) => {
+      await marketDataHandler(req, res);
     });
   },
 });

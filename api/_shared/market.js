@@ -312,10 +312,23 @@ export const fetchYahooNikkeiCash = async () => {
     if (!Number.isFinite(price) || !Number.isFinite(prevClose) || prevClose <= 0) return null;
     const change = price - prevClose;
     const changePercent = (change / prevClose) * 100;
-    return { value: price, change, changePercent };
+    const dayHigh = Number(meta?.regularMarketDayHigh);
+    const dayLow = Number(meta?.regularMarketDayLow);
+    return {
+      value: price,
+      change,
+      changePercent,
+      ...(Number.isFinite(dayHigh) && dayHigh > 0 ? { dayHigh } : {}),
+      ...(Number.isFinite(dayLow) && dayLow > 0 ? { dayLow } : {}),
+    };
   } catch {
     return null;
   }
+};
+
+const toPositiveNumber = (value) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
 };
 
 export const fetchTradingViewMarketIndices = async () => {
@@ -337,7 +350,17 @@ export const fetchTradingViewMarketIndices = async () => {
               tickers: [...tradingViewQuotes.map((quote) => quote.symbol), ...futuresTickers],
               query: { types: [] },
             },
-            columns: ["close", "change", "change_abs", "Perf.W", "Perf.1M"],
+            columns: [
+              "close",
+              "change",
+              "change_abs",
+              "Perf.W",
+              "Perf.1M",
+              "high",
+              "low",
+              "price_52_week_high",
+              "price_52_week_low",
+            ],
           }),
         }
       );
@@ -359,20 +382,24 @@ export const fetchTradingViewMarketIndices = async () => {
   return rows
     .map((row) => {
       const name = nameBySymbol.get(row?.s);
-      const [value, changePercent, change, perfW, perf1M] = row?.d ?? [];
+      const [value, changePercent, change, perfW, perf1M, high, low, high52w, low52w] = row?.d ?? [];
       if (!name || ![value, changePercent, change].every((item) => Number.isFinite(Number(item)))) {
         return null;
       }
 
       const futSymbol = tradingViewFuturesByName[name];
       const futRow = futSymbol ? rowBySymbol.get(futSymbol) : null;
-      const [fVal, fChgPct, fChg, fPerfW, fPerf1M] = futRow?.d ?? [];
+      const [fVal, fChgPct, fChg, fPerfW, fPerf1M, fHigh, fLow] = futRow?.d ?? [];
       const hasTvFutures = [fVal, fChgPct, fChg].every((item) => Number.isFinite(Number(item)));
+      const futHighNum = toPositiveNumber(fHigh);
+      const futLowNum = toPositiveNumber(fLow);
       const futuresFields = hasTvFutures
         ? {
             futuresValue: Number(fVal),
             futuresChange: Number(fChg),
             futuresChangePercent: Number(fChgPct),
+            ...(futHighNum !== undefined ? { futuresHigh: futHighNum } : {}),
+            ...(futLowNum !== undefined ? { futuresLow: futLowNum } : {}),
           }
         : {};
 
@@ -387,8 +414,15 @@ export const fetchTradingViewMarketIndices = async () => {
           ? Number(perf1M)
           : undefined;
 
+      const tvHighNum = toPositiveNumber(high);
+      const tvLowNum = toPositiveNumber(low);
+      const high52wNum = toPositiveNumber(high52w);
+      const low52wNum = toPositiveNumber(low52w);
+
       // 日経平均の現物はTVC:NI225が遅延・古い値を返すことがあるためYahoo ^N225を優先
       if (name === "日経平均") {
+        const resolvedDayHigh = nikkeiCash?.dayHigh ?? tvHighNum;
+        const resolvedDayLow = nikkeiCash?.dayLow ?? tvLowNum;
         return {
           name,
           value: nikkeiCash ? nikkeiCash.value : Number(value),
@@ -396,6 +430,10 @@ export const fetchTradingViewMarketIndices = async () => {
           changePercent: nikkeiCash ? nikkeiCash.changePercent : Number(changePercent),
           ...(resolvedPerfW !== undefined ? { changePercent1W: resolvedPerfW } : {}),
           ...(resolvedPerf1M !== undefined ? { changePercent1M: resolvedPerf1M } : {}),
+          ...(resolvedDayHigh !== undefined ? { dayHigh: resolvedDayHigh } : {}),
+          ...(resolvedDayLow !== undefined ? { dayLow: resolvedDayLow } : {}),
+          ...(high52wNum !== undefined ? { high52w: high52wNum } : {}),
+          ...(low52wNum !== undefined ? { low52w: low52wNum } : {}),
           ...futuresFields,
         };
       }
@@ -406,6 +444,10 @@ export const fetchTradingViewMarketIndices = async () => {
         changePercent: Number(changePercent),
         ...(resolvedPerfW !== undefined ? { changePercent1W: resolvedPerfW } : {}),
         ...(resolvedPerf1M !== undefined ? { changePercent1M: resolvedPerf1M } : {}),
+        ...(tvHighNum !== undefined ? { dayHigh: tvHighNum } : {}),
+        ...(tvLowNum !== undefined ? { dayLow: tvLowNum } : {}),
+        ...(high52wNum !== undefined ? { high52w: high52wNum } : {}),
+        ...(low52wNum !== undefined ? { low52w: low52wNum } : {}),
         ...futuresFields,
       };
     })
@@ -426,7 +468,7 @@ export const fetchTradingViewExtraIndicators = async () => {
           tickers: tradingViewExtraQuotes.map((quote) => quote.symbol),
           query: { types: [] },
         },
-        columns: ["close", "change", "change_abs"],
+        columns: ["close", "change", "change_abs", "high", "low", "price_52_week_high", "price_52_week_low"],
       }),
     });
     if (!response.ok) {
@@ -440,15 +482,23 @@ export const fetchTradingViewExtraIndicators = async () => {
     return rows
       .map((row) => {
         const name = nameBySymbol.get(row?.s);
-        const [value, changePercent, change] = row?.d ?? [];
+        const [value, changePercent, change, high, low, high52w, low52w] = row?.d ?? [];
         if (!name || ![value, changePercent, change].every((item) => Number.isFinite(Number(item)))) {
           return null;
         }
+        const dayHigh = toPositiveNumber(high);
+        const dayLow = toPositiveNumber(low);
+        const high52wNum = toPositiveNumber(high52w);
+        const low52wNum = toPositiveNumber(low52w);
         return {
           name,
           value: Number(value),
           change: Number(change),
           changePercent: Number(changePercent),
+          ...(dayHigh !== undefined ? { dayHigh } : {}),
+          ...(dayLow !== undefined ? { dayLow } : {}),
+          ...(high52wNum !== undefined ? { high52w: high52wNum } : {}),
+          ...(low52wNum !== undefined ? { low52w: low52wNum } : {}),
         };
       })
       .filter(Boolean);

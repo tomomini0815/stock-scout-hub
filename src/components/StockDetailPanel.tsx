@@ -554,7 +554,7 @@ const StockDetailPanel = ({ stock, hideHealthCheckLink = false }: StockDetailPan
       businessSummaryJa: detailed.businessSummaryJa,
     };
   }, [displayStock, metricsState]);
-  const metricsSourceLabel = metricsState.status === "ready" ? "リアルタイム指標" : "公表確定値";
+  const metricsSourceLabel = metricsState.status === "ready" ? "最新市場指標" : "公表確定値";
   const companyScale = classifyMarketCap(metrics.marketCap);
   const metricItems = useMemo(
     () => [

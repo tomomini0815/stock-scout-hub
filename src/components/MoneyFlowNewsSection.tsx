@@ -264,9 +264,9 @@ const MoneyFlowNewsSection = () => {
         </div>
 
         {isLive && (
-          <span className="inline-flex shrink-0 self-start items-center gap-1 whitespace-nowrap rounded border border-red-600 bg-white px-1.5 py-0.5 text-xxs font-bold text-red-600">
-            <span className="h-1.5 w-1.5 rounded-full bg-red-600" />
-            LIVE
+          <span className="inline-flex shrink-0 self-start items-center gap-1 whitespace-nowrap rounded border border-border bg-background px-1.5 py-0.5 text-xxs font-semibold text-foreground/85">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+            最新
           </span>
         )}
       </div>

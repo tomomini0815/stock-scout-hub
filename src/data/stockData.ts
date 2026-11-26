@@ -30,9 +30,15 @@ export interface MarketIndex {
   changePercent: number;
   changePercent1W?: number;
   changePercent1M?: number;
+  dayHigh?: number;
+  dayLow?: number;
+  high52w?: number;
+  low52w?: number;
   futuresValue?: number;
   futuresChange?: number;
   futuresChangePercent?: number;
+  futuresHigh?: number;
+  futuresLow?: number;
 }
 
 export interface NewsItem {

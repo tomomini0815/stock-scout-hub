@@ -444,17 +444,17 @@ const MoneyFlowCups = ({ indices, stocks = [] }: MoneyFlowCupsProps) => {
             </span>
           </div>
 
-          {/* 常に右端に配置するLIVEバッジ */}
+          {/* 常に右端に配置する更新ステータスバッジ */}
           <span
-            className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded px-1.5 py-0.5 text-xxs font-bold lg:order-3 ${
+            className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded border px-1.5 py-0.5 text-xxs font-semibold lg:order-3 ${
               liveBadgeStatus === "live"
-                ? "border border-red-600 bg-white text-red-600"
-                : "bg-muted text-muted-foreground"
+                ? "border-border bg-background text-foreground/85"
+                : "border-border/70 bg-muted text-muted-foreground"
             }`}
-            title={updatedLabel ? `更新 ${updatedLabel}` : undefined}
+            title={updatedLabel ? `最終更新 ${updatedLabel}` : undefined}
           >
-            {liveBadgeStatus === "live" && <span className="h-1.5 w-1.5 rounded-full bg-red-600" />}
-            {liveBadgeStatus === "live" ? "LIVE" : liveBadgeStatus === "cached" ? "前回値" : "確認中"}
+            {liveBadgeStatus === "live" && <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />}
+            {liveBadgeStatus === "live" ? "自動更新" : liveBadgeStatus === "cached" ? "前回値" : "確認中"}
           </span>
         </div>
 
