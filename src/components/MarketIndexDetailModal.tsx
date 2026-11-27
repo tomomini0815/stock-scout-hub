@@ -10,6 +10,10 @@ import {
 } from "@/components/ui/dialog";
 import { PRO_INDICATOR_BY_NAME } from "@/lib/proMarketIndicators";
 import {
+  TradingViewMiniChart,
+  type TradingViewCandleInterval,
+} from "@/components/TradingViewMiniChart";
+import {
   AlertTriangle,
   ArrowUpRight,
   ExternalLink,
@@ -242,6 +246,8 @@ const MarketIndexDetailModal = ({
   isAfterHours,
 }: MarketIndexDetailModalProps) => {
   const [selectedPeriod, setSelectedPeriod] = useState<PeriodKey>("1M");
+  const [chartViewMode, setChartViewMode] = useState<"tv" | "simple">("tv");
+  const [tvInterval, setTvInterval] = useState<TradingViewCandleInterval>("D");
   const [dailyCandles, setDailyCandles] = useState<DailyCandle[]>([]);
   const [dailyLoading, setDailyLoading] = useState(false);
   const [relatedNews, setRelatedNews] = useState<RelatedNewsItem[]>([]);
@@ -256,41 +262,46 @@ const MarketIndexDetailModal = ({
     const controller = new AbortController();
 
     // 1. 1年分の日足データ取得（期間パフォーマンス・52週レンジ・移動平均線）
-    const cachedDaily = dailyCandleCache.get(def.chartSymbol);
-    if (cachedDaily && Date.now() - cachedDaily.fetchedAt < DAILY_CACHE_TTL_MS) {
-      setDailyCandles(cachedDaily.candles);
+    if (!def.chartSymbol) {
+      setDailyCandles([]);
       setDailyLoading(false);
     } else {
-      setDailyCandles([]);
-      setDailyLoading(true);
-      fetch(`/api/stock-chart?symbol=${encodeURIComponent(def.chartSymbol)}&range=1y&interval=1d`, {
-        signal: controller.signal,
-      })
-        .then((res) => (res.ok ? res.json() : null))
-        .then((data) => {
-          const raw = Array.isArray(data?.candles) ? data.candles : [];
-          const normalized: DailyCandle[] = raw
-            .filter(
-              (c: { close?: number; date?: string }) =>
-                typeof c?.close === "number" && Number.isFinite(c.close) && c.close > 0
-            )
-            .map((c: { date?: string; close: number; high?: number; low?: number }) => ({
-              date: typeof c.date === "string" ? c.date.slice(0, 10) : "",
-              close: c.close,
-              high: typeof c.high === "number" && Number.isFinite(c.high) ? c.high : c.close,
-              low: typeof c.low === "number" && Number.isFinite(c.low) ? c.low : c.close,
-            }));
-          if (normalized.length >= 2) {
-            dailyCandleCache.set(def.chartSymbol, { fetchedAt: Date.now(), candles: normalized });
-            setDailyCandles(normalized);
-          }
+      const cachedDaily = dailyCandleCache.get(def.chartSymbol);
+      if (cachedDaily && Date.now() - cachedDaily.fetchedAt < DAILY_CACHE_TTL_MS) {
+        setDailyCandles(cachedDaily.candles);
+        setDailyLoading(false);
+      } else {
+        setDailyCandles([]);
+        setDailyLoading(true);
+        fetch(`/api/stock-chart?symbol=${encodeURIComponent(def.chartSymbol)}&range=1y&interval=1d`, {
+          signal: controller.signal,
         })
-        .catch(() => {
-          // ignore abort / transient network error
-        })
-        .finally(() => {
-          if (!controller.signal.aborted) setDailyLoading(false);
-        });
+          .then((res) => (res.ok ? res.json() : null))
+          .then((data) => {
+            const raw = Array.isArray(data?.candles) ? data.candles : [];
+            const normalized: DailyCandle[] = raw
+              .filter(
+                (c: { close?: number; date?: string }) =>
+                  typeof c?.close === "number" && Number.isFinite(c.close) && c.close > 0
+              )
+              .map((c: { date?: string; close: number; high?: number; low?: number }) => ({
+                date: typeof c.date === "string" ? c.date.slice(0, 10) : "",
+                close: c.close,
+                high: typeof c.high === "number" && Number.isFinite(c.high) ? c.high : c.close,
+                low: typeof c.low === "number" && Number.isFinite(c.low) ? c.low : c.close,
+              }));
+            if (normalized.length >= 2) {
+              dailyCandleCache.set(def.chartSymbol, { fetchedAt: Date.now(), candles: normalized });
+              setDailyCandles(normalized);
+            }
+          })
+          .catch(() => {
+            // ignore abort / transient network error
+          })
+          .finally(() => {
+            if (!controller.signal.aborted) setDailyLoading(false);
+          });
+      }
     }
 
     // 2. 関連ニュース取得
@@ -374,7 +385,16 @@ const MarketIndexDetailModal = ({
 
   // 期間別パフォーマンス & テクニカル計算
   const analytics = useMemo(() => {
-    if (!normalizedDailyCandles.length || !mainValue) {
+    const hasOfficial52w =
+      typeof detailIndex?.high52w === "number" &&
+      Number.isFinite(detailIndex.high52w) &&
+      detailIndex.high52w > 0 &&
+      typeof detailIndex?.low52w === "number" &&
+      Number.isFinite(detailIndex.low52w) &&
+      detailIndex.low52w > 0 &&
+      detailIndex.high52w >= detailIndex.low52w;
+
+    if ((!normalizedDailyCandles.length && !hasOfficial52w) || !mainValue) {
       return null;
     }
 
@@ -399,7 +419,7 @@ const MarketIndexDetailModal = ({
 
     let ytdBaseCandle =
       normalizedDailyCandles.find((c) => c.date.startsWith(currentYear)) ?? null;
-    if (!ytdBaseCandle) {
+    if (!ytdBaseCandle && normalizedDailyCandles.length >= 2) {
       for (let i = normalizedDailyCandles.length - 1; i >= 1; i -= 1) {
         const curMonth = parseMonth(normalizedDailyCandles[i].date);
         const prevMonth = parseMonth(normalizedDailyCandles[i - 1].date);
@@ -410,7 +430,7 @@ const MarketIndexDetailModal = ({
         }
       }
     }
-    if (!ytdBaseCandle) {
+    if (!ytdBaseCandle && normalizedDailyCandles.length > 0) {
       ytdBaseCandle = normalizedDailyCandles[0];
     }
     const ytdReturn =
@@ -420,15 +440,6 @@ const MarketIndexDetailModal = ({
 
     const oneYearBase = closes[0];
     const oneYearReturn = oneYearBase > 0 ? ((latestPrice - oneYearBase) / oneYearBase) * 100 : null;
-
-    const hasOfficial52w =
-      typeof detailIndex?.high52w === "number" &&
-      Number.isFinite(detailIndex.high52w) &&
-      detailIndex.high52w > 0 &&
-      typeof detailIndex?.low52w === "number" &&
-      Number.isFinite(detailIndex.low52w) &&
-      detailIndex.low52w > 0 &&
-      detailIndex.high52w >= detailIndex.low52w;
 
     const high52w = hasOfficial52w
       ? Math.max(detailIndex!.high52w!, latestPrice)
@@ -554,7 +565,7 @@ const MarketIndexDetailModal = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[90dvh] w-[95vw] max-w-2xl flex-col gap-0 overflow-hidden p-0">
+      <DialogContent className="flex max-h-[92dvh] w-[96vw] max-w-3xl flex-col gap-0 overflow-hidden p-0">
         <DialogHeader className="shrink-0 border-b border-border bg-table-header-bg px-4 py-3 pr-10 text-left">
           <DialogTitle className="flex flex-wrap items-center gap-1.5 text-sm font-extrabold text-foreground">
             <span aria-hidden="true">{def?.flag ?? "📊"}</span>
@@ -601,22 +612,78 @@ const MarketIndexDetailModal = ({
                 </span>
               </div>
 
-              {/* 期間切替タブ */}
-              <div className="ml-auto inline-flex items-center rounded border border-border bg-background p-0.5 text-[10px] font-bold">
-                {(["1D", "1W", "1M", "3M", "1Y"] as PeriodKey[]).map((period) => (
-                  <button
-                    key={period}
-                    type="button"
-                    onClick={() => setSelectedPeriod(period)}
-                    className={`whitespace-nowrap rounded px-2 py-0.5 transition-colors ${
-                      selectedPeriod === period
-                        ? "bg-primary text-primary-foreground"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    {period}
-                  </button>
-                ))}
+              {/* チャート表示切替 ＋ 期間切替タブ */}
+              <div className="ml-auto flex flex-wrap items-center gap-1.5">
+                {def?.tradingViewSymbol && (
+                  <div className="inline-flex items-center rounded border border-border bg-background p-0.5 text-[10px] font-bold">
+                    <button
+                      type="button"
+                      onClick={() => setChartViewMode("tv")}
+                      className={`whitespace-nowrap rounded px-2 py-0.5 transition-colors ${
+                        chartViewMode === "tv"
+                          ? "bg-primary/10 text-primary"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      TradingView
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setChartViewMode("simple")}
+                      className={`whitespace-nowrap rounded px-2 py-0.5 transition-colors ${
+                        chartViewMode === "simple"
+                          ? "bg-primary/10 text-primary"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      軽量チャート
+                    </button>
+                  </div>
+                )}
+
+                {chartViewMode === "tv" && def?.tradingViewSymbol ? (
+                  <div className="inline-flex items-center rounded border border-border bg-background p-0.5 text-[10px] font-bold">
+                    {(
+                      [
+                        { value: "15", label: "15分" },
+                        { value: "60", label: "1時間" },
+                        { value: "240", label: "4時間" },
+                        { value: "D", label: "日足" },
+                        { value: "W", label: "週足" },
+                      ] as const
+                    ).map((item) => (
+                      <button
+                        key={item.value}
+                        type="button"
+                        onClick={() => setTvInterval(item.value)}
+                        className={`whitespace-nowrap rounded px-2 py-0.5 transition-colors ${
+                          tvInterval === item.value
+                            ? "bg-primary text-primary-foreground"
+                            : "text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="inline-flex items-center rounded border border-border bg-background p-0.5 text-[10px] font-bold">
+                    {(["1D", "1W", "1M", "3M", "1Y"] as PeriodKey[]).map((period) => (
+                      <button
+                        key={period}
+                        type="button"
+                        onClick={() => setSelectedPeriod(period)}
+                        className={`whitespace-nowrap rounded px-2 py-0.5 transition-colors ${
+                          selectedPeriod === period
+                            ? "bg-primary text-primary-foreground"
+                            : "text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        {period}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -653,16 +720,31 @@ const MarketIndexDetailModal = ({
             )}
 
             <div className="mt-2.5">
-              <PeriodSparklineSvg
-                name={detailIndex.name}
-                points={chartSeries.points}
-                baseline={chartSeries.baseline}
-                currentValue={mainValue || 1}
-                overrideHigh={chartSeries.overrideHigh}
-                overrideLow={chartSeries.overrideLow}
-                startDateLabel={chartSeries.startDateLabel}
-                endDateLabel={chartSeries.endDateLabel}
-              />
+              {chartViewMode === "tv" && def?.tradingViewSymbol ? (
+                <div className="space-y-1">
+                  <TradingViewMiniChart
+                    symbol={def.tradingViewSymbol}
+                    interval={tvInterval}
+                    className="h-[360px] sm:h-[430px]"
+                  />
+                  {def.tradingViewNote && (
+                    <div className="text-right text-[10px] text-muted-foreground">
+                      ※ ローソク足チャートは連動銘柄（{def.tradingViewNote}）を表示（200MA・BB 3σ）
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <PeriodSparklineSvg
+                  name={detailIndex.name}
+                  points={chartSeries.points}
+                  baseline={chartSeries.baseline}
+                  currentValue={mainValue || 1}
+                  overrideHigh={chartSeries.overrideHigh}
+                  overrideLow={chartSeries.overrideLow}
+                  startDateLabel={chartSeries.startDateLabel}
+                  endDateLabel={chartSeries.endDateLabel}
+                />
+              )}
             </div>
 
             {/* 期間別騰落率サマリー */}

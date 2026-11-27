@@ -127,15 +127,15 @@ const AdvisorPage = () => {
       icon: Cpu,
     },
     {
+      id: "health",
+      label: "銘柄カルテ",
+      icon: Activity,
+    },
+    {
       id: "nisa",
       label: "新NISAシミュレーター",
       badge: "1,800万",
       icon: PiggyBank,
-    },
-    {
-      id: "health",
-      label: "銘柄カルテ",
-      icon: Activity,
     },
     {
       id: "guide",

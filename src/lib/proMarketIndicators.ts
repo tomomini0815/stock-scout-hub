@@ -25,6 +25,10 @@ export interface ProMarketIndicatorDef {
   category: MarketIndicatorCategory;
   flag: string;
   chartSymbol: string;
+  /** TradingView無料埋め込みが許可されているシンボル（未設定時は軽量チャートを表示） */
+  tradingViewSymbol?: string;
+  /** CFD/ETF代替シンボル使用時の注記 */
+  tradingViewNote?: string;
   decimals: number;
   unit?: string;
   isCore?: boolean;
@@ -44,6 +48,8 @@ export const PRO_MARKET_INDICATORS: ProMarketIndicatorDef[] = [
     category: "japan",
     flag: "🇯🇵",
     chartSymbol: "^N225",
+    tradingViewSymbol: "OANDA:JP225USD",
+    tradingViewNote: "日経225 CFD",
     decimals: 0,
     isCore: true,
     defaultSelected: true,
@@ -64,6 +70,7 @@ export const PRO_MARKET_INDICATORS: ProMarketIndicatorDef[] = [
     category: "japan",
     flag: "🇯🇵",
     chartSymbol: "1306.T",
+    // OSE/TSE指数はTradingView無料埋め込みでライセンス制限されるため軽量チャートを使用
     decimals: 2,
     isCore: true,
     defaultSelected: true,
@@ -84,6 +91,7 @@ export const PRO_MARKET_INDICATORS: ProMarketIndicatorDef[] = [
     category: "japan",
     flag: "🇯🇵",
     chartSymbol: "2516.T",
+    // TSE指数はTradingView無料埋め込みでライセンス制限されるため軽量チャートを使用
     decimals: 1,
     defaultSelected: false,
     focusTags: ["新興株", "個人需給", "国内金利"],
@@ -105,6 +113,8 @@ export const PRO_MARKET_INDICATORS: ProMarketIndicatorDef[] = [
     category: "us",
     flag: "🇺🇸",
     chartSymbol: "^DJI",
+    tradingViewSymbol: "OANDA:US30USD",
+    tradingViewNote: "NYダウ CFD",
     decimals: 0,
     isCore: true,
     defaultSelected: true,
@@ -124,6 +134,8 @@ export const PRO_MARKET_INDICATORS: ProMarketIndicatorDef[] = [
     category: "us",
     flag: "🇺🇸",
     chartSymbol: "^IXIC",
+    tradingViewSymbol: "OANDA:NAS100USD",
+    tradingViewNote: "NASDAQ100 CFD",
     decimals: 2,
     isCore: true,
     defaultSelected: true,
@@ -143,6 +155,8 @@ export const PRO_MARKET_INDICATORS: ProMarketIndicatorDef[] = [
     category: "us",
     flag: "🇺🇸",
     chartSymbol: "^GSPC",
+    tradingViewSymbol: "OANDA:SPX500USD",
+    tradingViewNote: "S&P500 CFD",
     decimals: 2,
     isCore: true,
     defaultSelected: true,
@@ -162,6 +176,8 @@ export const PRO_MARKET_INDICATORS: ProMarketIndicatorDef[] = [
     category: "us",
     flag: "🇺🇸",
     chartSymbol: "^SOX",
+    tradingViewSymbol: "NASDAQ:SOXX",
+    tradingViewNote: "半導体ETF (SOXX)",
     decimals: 2,
     defaultSelected: false,
     focusTags: ["NVIDIA", "AI需要", "製造装置"],
@@ -180,6 +196,8 @@ export const PRO_MARKET_INDICATORS: ProMarketIndicatorDef[] = [
     category: "us",
     flag: "🇺🇸",
     chartSymbol: "^RUT",
+    tradingViewSymbol: "AMEX:IWM",
+    tradingViewNote: "ラッセル2000 ETF (IWM)",
     decimals: 2,
     defaultSelected: false,
     focusTags: ["米中小型", "利下げ", "米景気"],
@@ -200,6 +218,7 @@ export const PRO_MARKET_INDICATORS: ProMarketIndicatorDef[] = [
     category: "fx",
     flag: "💱",
     chartSymbol: "JPY=X",
+    tradingViewSymbol: "FX:USDJPY",
     decimals: 2,
     isCore: true,
     defaultSelected: true,
@@ -219,6 +238,7 @@ export const PRO_MARKET_INDICATORS: ProMarketIndicatorDef[] = [
     category: "fx",
     flag: "💱",
     chartSymbol: "EURJPY=X",
+    tradingViewSymbol: "FX:EURJPY",
     decimals: 2,
     defaultSelected: false,
     focusTags: ["欧州金利", "ECB", "リスク選好"],
@@ -236,6 +256,7 @@ export const PRO_MARKET_INDICATORS: ProMarketIndicatorDef[] = [
     category: "fx",
     flag: "🇺🇸",
     chartSymbol: "DX-Y.NYB",
+    // TVC:DXYはTradingView無料埋め込みで制限されるため軽量チャートを使用
     decimals: 2,
     defaultSelected: false,
     focusTags: ["ドル強弱", "米金利", "安全資産"],
@@ -251,10 +272,30 @@ export const PRO_MARKET_INDICATORS: ProMarketIndicatorDef[] = [
 
   // 金利・恐怖
   {
+    name: "日本10年国債利回り",
+    category: "rates",
+    flag: "🇯🇵",
+    chartSymbol: "",
+    decimals: 3,
+    unit: "%",
+    defaultSelected: false,
+    focusTags: ["日銀", "利上げ", "銀行・不動産"],
+    driverUp: "日銀の追加利上げ観測や国内インフレ警戒で長期金利上昇。メガバンクに追い風、不動産・グロースには逆風。",
+    driverDown: "国内金利の一服・債券買い戻し。不動産・REITや国内グロース株に安心感。",
+    newsQuery: "日本10年債利回り OR 長期金利 OR 日銀 利上げ when:3d",
+    relatedJpStocks: [
+      { code: "8306", name: "三菱UFJ", relation: "国内金利上昇追い風", tone: "tailwind" },
+      { code: "8316", name: "三井住友FG", relation: "国内金利上昇追い風", tone: "tailwind" },
+      { code: "8801", name: "三井不動産", relation: "金利上昇逆風", tone: "headwind" },
+      { code: "8830", name: "住友不動産", relation: "金利上昇逆風", tone: "headwind" },
+    ],
+  },
+  {
     name: "米10年国債利回り",
     category: "rates",
     flag: "🇺🇸",
     chartSymbol: "^TNX",
+    // TVC:US10YはTradingView無料埋め込みで制限されるため軽量チャートを使用
     decimals: 3,
     unit: "%",
     defaultSelected: false,
@@ -274,6 +315,7 @@ export const PRO_MARKET_INDICATORS: ProMarketIndicatorDef[] = [
     category: "rates",
     flag: "🇺🇸",
     chartSymbol: "^FVX",
+    // TVC:US05YはTradingView無料埋め込みで制限されるため軽量チャートを使用
     decimals: 3,
     unit: "%",
     defaultSelected: false,
@@ -292,6 +334,7 @@ export const PRO_MARKET_INDICATORS: ProMarketIndicatorDef[] = [
     category: "rates",
     flag: "⚠️",
     chartSymbol: "^VIX",
+    // TVC:VIXはTradingView無料埋め込みで制限されるため軽量チャートを使用
     decimals: 2,
     defaultSelected: false,
     focusTags: ["警戒感", "オプション", "急落リスク"],
@@ -311,6 +354,8 @@ export const PRO_MARKET_INDICATORS: ProMarketIndicatorDef[] = [
     category: "commodity",
     flag: "🥇",
     chartSymbol: "GC=F",
+    tradingViewSymbol: "OANDA:XAUUSD",
+    tradingViewNote: "金スポット (XAU/USD)",
     decimals: 2,
     isCore: true,
     defaultSelected: true,
@@ -325,10 +370,31 @@ export const PRO_MARKET_INDICATORS: ProMarketIndicatorDef[] = [
     ],
   },
   {
+    name: "シルバー Silver",
+    category: "commodity",
+    flag: "🥈",
+    chartSymbol: "SI=F",
+    tradingViewSymbol: "OANDA:XAGUSD",
+    tradingViewNote: "銀スポット (XAG/USD)",
+    decimals: 2,
+    defaultSelected: false,
+    focusTags: ["貴金属", "太陽光・AI需要", "金連動"],
+    driverUp: "金相場高に連動した貴金属買いに加え、太陽光パネル・AIサーバー等の工業需要拡大が追い風。",
+    driverDown: "米実質金利上昇やドル高、世界景気減速による工業用需要懸念が重荷。",
+    newsQuery: "銀価格 OR シルバー 相場 OR 貴金属 when:3d",
+    relatedJpStocks: [
+      { code: "5713", name: "住友金属鉱山", relation: "貴金属・非鉄", tone: "tailwind" },
+      { code: "5711", name: "三菱マテリアル", relation: "銀・非鉄精錬", tone: "tailwind" },
+      { code: "5714", name: "DOWA HD", relation: "銀粉・貴金属回収", tone: "tailwind" },
+    ],
+  },
+  {
     name: "原油 WTI",
     category: "commodity",
     flag: "🛢️",
     chartSymbol: "CL=F",
+    tradingViewSymbol: "OANDA:WTICOUSD",
+    tradingViewNote: "WTI原油 CFD",
     decimals: 2,
     defaultSelected: false,
     focusTags: ["地政学", "OPEC+", "インフレ"],
@@ -347,6 +413,8 @@ export const PRO_MARKET_INDICATORS: ProMarketIndicatorDef[] = [
     category: "commodity",
     flag: "🔶",
     chartSymbol: "HG=F",
+    tradingViewSymbol: "OANDA:XCUUSD",
+    tradingViewNote: "銅 CFD",
     decimals: 3,
     defaultSelected: false,
     focusTags: ["世界景気", "中国需要", "データセンター"],
@@ -365,6 +433,7 @@ export const PRO_MARKET_INDICATORS: ProMarketIndicatorDef[] = [
     category: "commodity",
     flag: "₿",
     chartSymbol: "BTC-USD",
+    tradingViewSymbol: "BINANCE:BTCUSDT",
     decimals: 2,
     isCore: true,
     defaultSelected: true,
@@ -396,9 +465,11 @@ export const PRO_PRESET_INDICATORS: string[] = [
   "S&P500",
   "半導体指数 SOX",
   "USD/JPY",
+  "日本10年国債利回り",
   "米10年国債利回り",
   "恐怖指数 VIX",
   "GOLD",
+  "シルバー Silver",
   "原油 WTI",
   "BTC/USDT",
 ];

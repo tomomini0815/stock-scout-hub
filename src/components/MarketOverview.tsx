@@ -577,7 +577,7 @@ const useSelectedIndicatorSnapshots = (selectedNames: string[], needCoreSparklin
 
     selectedNames.forEach((name) => {
       const def = PRO_INDICATOR_BY_NAME[name];
-      if (!def) return;
+      if (!def || !def.chartSymbol) return;
       // 詳細モードではコア8銘柄のスパークラインは不要（追加プロ指標のみ取得）
       if (def.isCore && !needCoreSparklines) return;
 

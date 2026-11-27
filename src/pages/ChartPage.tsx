@@ -15,8 +15,14 @@ import {
 } from "@/data/japaneseIndexConstituents";
 import { marketIndices, featuredStock, nikkei225Stocks, stockUniverse, type StockData } from "@/data/stockData";
 import { useLiveStockQuotes } from "@/hooks/useLiveStockQuote";
-import { addChartWatchlistStock, CHART_WATCHLIST_UPDATED_EVENT, readChartWatchlist } from "@/lib/chartWatchlist";
-import { Activity, BarChart3, ChevronDown, Clock, Search, Star, TrendingUp } from "lucide-react";
+import {
+  addChartWatchlistStock,
+  CHART_WATCHLIST_UPDATED_EVENT,
+  readChartWatchlist,
+  removeChartWatchlistStock,
+} from "@/lib/chartWatchlist";
+import { toast } from "@/components/ui/sonner";
+import { Activity, BarChart3, ChevronDown, Clock, Plus, Search, Star, Trash2, TrendingUp } from "lucide-react";
 
 type ChartIndexOption = { id: string; label: string; shortLabel: string; stocks: StockData[] };
 type SmartMoneySignal = {
@@ -184,6 +190,10 @@ const ChartPage = () => {
   const watchlistDisplayStocks = useMemo(
     () => watchlistStocks.filter((stock) => !isEdinetLinkedStock(stock)),
     [watchlistStocks]
+  );
+  const myListCodeSet = useMemo(
+    () => new Set(watchlistDisplayStocks.map((stock) => stock.code)),
+    [watchlistDisplayStocks]
   );
   const historicalEdinetStocks = useMemo(
     () => watchlistStocks.filter((stock) => stock && stock.market === "EDINET検知"),
@@ -462,22 +472,34 @@ const ChartPage = () => {
     if (!shouldGroupByDate) return [];
 
     const groups: Record<string, StockData[]> = {};
-    for (const stock of filteredStocks) {
-      if (!stock) continue;
 
-      if (stock.market === "EDINET検知") {
-        const date = (stock as any).addedDate || "日付不明";
-        if (!groups[date]) {
-          groups[date] = [];
-        }
-        groups[date].push(stock);
-      } else {
-        const favGroup = "マイリスト(一般)";
-        if (!groups[favGroup]) {
-          groups[favGroup] = [];
-        }
-        groups[favGroup].push(stock);
+    // 1. マイリスト（watchlist選択時は、EDINET重複有無にかかわらず登録済み全銘柄を最上部に表示）
+    if (selectedIndexIds.includes("watchlist") && watchlistDisplayStocks.length > 0) {
+      groups["マイリスト(一般)"] = watchlistDisplayStocks.map(
+        (stock) => quoteByCode.get(stock.code) ?? stock
+      );
+    }
+
+    // 2. EDINET検知リスト（日付別グループ）
+    for (const stock of allEdinetStocks) {
+      if (!stock) continue;
+      const hydrated = quoteByCode.get(stock.code) ?? stock;
+      const date = (stock as { addedDate?: string }).addedDate || "日付不明";
+      if (!groups[date]) {
+        groups[date] = [];
       }
+      groups[date].push(hydrated);
+    }
+
+    // 3. 他に選択中の静的指数銘柄があればマイリスト(一般)へ重複なしで追加
+    const myListCodes = new Set((groups["マイリスト(一般)"] ?? []).map((s) => s.code));
+    const edinetCodes = new Set(allEdinetStocks.map((s) => s.code));
+    for (const stock of filteredStocks) {
+      if (!stock || stock.market === "EDINET検知") continue;
+      if (myListCodes.has(stock.code) || edinetCodes.has(stock.code)) continue;
+      if (!groups["マイリスト(一般)"]) groups["マイリスト(一般)"] = [];
+      groups["マイリスト(一般)"].push(stock);
+      myListCodes.add(stock.code);
     }
 
     // グループをソートする（"マイリスト(一般)" は最上部、他は日付の新しい順）
@@ -491,7 +513,7 @@ const ChartPage = () => {
         if (b.date === "日付不明") return -1;
         return b.date.localeCompare(a.date);
       });
-  }, [filteredStocks, shouldGroupByDate]);
+  }, [filteredStocks, shouldGroupByDate, selectedIndexIds, watchlistDisplayStocks, allEdinetStocks, quoteByCode]);
 
   // 最新の日付グループおよび「お気に入り(一般)」グループをデフォルトで開くための処理
   useEffect(() => {
@@ -550,6 +572,40 @@ const ChartPage = () => {
         : [...current, indexId]
     );
   };
+
+  const handleAddToMyList = (stock: StockData) => {
+    const inferredLabel = getInferredSourceLabel(stock.code, selectedIndexOptions);
+    const next = addChartWatchlistStock({
+      ...stock,
+      market: stock.market === "EDINET検知" ? inferredLabel || "東証" : stock.market,
+      sourceLabel: "追加",
+    });
+    setWatchlistStocks(next);
+    toast.success(`${stock.code} ${stock.name}をマイリストに追加しました`);
+  };
+
+  const handleRemoveFromMyList = (stock: StockData) => {
+    const next = removeChartWatchlistStock(stock.code);
+    setWatchlistStocks(next);
+    toast.info(`${stock.code} ${stock.name}をマイリストから削除しました`);
+  };
+
+  const handleToggleMyList = (stock: StockData) => {
+    if (myListCodeSet.has(stock.code)) {
+      handleRemoveFromMyList(stock);
+    } else {
+      handleAddToMyList(stock);
+    }
+  };
+
+  const searchAddCandidates = useMemo(() => {
+    const q = searchQuery.trim();
+    if (!q) return [];
+    const visibleCodes = new Set(filteredStocks.map((s) => s.code));
+    return fullStockUniverse
+      .filter((s) => !visibleCodes.has(s.code) && matchesStockQuery(s, q))
+      .slice(0, 5);
+  }, [searchQuery, filteredStocks, fullStockUniverse]);
 
   const handleSelectStock = (code: string) => {
     const upperCode = code.toUpperCase();
@@ -633,16 +689,66 @@ const ChartPage = () => {
                 </div>
               </div>
               <div className="p-2">
-                <div className="relative mb-2">
+                <div className="relative">
                   <input
                     type="text"
-                    placeholder="銘柄検索..."
+                    placeholder="銘柄検索（コード・銘柄名で追加も可）"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="h-7 w-full rounded border border-border bg-background pl-7 pr-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                   />
                   <Search className="absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
                 </div>
+                {searchAddCandidates.length > 0 && (
+                  <div className="mt-1.5 rounded border border-border bg-muted/30 p-1.5">
+                    <div className="mb-1 px-1 text-[10px] font-bold text-muted-foreground">
+                      全銘柄からマイリストへ追加
+                    </div>
+                    <div className="space-y-1">
+                      {searchAddCandidates.map((cand) => {
+                        const inMyList = myListCodeSet.has(cand.code);
+                        return (
+                          <div
+                            key={cand.code}
+                            className="flex items-center justify-between gap-1.5 rounded bg-card px-2 py-1 text-xs"
+                          >
+                            <button
+                              type="button"
+                              onClick={() => handleSelectStock(cand.code)}
+                              className="min-w-0 flex-1 text-left hover:text-primary"
+                            >
+                              <span className="font-mono text-xxs font-bold text-primary mr-1">
+                                {cand.code}
+                              </span>
+                              <span className="truncate font-medium text-foreground">{cand.name}</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleToggleMyList(cand)}
+                              className={`inline-flex h-6 shrink-0 items-center gap-0.5 rounded border px-1.5 text-[10px] font-bold transition-colors whitespace-nowrap ${
+                                inMyList
+                                  ? "border-border bg-muted text-muted-foreground hover:text-destructive"
+                                  : "border-primary/60 bg-primary/10 text-primary hover:bg-primary/20"
+                              }`}
+                            >
+                              {inMyList ? (
+                                <>
+                                  <Trash2 className="h-3 w-3" />
+                                  <span>削除</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Plus className="h-3 w-3" />
+                                  <span>追加</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
               <div className="min-h-0 flex-1 overflow-y-auto">
                 {shouldGroupByDate ? (
@@ -659,7 +765,7 @@ const ChartPage = () => {
                             <span className="flex items-center gap-1.5">
                               {group.date === "マイリスト(一般)" ? (
                                 <>
-                                  <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                                  <Star className="h-3.5 w-3.5 fill-header-bg text-header-bg" />
                                   {group.date} ({group.stocks.length}銘柄)
                                 </>
                               ) : (
@@ -675,38 +781,57 @@ const ChartPage = () => {
                             <div className="divide-y divide-border bg-card">
                               {group.stocks.map((stock) => {
                                 const isUp = stock.change > 0;
+                                const inMyList = myListCodeSet.has(stock.code);
                                 return (
-                                  <button
+                                  <div
                                     key={stock.code}
-                                    onClick={() => handleSelectStock(stock.code)}
-                                    className={`w-full px-3 py-2 text-left transition-colors hover:bg-muted/50 ${
+                                    className={`flex items-center gap-1 pr-2 transition-colors hover:bg-muted/50 ${
                                       stock.code === selected?.code ? "bg-primary/5 border-l-2" : ""
                                     }`}
                                     style={stock.code === selected?.code ? { borderLeftColor: "hsl(var(--primary))" } : undefined}
                                   >
-                                    <div className="flex items-center justify-between">
-                                      <div>
-                                        <div className="flex flex-wrap items-center gap-1">
-                                          <span className="font-mono text-xxs font-semibold text-primary">{stock.code}</span>
-                                          {getStockLabels(stock, watchlistStocks, edinetStocks, selectedIndexOptions).map((label) => (
-                                            <span
-                                              key={label}
-                                              className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold leading-none text-primary"
-                                            >
-                                              {label}
-                                            </span>
-                                          ))}
+                                    <button
+                                      type="button"
+                                      onClick={() => handleSelectStock(stock.code)}
+                                      className="min-w-0 flex-1 px-3 py-2 text-left"
+                                    >
+                                      <div className="flex items-center justify-between gap-2">
+                                        <div className="min-w-0">
+                                          <div className="flex flex-wrap items-center gap-1">
+                                            <span className="font-mono text-xxs font-semibold text-primary">{stock.code}</span>
+                                            {getStockLabels(stock, watchlistStocks, edinetStocks, selectedIndexOptions).map((label) => (
+                                              <span
+                                                key={label}
+                                                className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold leading-none text-primary"
+                                              >
+                                                {label}
+                                              </span>
+                                            ))}
+                                          </div>
+                                          <div className="truncate text-xs font-medium text-foreground">{stock.name}</div>
                                         </div>
-                                        <div className="text-xs font-medium text-foreground">{stock.name}</div>
-                                      </div>
-                                      <div className="text-right">
-                                        <div className="text-xs font-bold tabular-nums">{stock.price.toLocaleString()}</div>
-                                        <div className={`text-xxs tabular-nums font-semibold ${isUp ? "text-stock-up" : "text-stock-down"}`}>
-                                          {isUp ? "+" : ""}{stock.changePercent.toFixed(2)}%
+                                        <div className="shrink-0 text-right">
+                                          <div className="text-xs font-bold tabular-nums">{stock.price.toLocaleString()}</div>
+                                          <div className={`text-xxs tabular-nums font-semibold ${isUp ? "text-stock-up" : "text-stock-down"}`}>
+                                            {isUp ? "+" : ""}{stock.changePercent.toFixed(2)}%
+                                          </div>
                                         </div>
                                       </div>
-                                    </div>
-                                  </button>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleToggleMyList(stock)}
+                                      className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded border transition-colors ${
+                                        inMyList
+                                          ? "border-header-bg/30 bg-header-bg/10 text-header-bg hover:border-destructive/50 hover:bg-destructive/10 hover:text-destructive"
+                                          : "border-transparent text-muted-foreground hover:border-border hover:bg-muted hover:text-foreground"
+                                      }`}
+                                      title={inMyList ? "マイリストから削除" : "マイリストに追加"}
+                                      aria-label={inMyList ? `${stock.name}をマイリストから削除` : `${stock.name}をマイリストに追加`}
+                                    >
+                                      <Star className={`h-3.5 w-3.5 ${inMyList ? "fill-current" : ""}`} />
+                                    </button>
+                                  </div>
                                 );
                               })}
                             </div>
@@ -722,38 +847,57 @@ const ChartPage = () => {
                 ) : (
                   filteredStocks.length ? filteredStocks.map((stock) => {
                     const isUp = stock.change > 0;
+                    const inMyList = myListCodeSet.has(stock.code);
                     return (
-                      <button
+                      <div
                         key={stock.code}
-                        onClick={() => handleSelectStock(stock.code)}
-                        className={`w-full border-b border-border px-3 py-2 text-left transition-colors hover:bg-muted/50 ${
+                        className={`flex items-center gap-1 border-b border-border pr-2 transition-colors hover:bg-muted/50 ${
                           stock.code === selected?.code ? "bg-primary/5 border-l-2" : ""
                         }`}
                         style={stock.code === selected?.code ? { borderLeftColor: "hsl(var(--primary))" } : undefined}
                       >
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <div className="flex flex-wrap items-center gap-1">
-                              <span className="font-mono text-xxs font-semibold text-primary">{stock.code}</span>
-                              {getStockLabels(stock, watchlistStocks, edinetStocks, selectedIndexOptions).map((label) => (
-                                <span
-                                  key={label}
-                                  className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold leading-none text-primary"
-                                >
-                                  {label}
-                                </span>
-                              ))}
+                        <button
+                          type="button"
+                          onClick={() => handleSelectStock(stock.code)}
+                          className="min-w-0 flex-1 px-3 py-2 text-left"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-1">
+                                <span className="font-mono text-xxs font-semibold text-primary">{stock.code}</span>
+                                {getStockLabels(stock, watchlistStocks, edinetStocks, selectedIndexOptions).map((label) => (
+                                  <span
+                                    key={label}
+                                    className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold leading-none text-primary"
+                                  >
+                                    {label}
+                                  </span>
+                                ))}
+                              </div>
+                              <div className="truncate text-xs font-medium text-foreground">{stock.name}</div>
                             </div>
-                            <div className="text-xs font-medium text-foreground">{stock.name}</div>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-xs font-bold tabular-nums">{stock.price.toLocaleString()}</div>
-                            <div className={`text-xxs tabular-nums font-semibold ${isUp ? "text-stock-up" : "text-stock-down"}`}>
-                              {isUp ? "+" : ""}{stock.changePercent.toFixed(2)}%
+                            <div className="shrink-0 text-right">
+                              <div className="text-xs font-bold tabular-nums">{stock.price.toLocaleString()}</div>
+                              <div className={`text-xxs tabular-nums font-semibold ${isUp ? "text-stock-up" : "text-stock-down"}`}>
+                                {isUp ? "+" : ""}{stock.changePercent.toFixed(2)}%
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      </button>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleToggleMyList(stock)}
+                          className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded border transition-colors ${
+                            inMyList
+                              ? "border-header-bg/30 bg-header-bg/10 text-header-bg hover:border-destructive/50 hover:bg-destructive/10 hover:text-destructive"
+                              : "border-transparent text-muted-foreground hover:border-border hover:bg-muted hover:text-foreground"
+                          }`}
+                          title={inMyList ? "マイリストから削除" : "マイリストに追加"}
+                          aria-label={inMyList ? `${stock.name}をマイリストから削除` : `${stock.name}をマイリストに追加`}
+                        >
+                          <Star className={`h-3.5 w-3.5 ${inMyList ? "fill-current" : ""}`} />
+                        </button>
+                      </div>
                     );
                   }) : (
                     <div className="px-3 py-8 text-center text-xs font-semibold leading-relaxed text-muted-foreground">
@@ -772,7 +916,7 @@ const ChartPage = () => {
               id="selected-stock-header"
               className="scroll-mt-20 sm:scroll-mt-24 mb-2 flex flex-wrap items-center justify-between gap-2 rounded border border-border/80 bg-card px-3 py-1.5 shadow-2xs"
             >
-              <div className="flex items-center gap-2 text-xs">
+              <div className="flex flex-wrap items-center gap-1.5 text-xs">
                 <span className="font-semibold text-muted-foreground">選択銘柄:</span>
                 <span className="rounded bg-primary px-1.5 py-0.5 font-mono text-xxs font-bold text-primary-foreground">
                   {selected?.code || featuredStock.code}
@@ -783,6 +927,25 @@ const ChartPage = () => {
                 <span className="text-xxs text-muted-foreground">
                   ({selected?.market || featuredStock.market || "東証"})
                 </span>
+                {selected && (
+                  <button
+                    type="button"
+                    onClick={() => handleToggleMyList(selected)}
+                    className={`inline-flex h-6 w-6 items-center justify-center rounded transition-colors ${
+                      myListCodeSet.has(selected.code)
+                        ? "text-header-bg hover:bg-muted"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    }`}
+                    title={myListCodeSet.has(selected.code) ? "マイリストから削除" : "マイリストに追加"}
+                    aria-label={myListCodeSet.has(selected.code) ? "マイリストから削除" : "マイリストに追加"}
+                  >
+                    <Star
+                      className={`h-4 w-4 ${
+                        myListCodeSet.has(selected.code) ? "fill-header-bg text-header-bg" : ""
+                      }`}
+                    />
+                  </button>
+                )}
               </div>
               <div className="flex items-center gap-2">
                 <Link

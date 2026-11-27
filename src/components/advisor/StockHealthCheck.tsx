@@ -20,6 +20,7 @@ import {
   Search,
   ShieldAlert,
   Sparkles,
+  Target,
   TrendingDown,
   TrendingUp,
   XCircle,
@@ -80,6 +81,9 @@ export const StockHealthCheck = ({
   const [stockNews, setStockNews] = useState<NewsItem[]>([]);
   const [isLoadingNews, setIsLoadingNews] = useState(false);
   const [liveMetrics, setLiveMetrics] = useState<Partial<StockDetailedMetrics> | null>(null);
+  const [tradeStance, setTradeStance] = useState<"income" | "swing" | "value">("income");
+  const [riskTolerance, setRiskTolerance] = useState<"safe" | "balanced" | "aggressive">("balanced");
+  const [targetRiskReward, setTargetRiskReward] = useState<number | null>(null);
   const [watchlistCodes, setWatchlistCodes] = useState<string[]>(() =>
     readChartWatchlist().map((item) => item.code)
   );
@@ -247,6 +251,92 @@ export const StockHealthCheck = ({
         };
     }
   };
+
+  const calculatedScenario = useMemo(() => {
+    const price = report?.stock.price ?? 0;
+    if (price <= 0) return null;
+
+    let targetRate1 = 1.08;
+    let targetRate2 = 1.2;
+    let entryLowRate = 0.98;
+    let entryHighRate = 1.01;
+    let deepLowRate = 0.94;
+    let deepHighRate = 0.97;
+    let stopLossRate = 0.93;
+
+    if (tradeStance === "income") {
+      targetRate1 = 1.06;
+      targetRate2 = 1.15;
+      entryLowRate = 0.97;
+      entryHighRate = 1.0;
+      deepLowRate = 0.92;
+      deepHighRate = 0.95;
+      stopLossRate = 0.9;
+    } else if (tradeStance === "swing") {
+      targetRate1 = 1.09;
+      targetRate2 = 1.22;
+      entryLowRate = 0.99;
+      entryHighRate = 1.02;
+      deepLowRate = 0.95;
+      deepHighRate = 0.98;
+      stopLossRate = 0.95;
+    } else if (tradeStance === "value") {
+      targetRate1 = 1.12;
+      targetRate2 = 1.25;
+      entryLowRate = 0.96;
+      entryHighRate = 0.99;
+      deepLowRate = 0.91;
+      deepHighRate = 0.94;
+      stopLossRate = 0.92;
+    }
+
+    if (riskTolerance === "safe") {
+      entryLowRate -= 0.01;
+      entryHighRate -= 0.01;
+      deepLowRate -= 0.01;
+      deepHighRate -= 0.01;
+      stopLossRate += 0.01;
+    } else if (riskTolerance === "aggressive") {
+      entryHighRate += 0.01;
+      targetRate1 += 0.02;
+      targetRate2 += 0.03;
+      stopLossRate -= 0.01;
+    }
+
+    const entryZone = `¥${Math.round(price * entryLowRate).toLocaleString()} 〜 ¥${Math.round(price * entryHighRate).toLocaleString()}`;
+    const deepEntryZone = `¥${Math.round(price * deepLowRate).toLocaleString()} 〜 ¥${Math.round(price * deepHighRate).toLocaleString()}`;
+    const stopLossPrice = Math.round(price * stopLossRate);
+    const downsidePct = ((price - stopLossPrice) / price) * 100;
+
+    if (targetRiskReward !== null) {
+      const riskFraction = Math.max(0.005, downsidePct / 100);
+      targetRate1 = 1 + riskFraction * targetRiskReward;
+      targetRate2 = 1 + riskFraction * (targetRiskReward + 1.0);
+    }
+
+    const targetPrice1 = Math.round(price * targetRate1);
+    const targetPrice2 = Math.round(price * targetRate2);
+
+    const upsidePct = ((targetPrice1 - price) / price) * 100;
+    const upsidePct2 = ((targetPrice2 - price) / price) * 100;
+    const riskReward =
+      targetRiskReward !== null
+        ? targetRiskReward.toFixed(1)
+        : (upsidePct / Math.max(0.5, downsidePct)).toFixed(1);
+
+    return {
+      price,
+      entryZone,
+      deepEntryZone,
+      targetPrice1,
+      targetPrice2,
+      stopLossPrice,
+      upsidePct,
+      upsidePct2,
+      downsidePct,
+      riskReward,
+    };
+  }, [report?.stock.price, tradeStance, riskTolerance, targetRiskReward]);
 
   const getGradeColor = (grade: StockHealthReport["overallGrade"]) => {
     switch (grade) {
@@ -572,79 +662,206 @@ export const StockHealthCheck = ({
             })()}
           </div>
 
-          {/* 具体的売買シナリオ（3段構え戦略） */}
-          <div className="rounded-xl border border-border/80 bg-card p-3 shadow-xs sm:p-5 space-y-2.5 sm:space-y-3">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-border/40 pb-2 gap-1 sm:gap-2">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                プロの3段構え売買戦略シナリオ（実践指値目安）
-              </h3>
-              <span className="text-xxs text-muted-foreground font-mono">
-                想定保有: {report.tradeScenario.timeframe} ｜ リスクリワード比 {report.tradeScenario.riskRewardRatio}
-              </span>
-            </div>
-
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5 text-xs">
-              <div className="rounded-lg border border-border/80 bg-background/50 p-2.5 sm:p-3 space-y-1">
-                <span className="text-xxs font-semibold text-muted-foreground block">
-                  ① 打診エントリー水準
-                </span>
-                <span className="text-base sm:text-lg font-black font-mono tabular-nums text-foreground block">
-                  {report.tradeScenario.entryZone}
-                </span>
-                <span className="text-xxs text-muted-foreground block">
-                  まず予定資金の30〜50%を投じる目安
-                </span>
+          {/* 売買シナリオ判定 */}
+          {!isNikkei && calculatedScenario && (
+            <section className="rounded border border-border bg-card">
+              <div className="flex flex-col gap-1 border-b border-border bg-table-header-bg px-3 py-2 md:flex-row md:items-center md:justify-between rounded-t">
+                <div className="flex items-center gap-2">
+                  <Target className="h-4 w-4 text-foreground" />
+                  <h3 className="text-xs sm:text-sm font-bold text-foreground">
+                    売買シナリオ判定
+                  </h3>
+                  <span className="rounded border border-border bg-muted px-2 py-0.5 text-xxs font-bold text-foreground/80 shrink-0">
+                    指値・撤退ライン
+                  </span>
+                </div>
+                <div className="text-xxs text-muted-foreground">
+                  {report.stock.code} {report.stock.name}（現在値 ¥{calculatedScenario.price.toLocaleString()}）のエントリー・利確・損切り目安
+                </div>
               </div>
 
-              <div className="rounded-lg border border-border bg-muted/20 p-3 space-y-1">
-                <span className="text-xxs font-semibold text-foreground block">
-                  ② 本命押し目水準
-                </span>
-                <span className="text-base sm:text-lg font-black font-mono tabular-nums text-primary block">
-                  {report.tradeScenario.deepEntryZone}
-                </span>
-                <span className="text-xxs text-muted-foreground block">
-                  支持線付近での本命指値買いゾーン
-                </span>
-              </div>
+              <div className="p-3 sm:p-4 space-y-3">
+                {/* 投資スタンス & リスク許容度 */}
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <span className="block text-xxs font-bold text-muted-foreground">
+                      投資スタンス
+                    </span>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {(
+                        [
+                          { id: "income", label: "配当・長期" },
+                          { id: "swing", label: "中期スイング" },
+                          { id: "value", label: "割安リバウンド" },
+                        ] as const
+                      ).map((opt) => (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          onClick={() => setTradeStance(opt.id)}
+                          className={`rounded border px-2 py-1.5 text-xxs font-bold transition-colors whitespace-nowrap ${
+                            tradeStance === opt.id
+                              ? "border-primary bg-primary/10 text-primary"
+                              : "border-border bg-background text-muted-foreground hover:bg-muted/40 hover:text-foreground"
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
 
-              <div className="rounded-lg border border-border border-t-2 border-t-stock-down bg-background p-3 space-y-1">
-                <span className="text-xxs font-semibold text-stock-down block">
-                  ③ 撤退・損切りライン
-                </span>
-                <span className="text-base sm:text-lg font-black font-mono tabular-nums text-stock-down block">
-                  ¥{report.tradeScenario.supportPrice.toLocaleString()} 割れ
-                </span>
-                <span className="text-xxs text-muted-foreground block">
-                  下値支持線を割り込んだ場合のロスカット
-                </span>
-              </div>
+                  <div className="space-y-1.5">
+                    <span className="block text-xxs font-bold text-muted-foreground">
+                      リスク許容度
+                    </span>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {(
+                        [
+                          { id: "safe", label: "慎重（損切り浅め）" },
+                          { id: "balanced", label: "標準バランス" },
+                          { id: "aggressive", label: "積極（上値追い）" },
+                        ] as const
+                      ).map((opt) => (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          onClick={() => setRiskTolerance(opt.id)}
+                          className={`rounded border px-2 py-1.5 text-xxs font-bold transition-colors whitespace-nowrap ${
+                            riskTolerance === opt.id
+                              ? "border-primary bg-primary/10 text-primary"
+                              : "border-border bg-background text-muted-foreground hover:bg-muted/40 hover:text-foreground"
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
 
-              <div className="rounded-lg border border-border border-t-2 border-t-primary/70 bg-background p-3 space-y-1">
-                <span className="text-xxs font-semibold text-primary block">
-                  ④ 第1利確ターゲット
-                </span>
-                <span className="text-base sm:text-lg font-black font-mono tabular-nums text-foreground block">
-                  ¥{report.tradeScenario.targetPrice1.toLocaleString()}
-                </span>
-                <span className="text-xxs text-muted-foreground block">
-                  直近高値水準（想定リターン 約+9%）
-                </span>
-              </div>
+                {/* リスクリワード比 (RR) 設定バー */}
+                <div className="flex flex-col gap-2 rounded border border-border/60 bg-muted/20 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-foreground">
+                      リスクリワード比 (RR)
+                    </span>
+                    <span className="rounded border border-border bg-background px-2 py-0.5 font-mono text-xs font-bold text-foreground">
+                      1 : {calculatedScenario.riskReward}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1">
+                    {(
+                      [
+                        { value: null, label: "自動" },
+                        { value: 1.5, label: "1:1.5" },
+                        { value: 2.0, label: "1:2.0" },
+                        { value: 2.5, label: "1:2.5" },
+                        { value: 3.0, label: "1:3.0" },
+                        { value: 4.0, label: "1:4.0" },
+                      ] as const
+                    ).map((opt) => {
+                      const active = targetRiskReward === opt.value;
+                      return (
+                        <button
+                          key={opt.label}
+                          type="button"
+                          onClick={() => setTargetRiskReward(opt.value)}
+                          className={`rounded border px-2 py-1 font-mono text-xxs font-bold transition-colors whitespace-nowrap ${
+                            active
+                              ? "border-primary bg-primary/10 text-primary"
+                              : "border-border bg-background text-muted-foreground hover:bg-muted/40 hover:text-foreground"
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
 
-              <div className="rounded-lg border border-border border-t-2 border-t-primary bg-background p-3 space-y-1">
-                <span className="text-xxs font-semibold text-primary block">
-                  ⑤ 第2利確ターゲット
-                </span>
-                <span className="text-base sm:text-lg font-black font-mono tabular-nums text-foreground block">
-                  ¥{report.tradeScenario.targetPrice2.toLocaleString()}
-                </span>
-                <span className="text-xxs text-muted-foreground block">
-                  中期レジスタンス（想定リターン 約+22%）
-                </span>
+                {/* 5段階価格ラダー */}
+                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-5">
+                  {/* 第2目標 */}
+                  <div className="rounded-lg border border-border border-t-2 border-t-stock-up bg-background p-2.5 text-center space-y-1">
+                    <span className="text-xxs font-bold text-stock-up">
+                      第2目標 (上値目途)
+                    </span>
+                    <div className="font-mono font-black text-base tabular-nums text-foreground">
+                      ¥{calculatedScenario.targetPrice2.toLocaleString()}
+                    </div>
+                    <span className="text-xxs text-stock-up font-bold">
+                      想定 +{calculatedScenario.upsidePct2.toFixed(1)}%
+                    </span>
+                  </div>
+
+                  {/* 第1目標 */}
+                  <div className="rounded-lg border border-border border-t-2 border-t-primary/70 bg-background p-2.5 text-center space-y-1">
+                    <span className="text-xxs font-bold text-primary">
+                      第1目標 (直近高値)
+                    </span>
+                    <div className="font-mono font-black text-base tabular-nums text-foreground">
+                      ¥{calculatedScenario.targetPrice1.toLocaleString()}
+                    </div>
+                    <span className="text-xxs text-stock-up font-bold">
+                      想定 +{calculatedScenario.upsidePct.toFixed(1)}%
+                    </span>
+                  </div>
+
+                  {/* 打診買いゾーン */}
+                  <div className="rounded-lg border border-border bg-muted/25 p-2.5 text-center space-y-1">
+                    <span className="text-xxs font-bold text-foreground">
+                      打診買いゾーン (30%)
+                    </span>
+                    <div className="font-mono font-black text-xs sm:text-sm tabular-nums text-foreground">
+                      {calculatedScenario.entryZone}
+                    </div>
+                    <span className="text-xxs text-muted-foreground">
+                      現在値付近で分割買い
+                    </span>
+                  </div>
+
+                  {/* 本命押し目ゾーン */}
+                  <div className="rounded-lg border border-border bg-muted/25 p-2.5 text-center space-y-1">
+                    <span className="text-xxs font-bold text-foreground">
+                      本命押し目ゾーン (70%)
+                    </span>
+                    <div className="font-mono font-black text-xs sm:text-sm tabular-nums text-foreground">
+                      {calculatedScenario.deepEntryZone}
+                    </div>
+                    <span className="text-xxs text-muted-foreground">
+                      下値指値で待機
+                    </span>
+                  </div>
+
+                  {/* 撤退・損切りライン */}
+                  <div className="rounded-lg border border-border border-t-2 border-t-stock-down bg-background p-2.5 text-center space-y-1">
+                    <span className="text-xxs font-bold text-stock-down">
+                      撤退・損切りライン
+                    </span>
+                    <div className="font-mono font-black text-base tabular-nums text-foreground">
+                      ¥{calculatedScenario.stopLossPrice.toLocaleString()} 割れ
+                    </div>
+                    <span className="text-xxs text-stock-down font-bold">
+                      最大 -{calculatedScenario.downsidePct.toFixed(1)}%
+                    </span>
+                  </div>
+                </div>
+
+                {/* 執行アドバイス */}
+                <div className="rounded-lg border border-border/70 bg-background/60 p-3 text-xs space-y-1">
+                  <div className="font-bold text-foreground">プロの執行アドバイス</div>
+                  <p className="text-muted-foreground leading-relaxed">
+                    全額を一括購入せず、まず資金の30%を{" "}
+                    <strong className="text-foreground">{calculatedScenario.entryZone}</strong>{" "}
+                    で打診買い。残りの70%は調整時の{" "}
+                    <strong className="text-foreground">{calculatedScenario.deepEntryZone}</strong>{" "}
+                    に指値を入れておくことで、相場全体の急落リスクを回避しながら期待値の高い平均取得単価を作れます。
+                  </p>
+                </div>
               </div>
-            </div>
-          </div>
+            </section>
+          )}
 
           {/* 5軸レーダー ＆ 詳細分析 */}
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">

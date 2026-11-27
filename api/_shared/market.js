@@ -29,9 +29,11 @@ export const tradingViewExtraQuotes = [
   { name: "ラッセル2000", symbol: "TVC:RUT" },
   { name: "EUR/JPY", symbol: "FX:EURJPY" },
   { name: "米ドル指数 DXY", symbol: "TVC:DXY" },
+  { name: "日本10年国債利回り", symbol: "TVC:JP10Y" },
   { name: "米10年国債利回り", symbol: "TVC:US10Y" },
   { name: "米5年国債利回り", symbol: "TVC:US05Y" },
   { name: "恐怖指数 VIX", symbol: "TVC:VIX" },
+  { name: "シルバー Silver", symbol: "TVC:SILVER" },
   { name: "原油 WTI", symbol: "NYMEX:CL1!" },
   { name: "銅先物 Copper", symbol: "COMEX:HG1!" },
 ];

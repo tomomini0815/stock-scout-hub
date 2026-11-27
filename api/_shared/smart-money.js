@@ -759,23 +759,32 @@ const mergeMultiFundCounts = (signals) => {
 };
 
 const yahooSymbolForSignal = (signal) => {
-  if (/^\d{4}$/.test(signal.ticker)) return `${signal.ticker}.T`;
-  if (/^[A-Z][A-Z.\-]{0,7}$/.test(signal.ticker)) return signal.ticker;
+  const raw = String(signal.ticker ?? "").trim().toUpperCase();
+  if (!raw || raw === "EDINET" || raw === "SEC") return "";
+  if (/^\d[0-9A-Z]{3}$/.test(raw)) return `${raw}.T`;
+  if (/^[A-Z][A-Z.\-]{0,7}$/.test(raw)) return raw;
   return "";
 };
 
-const fetchPriceMoveSinceReport = async (signal) => {
-  const symbol = yahooSymbolForSignal(signal);
-  if (!symbol || !signal.reportDate) return null;
+const yahooChartRowCache = new Map();
+const YAHOO_CHART_CACHE_TTL_MS = 10 * 60 * 1000;
+
+const fetchYahooDailyRows = async (symbol) => {
+  const cached = yahooChartRowCache.get(symbol);
+  if (cached && Date.now() - cached.fetchedAt < YAHOO_CHART_CACHE_TTL_MS) {
+    return cached.rows;
+  }
+
   const yahooDomain = "query1.finance.yahoo.com";
   if (isCircuitOpen(yahooDomain)) return null;
-  const result = await withCircuitBreaker(yahooDomain, async () => {
+
+  const rows = await withCircuitBreaker(yahooDomain, async () => {
     const response = await fetchWithTimeout(
       `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=1y&interval=1d`,
-      7000
+      6000
     );
     if (!response.ok) {
-      if (response.status === 403) tripCircuit(yahooDomain);
+      if (response.status === 403 || response.status === 429) tripCircuit(yahooDomain);
       return null;
     }
     const payload = await response.json();
@@ -784,59 +793,88 @@ const fetchPriceMoveSinceReport = async (signal) => {
     const closes = asArray(result?.indicators?.quote?.[0]?.close);
     if (!timestamps.length || !closes.length) return null;
 
-    const reportTime = new Date(signal.reportDate).getTime() / 1000;
     const validRows = timestamps
       .map((timestamp, index) => ({ timestamp, close: Number(closes[index]) }))
       .filter((row) => Number.isFinite(row.timestamp) && Number.isFinite(row.close) && row.close > 0);
-    const reportRow = validRows.find((row) => row.timestamp >= reportTime) ?? validRows[0];
-    const latestRow = validRows.at(-1);
-    if (!reportRow || !latestRow) return null;
-
-    return ((latestRow.close - reportRow.close) / reportRow.close) * 100;
+    return validRows.length ? validRows : null;
   });
-  return result ?? null;
+
+  if (rows) {
+    yahooChartRowCache.set(symbol, { fetchedAt: Date.now(), rows });
+  }
+  return rows ?? null;
 };
 
-// Vercel制限対応: 価格取得は上位12件のみ（高スコア優先）
-// Yahoo Financeへの同時アクセス（バースト）を避け、直列で200msの遅延を挟みながら安全に取得します。
+const computePriceMoveFromRows = (validRows, reportDate) => {
+  if (!validRows?.length || !reportDate) return null;
+  const latestRow = validRows[validRows.length - 1];
+  const reportTime = new Date(`${reportDate}T00:00:00Z`).getTime() / 1000;
+  if (!Number.isFinite(reportTime)) return null;
+
+  // 報告日以降の最初の営業日（または直前営業日）を基準にする
+  let baseIndex = validRows.findIndex((row) => row.timestamp >= reportTime);
+  if (baseIndex < 0) {
+    // 当日開示などで報告日が最新足と同日・未来の場合は「前営業日終値」基準で当日反応を計測
+    baseIndex = Math.max(0, validRows.length - 2);
+  } else if (baseIndex === validRows.length - 1 && validRows.length >= 2) {
+    // 報告日＝最新営業日（当日開示）の場合も、前営業日終値比で当日の株価反応を計測
+    baseIndex = validRows.length - 2;
+  }
+
+  const baseRow = validRows[baseIndex];
+  if (!baseRow || baseRow.close <= 0) return null;
+  return ((latestRow.close - baseRow.close) / baseRow.close) * 100;
+};
+
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const enrichPriceMoves = async (signals) => {
-  let enrichedCount = 0;
-  const MAX_PRICE_ENRICH = 12;
-  const enriched = [];
+  // 重複ティッカーをまとめて一括（5並列×小間隔）で取得し、全上場銘柄（EDINET＋SEC）を計測
+  const uniqueSymbols = [
+    ...new Set(signals.map((signal) => yahooSymbolForSignal(signal)).filter(Boolean)),
+  ].slice(0, 40);
 
-  for (let index = 0; index < signals.length; index += 1) {
-    const signal = signals[index];
-    if (index >= MAX_PRICE_ENRICH) {
-      enriched.push(signal);
-      continue;
+  const rowsBySymbol = new Map();
+  const BATCH_SIZE = 5;
+  for (let i = 0; i < uniqueSymbols.length; i += BATCH_SIZE) {
+    const batch = uniqueSymbols.slice(i, i + BATCH_SIZE);
+    const settled = await Promise.allSettled(
+      batch.map(async (symbol) => [symbol, await fetchYahooDailyRows(symbol)])
+    );
+    for (const item of settled) {
+      if (item.status === "fulfilled" && item.value[1]) {
+        rowsBySymbol.set(item.value[0], item.value[1]);
+      }
     }
-
-    try {
-      if (index > 0) {
-        await sleep(200);
-      }
-      const priceMove = await fetchPriceMoveSinceReport(signal);
-      if (priceMove === null) {
-        enriched.push(signal);
-        continue;
-      }
-      enrichedCount += 1;
-      enriched.push({
-        ...signal,
-        priceMoveSinceReport: priceMove,
-        priceEvaluated: true,
-        note: `${signal.note} 報告日以降の価格反応をYahoo Finance日足で再評価済み。`,
-      });
-    } catch {
-      enriched.push(signal);
+    if (i + BATCH_SIZE < uniqueSymbols.length) {
+      await sleep(80);
     }
   }
 
+  let enrichedCount = 0;
+  const enriched = signals.map((signal) => {
+    const symbol = yahooSymbolForSignal(signal);
+    const rows = symbol ? rowsBySymbol.get(symbol) : null;
+    const priceMove = rows ? computePriceMoveFromRows(rows, signal.reportDate) : null;
+    if (priceMove === null || !Number.isFinite(priceMove)) {
+      return signal;
+    }
+    enrichedCount += 1;
+    return {
+      ...signal,
+      priceMoveSinceReport: Number(priceMove.toFixed(2)),
+      priceEvaluated: true,
+      note: `${signal.note} 報告日以降の価格反応をYahoo Finance日足で再評価済み。`,
+    };
+  });
+
   return {
     signals: enriched,
-    status: enrichedCount ? (enrichedCount === Math.min(signals.length, MAX_PRICE_ENRICH) ? "live" : "partial") : "not-connected",
+    status: enrichedCount
+      ? enrichedCount >= uniqueSymbols.length
+        ? "live"
+        : "partial"
+      : "not-connected",
   };
 };
 

@@ -375,11 +375,12 @@ const isPriceMoveEvaluated = (signal: FilingSignalSeed) =>
   signal.note.includes("Yahoo Finance日足で再評価済み");
 
 const formatPriceMoveLabel = (signal: FilingSignalSeed) => {
-  if (!isPriceMoveEvaluated(signal)) return "未計測";
+  if (!isPriceMoveEvaluated(signal)) {
+    const rawTicker = String(signal.ticker ?? "").trim().toUpperCase();
+    return !rawTicker || rawTicker === "EDINET" || rawTicker === "SEC" ? "非上場" : "—";
+  }
   if (Math.abs(signal.priceMoveSinceReport) < 0.05) {
-    const todayIso = new Date().toISOString().slice(0, 10);
-    const daysSinceReport = Math.max(0, dayDiff(signal.reportDate, todayIso));
-    return daysSinceReport <= 2 ? "当日開示" : "変わらず";
+    return "0.0%";
   }
   return formatSignedPercent(signal.priceMoveSinceReport);
 };
