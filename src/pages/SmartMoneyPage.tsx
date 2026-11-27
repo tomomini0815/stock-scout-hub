@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   Activity,
   AlertTriangle,
@@ -902,8 +902,22 @@ const buildSignalChecklist = (signal: ScoredSignal, refreshedAt: Date) => {
 };
 
 const SmartMoneyPage = () => {
+  const [searchParams] = useSearchParams();
   const [selectedStyle, setSelectedStyle] = useState<"すべて" | FundStyle>("すべて");
-  const [activeTab, setActiveTab] = useState<"all" | "jp" | "us" | "priority" | "funds">("all");
+  const resolveSmartMoneyTab = (param: string | null): "all" | "jp" | "us" | "priority" | "funds" => {
+    if (param === "jp" || param === "us" || param === "priority" || param === "funds") return param;
+    return "all";
+  };
+  const [activeTab, setActiveTab] = useState<"all" | "jp" | "us" | "priority" | "funds">(() =>
+    resolveSmartMoneyTab(searchParams.get("tab"))
+  );
+
+  useEffect(() => {
+    const tabParam = searchParams.get("tab");
+    if (tabParam) {
+      setActiveTab(resolveSmartMoneyTab(tabParam));
+    }
+  }, [searchParams]);
   const [sortBy, setSortBy] = useState<"score" | "date" | "weight" | "move">("score");
   const [showGuideAccordion, setShowGuideAccordion] = useState(false);
   const [reportTab, setReportTab] = useState<"summary" | "analysis" | "sources">("summary");
@@ -1284,7 +1298,7 @@ const SmartMoneyPage = () => {
           <div
             role="tablist"
             aria-label="大口・ファンド表示切替"
-            className="flex items-stretch overflow-x-auto border-b border-border bg-muted/40 no-scrollbar"
+            className="flex items-stretch overflow-x-auto overflow-y-hidden overscroll-x-contain touch-pan-x border-b border-border bg-muted/40 no-scrollbar"
           >
             {(
               [
@@ -1303,7 +1317,7 @@ const SmartMoneyPage = () => {
                   role="tab"
                   aria-selected={isActive}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`relative -mb-px flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-4 px-3 py-2.5 text-xs transition-colors sm:px-4 ${
+                  className={`relative flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-4 px-3 py-2.5 text-xs transition-colors sm:px-4 ${
                     isActive
                       ? "border-primary bg-table-header-bg font-bold text-primary"
                       : "border-transparent font-semibold text-muted-foreground hover:bg-muted/70 hover:text-foreground"
@@ -1868,7 +1882,7 @@ const SmartMoneyPage = () => {
             <div
               role="tablist"
               aria-label="見方ガイドタブ"
-              className="flex shrink-0 items-stretch overflow-x-auto border-b border-border bg-muted/40 no-scrollbar"
+              className="flex shrink-0 items-stretch overflow-x-auto overflow-y-hidden overscroll-x-contain touch-pan-x border-b border-border bg-muted/40 no-scrollbar"
             >
               {(
                 [
@@ -1885,7 +1899,7 @@ const SmartMoneyPage = () => {
                     role="tab"
                     aria-selected={isActive}
                     onClick={() => setGuideTab(tab.id)}
-                    className={`relative -mb-px flex-1 whitespace-nowrap border-b-4 px-3 py-2 text-xs transition-colors ${
+                    className={`relative flex-1 whitespace-nowrap border-b-4 px-3 py-2 text-xs transition-colors ${
                       isActive
                         ? "border-primary bg-card font-bold text-primary"
                         : "border-transparent font-semibold text-muted-foreground hover:bg-muted/70 hover:text-foreground"
@@ -2162,7 +2176,7 @@ const SmartMoneyPage = () => {
             <div
               role="tablist"
               aria-label="調査報告書タブ"
-              className="flex shrink-0 items-stretch overflow-x-auto border-b border-border bg-muted/40 no-scrollbar"
+              className="flex shrink-0 items-stretch overflow-x-auto overflow-y-hidden overscroll-x-contain touch-pan-x border-b border-border bg-muted/40 no-scrollbar"
             >
               {(
                 [
@@ -2179,7 +2193,7 @@ const SmartMoneyPage = () => {
                     role="tab"
                     aria-selected={isActive}
                     onClick={() => setReportTab(tab.id)}
-                    className={`relative -mb-px flex-1 whitespace-nowrap border-b-4 px-3 py-2 text-xs transition-colors ${
+                    className={`relative flex-1 whitespace-nowrap border-b-4 px-3 py-2 text-xs transition-colors ${
                       isActive
                         ? "border-primary bg-card font-bold text-primary"
                         : "border-transparent font-semibold text-muted-foreground hover:bg-muted/70 hover:text-foreground"

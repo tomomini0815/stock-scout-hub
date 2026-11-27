@@ -585,41 +585,41 @@ const MarketIndexDetailModal = ({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="always-scrollbar min-h-0 flex-1 space-y-3 px-4 py-3 text-xs">
+        <div className="always-scrollbar min-h-0 flex-1 space-y-3 px-3 sm:px-4 py-3 text-xs">
           {/* 1. 現在値・前日比・先物ギャップ ＋ 期間切替チャート */}
-          <div className="rounded-md border border-border bg-muted/20 p-3">
-            <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <div className="flex flex-wrap items-baseline gap-2">
-                <span className="text-xl font-black tabular-nums text-foreground">
-                  {mainValue > 0 ? formatNumberByDef(mainValue, detailIndex.name) : "取得中..."}
-                </span>
-                <span
-                  className={`inline-flex items-center gap-0.5 whitespace-nowrap rounded px-1.5 py-0.5 text-xs font-extrabold tabular-nums ${
-                    isUp
-                      ? "bg-stock-up-bg text-stock-up"
-                      : isDown
-                      ? "bg-stock-down-bg text-stock-down"
-                      : "bg-muted text-muted-foreground"
-                  }`}
-                >
-                  {isUp ? "▲+" : isDown ? "▼" : ""}
-                  {mainChange.toLocaleString(undefined, {
-                    minimumFractionDigits: Math.abs(mainChange) >= 100 ? 0 : 2,
-                    maximumFractionDigits: Math.abs(mainChange) >= 100 ? 0 : 2,
-                  })}{" "}
-                  ({mainChangePercent >= 0 ? "+" : ""}
-                  {mainChangePercent.toFixed(2)}%)
-                </span>
-              </div>
+          <div className="rounded-md border border-border bg-muted/20 p-2.5 sm:p-3">
+            <div className="flex flex-col gap-1.5 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-2">
+              {/* 1行目: 現在値 ＋ 前日比 ＋ TradingView/軽量チャート切替（モバイルでも1行） */}
+              <div className="flex min-w-0 flex-nowrap items-center justify-between gap-1.5 sm:flex-1">
+                <div className="flex min-w-0 flex-nowrap items-baseline gap-1 sm:gap-2">
+                  <span className="whitespace-nowrap text-base sm:text-xl font-black tabular-nums text-foreground">
+                    {mainValue > 0 ? formatNumberByDef(mainValue, detailIndex.name) : "取得中..."}
+                  </span>
+                  <span
+                    className={`inline-flex items-center gap-0.5 whitespace-nowrap rounded px-1 sm:px-1.5 py-0.5 text-[10px] sm:text-xs font-extrabold tabular-nums ${
+                      isUp
+                        ? "bg-stock-up-bg text-stock-up"
+                        : isDown
+                        ? "bg-stock-down-bg text-stock-down"
+                        : "bg-muted text-muted-foreground"
+                    }`}
+                  >
+                    {isUp ? "▲+" : isDown ? "▼" : ""}
+                    {mainChange.toLocaleString(undefined, {
+                      minimumFractionDigits: Math.abs(mainChange) >= 100 ? 0 : 2,
+                      maximumFractionDigits: Math.abs(mainChange) >= 100 ? 0 : 2,
+                    })}{" "}
+                    ({mainChangePercent >= 0 ? "+" : ""}
+                    {mainChangePercent.toFixed(2)}%)
+                  </span>
+                </div>
 
-              {/* チャート表示切替 ＋ 期間切替タブ */}
-              <div className="ml-auto flex flex-wrap items-center gap-1.5">
                 {def?.tradingViewSymbol && (
-                  <div className="inline-flex items-center rounded border border-border bg-background p-0.5 text-[10px] font-bold">
+                  <div className="inline-flex shrink-0 items-center rounded border border-border bg-background p-0.5 text-[9.5px] sm:text-[10px] font-bold">
                     <button
                       type="button"
                       onClick={() => setChartViewMode("tv")}
-                      className={`whitespace-nowrap rounded px-2 py-0.5 transition-colors ${
+                      className={`whitespace-nowrap rounded px-1.5 sm:px-2 py-0.5 transition-colors ${
                         chartViewMode === "tv"
                           ? "bg-primary/10 text-primary"
                           : "text-muted-foreground hover:text-foreground"
@@ -630,7 +630,7 @@ const MarketIndexDetailModal = ({
                     <button
                       type="button"
                       onClick={() => setChartViewMode("simple")}
-                      className={`whitespace-nowrap rounded px-2 py-0.5 transition-colors ${
+                      className={`whitespace-nowrap rounded px-1.5 sm:px-2 py-0.5 transition-colors ${
                         chartViewMode === "simple"
                           ? "bg-primary/10 text-primary"
                           : "text-muted-foreground hover:text-foreground"
@@ -640,7 +640,10 @@ const MarketIndexDetailModal = ({
                     </button>
                   </div>
                 )}
+              </div>
 
+              {/* 期間切替タブ */}
+              <div className="flex items-center justify-end sm:ml-auto">
                 {chartViewMode === "tv" && def?.tradingViewSymbol ? (
                   <div className="inline-flex items-center rounded border border-border bg-background p-0.5 text-[10px] font-bold">
                     {(

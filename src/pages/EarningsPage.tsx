@@ -204,16 +204,21 @@ const EarningsPage = () => {
           決算・IPO材料
         </h2>
 
-        <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-1.5 sm:gap-2 lg:grid-cols-4">
           {summaryCards.map((card) => {
             const Icon = card.icon;
             return (
-              <div key={card.label} className="rounded border border-border bg-card p-3">
-                <div className="flex items-center justify-between">
-                  <div className="text-xxs font-semibold text-muted-foreground">{card.label}</div>
-                  <Icon className={`h-4 w-4 ${card.className}`} />
+              <div
+                key={card.label}
+                className="flex items-center justify-between gap-2 rounded border border-border bg-card px-2.5 py-1.5 sm:px-3 sm:py-2"
+              >
+                <div className="flex min-w-0 items-center gap-1.5">
+                  <Icon className={`h-3.5 w-3.5 shrink-0 ${card.className}`} />
+                  <div className="truncate text-[11px] sm:text-xs font-semibold text-muted-foreground">
+                    {card.label}
+                  </div>
                 </div>
-                <div className={`mt-1 text-2xl font-black tabular-nums ${card.className}`}>
+                <div className={`shrink-0 text-base sm:text-lg font-black tabular-nums leading-none ${card.className}`}>
                   {card.value}
                 </div>
               </div>

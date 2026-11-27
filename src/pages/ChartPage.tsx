@@ -628,10 +628,20 @@ const ChartPage = () => {
       <MarketTicker indices={marketIndices} />
 
       <main className="container mx-auto px-4 py-3">
-        <h2 className="mb-3 flex items-center gap-2 text-sm font-bold text-foreground">
-          <BarChart3 className="h-4 w-4 text-primary" />
-          銘柄・チャート
-        </h2>
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <h2 className="flex items-center gap-2 text-sm font-bold text-foreground">
+            <BarChart3 className="h-4 w-4 text-primary" />
+            銘柄・チャート
+          </h2>
+          <Link
+            to="/patterns"
+            className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border border-border bg-card px-2.5 py-1 text-xs font-semibold text-foreground transition-colors hover:border-primary hover:bg-muted"
+            title="チャートパターン20選を見る"
+          >
+            <TrendingUp className="h-3.5 w-3.5" />
+            <span>チャートパターン20選</span>
+          </Link>
+        </div>
 
         <div className="mb-3 grid min-h-0 grid-cols-1 items-stretch gap-3 lg:grid-cols-4">
           {/* Stock selector */}
@@ -948,14 +958,6 @@ const ChartPage = () => {
                 )}
               </div>
               <div className="flex items-center gap-2">
-                <Link
-                  to="/patterns"
-                  className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-2.5 py-1 text-xs font-semibold text-foreground transition-colors hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
-                  title="チャートパターン・チートシートを見る"
-                >
-                  <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
-                  <span>チャートパターン</span>
-                </Link>
                 <Link
                   to={`/advisor?tab=health&code=${encodeURIComponent(selected?.code || featuredStock.code)}`}
                   className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-2.5 py-1 text-xs font-semibold text-foreground transition-colors hover:border-primary hover:bg-muted"

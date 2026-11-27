@@ -657,6 +657,7 @@ export const StockHealthCheck = ({
                   chartApiSymbol={chartApiSymbol}
                   currentPrice={liveStock.price || report.stock.price}
                   currentPriceLabel={priceLabel}
+                  hideHealthCheckLink
                 />
               );
             })()}

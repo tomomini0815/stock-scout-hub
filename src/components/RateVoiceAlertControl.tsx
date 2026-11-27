@@ -648,7 +648,7 @@ export const RateVoiceAlertControl = ({ indices }: RateVoiceAlertControlProps) =
           </DialogHeader>
 
           {/* タブ切替 */}
-          <div className="flex shrink-0 overflow-x-auto no-scrollbar border-b border-border bg-muted/20 px-2.5 pt-1.5 text-xs font-bold sm:px-4 sm:pt-2">
+          <div className="flex shrink-0 overflow-x-auto overflow-y-hidden overscroll-x-contain touch-pan-x no-scrollbar border-b border-border bg-muted/20 px-2.5 pt-1.5 text-xs font-bold sm:px-4 sm:pt-2">
             {(
               [
                 { id: "monitor", label: "1. 監視・静音" },

@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
 import MarketTicker from "@/components/MarketTicker";
@@ -9,6 +10,7 @@ import { PatternDetailModal } from "@/components/patterns/PatternDetailModal";
 import {
   TrendingUp,
   Search,
+  ArrowLeft,
   ArrowUpRight,
   ArrowDownRight,
   Printer,
@@ -22,6 +24,7 @@ import { Button } from "@/components/ui/button";
 type FilterCategory = "all" | "bullish" | "bearish" | "reversal" | "continuation";
 
 export const PatternsPage: React.FC = () => {
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<FilterCategory>("all");
   const [selectedPattern, setSelectedPattern] = useState<ChartPatternItem | null>(null);
@@ -64,14 +67,36 @@ export const PatternsPage: React.FC = () => {
     window.print();
   };
 
+  const handleGoBack = () => {
+    if (window.history.length > 1) {
+      navigate(-1);
+    } else {
+      navigate("/chart");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
-      <SiteHeader activeTab="チャートパターン" />
+      <SiteHeader activeTab="銘柄・チャート" />
       <MarketTicker indices={marketIndices} />
 
-      <main className="container mx-auto space-y-3 px-2 py-2 sm:px-4 sm:py-3 flex-1">
+      <main className="container mx-auto space-y-2.5 px-2 py-2 sm:px-4 sm:py-3 flex-1">
+        {/* 戻るボタン（タイトル上） */}
+        <div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleGoBack}
+            className="h-7 px-2.5 text-xs font-semibold gap-1"
+            title="前のページに戻る"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>戻る</span>
+          </Button>
+        </div>
+
         {/* ページタイトル & コントロール行（サイト共通のコンパクトヘッダー） */}
-        <div className="flex flex-col gap-2 py-1 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
             <TrendingUp className="h-4 w-4 shrink-0 text-primary" />
             <h1 className="text-sm font-bold text-foreground whitespace-nowrap">
@@ -83,7 +108,7 @@ export const PatternsPage: React.FC = () => {
           </div>
 
           {/* コントロール（印刷ボタン等） */}
-          <div className="flex items-center gap-2 self-start lg:self-auto">
+          <div className="flex shrink-0 items-center gap-2">
             <span className="text-xxs text-muted-foreground hidden sm:inline-block">
               SL: 損切り / TP: 利確
             </span>
@@ -93,7 +118,7 @@ export const PatternsPage: React.FC = () => {
               variant="outline"
               size="sm"
               onClick={handlePrint}
-              className="h-6 sm:h-7 px-2 text-xxs gap-1 shrink-0 hidden sm:inline-flex"
+              className="h-7 px-2 text-xxs gap-1 shrink-0 hidden sm:inline-flex"
               title="チートシートを印刷・PDF保存"
             >
               <Printer className="w-3 h-3" />

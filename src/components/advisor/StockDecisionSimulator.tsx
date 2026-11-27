@@ -551,11 +551,38 @@ export const StockDecisionSimulator = ({
   }, [budget, portfolioStrategy, allowOddLot, portfolioLiveStocks]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3 sm:space-y-4">
+      {/* モバイル・PC共通 クイックセクションナビ（1タップで各診断へジャンプ） */}
+      <nav
+        aria-label="シミュレーター機能ショートカット"
+        className="grid grid-cols-2 gap-1.5 sm:grid-cols-4"
+      >
+        {[
+          { id: "versus-section", label: "2銘柄ガチンコ比較" },
+          { id: "scenario-section", label: "売買シナリオ判定" },
+          { id: "portfolio-section", label: "予算別ポートフォリオ" },
+          { id: "wizard-section", label: "3分スタイル診断" },
+        ].map((nav) => (
+          <button
+            key={nav.id}
+            type="button"
+            onClick={() => {
+              document.getElementById(nav.id)?.scrollIntoView({
+                behavior: "smooth",
+                block: "start",
+              });
+            }}
+            className="flex h-8 items-center justify-center rounded border border-border bg-muted/40 px-2 text-[11px] sm:text-xs font-bold text-foreground/85 hover:bg-muted hover:text-foreground transition-colors whitespace-nowrap"
+          >
+            {nav.label}
+          </button>
+        ))}
+      </nav>
+
       {/* ========================================================== */}
       {/* セクション 1: 2銘柄ガチンコ比較 (Versus) */}
       {/* ========================================================== */}
-      <section id="versus-section" className="rounded border border-border bg-card">
+      <section id="versus-section" className="scroll-mt-4 rounded border border-border bg-card">
         <div className="flex flex-col gap-1 border-b border-border bg-table-header-bg px-3 py-2 md:flex-row md:items-center md:justify-between rounded-t">
           <div className="flex items-center gap-2">
             <h2 className="text-xs sm:text-sm font-bold text-foreground">2銘柄ガチンコ比較</h2>
@@ -567,13 +594,13 @@ export const StockDecisionSimulator = ({
             業績・財務・割安度・配当利回り・テクニカルを5軸スコアで直接対比
           </div>
         </div>
-        <div className="p-3 sm:p-4 space-y-3 sm:space-y-4">
+        <div className="p-2.5 sm:p-4 space-y-3 sm:space-y-4">
           {/* ライバル対決プリセットバー */}
           <div className="rounded-xl border border-border/70 bg-card p-2.5 sm:p-3.5 shadow-2xs">
             <div className="mb-2 text-xs font-bold text-foreground">
-              人気のライバル対決を選ぶ（ワンクリックで即座に対比）
+              人気のライバル対決を選ぶ（タップで判定へ移動）
             </div>
-            <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid grid-cols-2 gap-1.5 lg:grid-cols-4">
               {rivalPresets.map((rp, idx) => {
                 const isSelected =
                   stockA.code === rp.codeA && stockB.code === rp.codeB;
@@ -591,16 +618,16 @@ export const StockDecisionSimulator = ({
                         });
                       }, 60);
                     }}
-                    className={`flex flex-col items-start rounded-lg border p-1.5 sm:p-2 text-left text-xs transition-colors ${
+                    className={`flex min-w-0 flex-col items-start rounded-lg border p-2 text-left text-xs transition-colors ${
                       isSelected
                         ? "border-header-accent bg-header-accent/5 font-bold shadow-2xs"
                         : "border-border/70 bg-background/60 hover:border-border hover:bg-muted/40"
                     }`}
                   >
-                    <span className="text-xxs font-semibold text-muted-foreground">
+                    <span className="text-[10px] sm:text-xxs font-semibold text-muted-foreground truncate w-full">
                       {rp.category}
                     </span>
-                    <span className="truncate w-full text-xs font-bold text-foreground">
+                    <span className="truncate w-full text-[11px] sm:text-xs font-bold text-foreground leading-snug">
                       {rp.nameA} vs {rp.nameB}
                     </span>
                   </button>
@@ -791,16 +818,16 @@ export const StockDecisionSimulator = ({
                 </p>
               </div>
 
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="grid w-full grid-cols-2 gap-1.5 sm:flex sm:w-auto sm:items-center sm:gap-2 shrink-0">
                 <Link
                   to={`/advisor?tab=health&code=${stockA.code}`}
-                  className="rounded-md border border-border/80 bg-background px-3 py-1.5 text-xs font-bold text-foreground hover:bg-muted transition-colors"
+                  className="truncate rounded-md border border-border/80 bg-background px-2.5 py-1.5 text-center text-[11px] sm:text-xs font-bold text-foreground hover:bg-muted transition-colors"
                 >
                   {stockA.name}のカルテ
                 </Link>
                 <Link
                   to={`/advisor?tab=health&code=${stockB.code}`}
-                  className="rounded-md border border-border/80 bg-background px-3 py-1.5 text-xs font-bold text-foreground hover:bg-muted transition-colors"
+                  className="truncate rounded-md border border-border/80 bg-background px-2.5 py-1.5 text-center text-[11px] sm:text-xs font-bold text-foreground hover:bg-muted transition-colors"
                 >
                   {stockB.name}のカルテ
                 </Link>
@@ -810,12 +837,12 @@ export const StockDecisionSimulator = ({
 
           {/* ガチンコ項目別対決グリッド */}
           <div className="rounded-xl border border-border/80 bg-card overflow-hidden shadow-xs">
-            <div className="grid grid-cols-12 border-b border-border/80 bg-muted/40 p-3 text-xs font-bold text-muted-foreground">
+            <div className="grid grid-cols-12 border-b border-border/80 bg-muted/40 px-2 py-2 sm:p-3 text-[11px] sm:text-xs font-bold text-muted-foreground">
               <div className="col-span-4 sm:col-span-3">比較指標</div>
-              <div className="col-span-4 text-center sm:col-span-4 text-blue-600 dark:text-blue-400">
+              <div className="col-span-4 truncate px-1 text-center sm:col-span-4 text-blue-600 dark:text-blue-400">
                 {stockA.name}
               </div>
-              <div className="col-span-4 text-center sm:col-span-4 text-amber-600 dark:text-amber-400">
+              <div className="col-span-4 truncate px-1 text-center sm:col-span-4 text-amber-600 dark:text-amber-400">
                 {stockB.name}
               </div>
               <div className="hidden sm:col-span-1 sm:block text-right">判定</div>
@@ -828,10 +855,10 @@ export const StockDecisionSimulator = ({
                 return (
                   <div
                     key={item.id}
-                    className="grid grid-cols-12 items-center p-3 text-xs hover:bg-muted/20 transition-colors"
+                    className="grid grid-cols-12 items-center px-2 py-2 sm:p-3 text-[11px] sm:text-xs hover:bg-muted/20 transition-colors"
                   >
-                    <div className="col-span-4 sm:col-span-3 space-y-0.5">
-                      <div className="font-bold text-foreground">
+                    <div className="col-span-4 sm:col-span-3 space-y-0.5 pr-1">
+                      <div className="font-bold text-foreground leading-tight">
                         {item.label}
                       </div>
                       <div className="text-xxs text-muted-foreground hidden sm:block">
@@ -841,7 +868,7 @@ export const StockDecisionSimulator = ({
 
                     <div className="col-span-4 text-center font-mono font-bold sm:col-span-4">
                       <span
-                        className={`inline-flex items-center gap-1 rounded px-2 py-0.5 ${
+                        className={`inline-flex items-center gap-0.5 sm:gap-1 whitespace-nowrap rounded px-1.5 sm:px-2 py-0.5 ${
                           isWinA
                             ? "bg-blue-500/15 text-blue-700 dark:text-blue-300 ring-1 ring-blue-500/30"
                             : "text-foreground"
@@ -849,7 +876,7 @@ export const StockDecisionSimulator = ({
                       >
                         {item.valA}
                         {isWinA && (
-                          <span className="text-xxs font-black text-blue-600 dark:text-blue-400">
+                          <span className="text-[9px] sm:text-xxs font-black text-blue-600 dark:text-blue-400">
                             WIN
                           </span>
                         )}
@@ -858,7 +885,7 @@ export const StockDecisionSimulator = ({
 
                     <div className="col-span-4 text-center font-mono font-bold sm:col-span-4">
                       <span
-                        className={`inline-flex items-center gap-1 rounded px-2 py-0.5 ${
+                        className={`inline-flex items-center gap-0.5 sm:gap-1 whitespace-nowrap rounded px-1.5 sm:px-2 py-0.5 ${
                           isWinB
                             ? "bg-amber-500/15 text-amber-700 dark:text-amber-300 ring-1 ring-amber-500/30"
                             : "text-foreground"
@@ -866,7 +893,7 @@ export const StockDecisionSimulator = ({
                       >
                         {item.valB}
                         {isWinB && (
-                          <span className="text-xxs font-black text-amber-600 dark:text-amber-400">
+                          <span className="text-[9px] sm:text-xxs font-black text-amber-600 dark:text-amber-400">
                             WIN
                           </span>
                         )}
@@ -897,7 +924,7 @@ export const StockDecisionSimulator = ({
       {/* ========================================================== */}
       {/* セクション 2: 売買シナリオ判定機 (Scenario) */}
       {/* ========================================================== */}
-      <section id="scenario-section" className="rounded border border-border bg-card">
+      <section id="scenario-section" className="scroll-mt-4 rounded border border-border bg-card">
         <div className="flex flex-col gap-1 border-b border-border bg-table-header-bg px-3 py-2 md:flex-row md:items-center md:justify-between rounded-t">
           <div className="flex items-center gap-2">
             <Target className="h-4 w-4 text-foreground" />
@@ -910,7 +937,7 @@ export const StockDecisionSimulator = ({
             ターゲット銘柄の買い場・押し目・目標株価・リスク管理価格を自動算出
           </div>
         </div>
-        <div className="p-3 sm:p-4 space-y-3 sm:space-y-4">
+        <div className="p-2.5 sm:p-4 space-y-3 sm:space-y-4">
           {/* 銘柄選択・検索バー */}
           <div className="rounded border border-border bg-card p-3.5 space-y-3">
             <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
@@ -1019,13 +1046,13 @@ export const StockDecisionSimulator = ({
           </div>
 
           {/* 投資パラメータ選択フォーム（スタンス ＆ リスク許容度） */}
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-2.5 sm:gap-4 md:grid-cols-2">
             {/* 投資スタンス */}
-            <div className="rounded border border-border bg-card p-3.5 space-y-2">
+            <div className="rounded border border-border bg-card p-2.5 sm:p-3.5 space-y-2">
               <span className="text-xs font-bold text-foreground block">
                 1. 投資スタンスを選ぶ
               </span>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
                 {[
                   {
                     id: "income",
@@ -1049,16 +1076,16 @@ export const StockDecisionSimulator = ({
                     onClick={() =>
                       setTradeStance(st.id as "income" | "swing" | "value")
                     }
-                    className={`flex flex-col items-start rounded-lg border p-2.5 text-left text-xs transition-colors ${
+                    className={`flex min-w-0 flex-col items-start rounded-lg border p-2 sm:p-2.5 text-left text-xs transition-colors ${
                       tradeStance === st.id
                         ? "border-primary bg-primary/10 font-bold"
                         : "border-border/70 bg-background text-muted-foreground hover:bg-muted/40"
                     }`}
                   >
-                    <span className="font-bold text-foreground">
+                    <span className="w-full truncate text-[11px] sm:text-xs font-bold text-foreground leading-tight">
                       {st.label}
                     </span>
-                    <span className="text-xxs text-muted-foreground">
+                    <span className="mt-0.5 text-[10px] sm:text-xxs text-muted-foreground leading-tight">
                       {st.desc}
                     </span>
                   </button>
@@ -1067,15 +1094,15 @@ export const StockDecisionSimulator = ({
             </div>
 
             {/* リスク許容度 */}
-            <div className="rounded border border-border bg-card p-3.5 space-y-2">
+            <div className="rounded border border-border bg-card p-2.5 sm:p-3.5 space-y-2">
               <span className="text-xs font-bold text-foreground block">
                 2. リスク許容度を選ぶ
               </span>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
                 {[
                   {
                     id: "safe",
-                    label: "手堅く安全重視",
+                    label: "安全重視",
                     desc: "浅い損切り・深い押し目",
                   },
                   {
@@ -1086,7 +1113,7 @@ export const StockDecisionSimulator = ({
                   {
                     id: "aggressive",
                     label: "積極エントリー",
-                    desc: "打診買い厚め・上値追求",
+                    desc: "打診厚め・上値追求",
                   },
                 ].map((rk) => (
                   <button
@@ -1097,16 +1124,16 @@ export const StockDecisionSimulator = ({
                         rk.id as "safe" | "balanced" | "aggressive"
                       )
                     }
-                    className={`flex flex-col items-start rounded-lg border p-2.5 text-left text-xs transition-colors ${
+                    className={`flex min-w-0 flex-col items-start rounded-lg border p-2 sm:p-2.5 text-left text-xs transition-colors ${
                       riskTolerance === rk.id
                         ? "border-emerald-500 bg-emerald-500/10 font-bold"
                         : "border-border/70 bg-background text-muted-foreground hover:bg-muted/40"
                     }`}
                   >
-                    <span className="font-bold text-foreground">
+                    <span className="w-full truncate text-[11px] sm:text-xs font-bold text-foreground leading-tight">
                       {rk.label}
                     </span>
-                    <span className="text-xxs text-muted-foreground">
+                    <span className="mt-0.5 text-[10px] sm:text-xxs text-muted-foreground leading-tight">
                       {rk.desc}
                     </span>
                   </button>
@@ -1116,9 +1143,9 @@ export const StockDecisionSimulator = ({
           </div>
 
           {/* 自動算出された売買シナリオカード */}
-          <div className="rounded border border-border bg-card p-3.5 space-y-4">
-            <div className="flex flex-col justify-between gap-2 border-b border-border/70 pb-3 sm:flex-row sm:items-center">
-              <div className="flex items-center gap-2">
+          <div className="rounded border border-border bg-card p-2.5 sm:p-3.5 space-y-3 sm:space-y-4">
+            <div className="flex flex-col justify-between gap-2 border-b border-border/70 pb-2.5 sm:pb-3 sm:flex-row sm:items-center">
+              <div className="flex flex-wrap items-center gap-2">
                 <span className="rounded bg-blue-500/15 px-2 py-0.5 text-xxs font-black text-blue-600 dark:text-blue-400">
                   プロ判定:「{scenarioReport?.verdict ?? "押し目買い好機"}」
                 </span>
@@ -1141,68 +1168,68 @@ export const StockDecisionSimulator = ({
             </div>
 
             {/* 視覚的プライス階層ラダー */}
-            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-5">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-5 sm:gap-2.5">
               {/* 第2目標株価 */}
-              <div className="rounded-lg border border-border border-t-2 border-t-primary bg-background p-3 text-center space-y-1">
-                <span className="text-xxs font-bold text-primary">
+              <div className="rounded-lg border border-border border-t-2 border-t-primary bg-background p-2.5 sm:p-3 text-center space-y-0.5 sm:space-y-1">
+                <span className="text-[10px] sm:text-xxs font-bold text-primary">
                   第2目標 (大波利確)
                 </span>
-                <div className="font-mono font-black text-lg tabular-nums text-foreground">
+                <div className="font-mono font-black text-base sm:text-lg tabular-nums text-foreground">
                   ¥{calculatedScenario.targetPrice2.toLocaleString()}
                 </div>
-                <span className="text-xs text-stock-up font-bold">
+                <span className="text-xxs sm:text-xs text-stock-up font-bold">
                   想定 +{calculatedScenario.upsidePct2.toFixed(1)}%
                 </span>
               </div>
 
               {/* 第1目標株価 */}
-              <div className="rounded-lg border border-border border-t-2 border-t-primary/70 bg-background p-3 text-center space-y-1">
-                <span className="text-xxs font-bold text-primary">
+              <div className="rounded-lg border border-border border-t-2 border-t-primary/70 bg-background p-2.5 sm:p-3 text-center space-y-0.5 sm:space-y-1">
+                <span className="text-[10px] sm:text-xxs font-bold text-primary">
                   第1目標 (直近高値)
                 </span>
-                <div className="font-mono font-black text-lg tabular-nums text-foreground">
+                <div className="font-mono font-black text-base sm:text-lg tabular-nums text-foreground">
                   ¥{calculatedScenario.targetPrice1.toLocaleString()}
                 </div>
-                <span className="text-xs text-stock-up font-bold">
+                <span className="text-xxs sm:text-xs text-stock-up font-bold">
                   想定 +{calculatedScenario.upsidePct.toFixed(1)}%
                 </span>
               </div>
 
               {/* 打診買いゾーン */}
-              <div className="rounded-lg border border-border bg-muted/25 p-3 text-center space-y-1">
-                <span className="text-xxs font-bold text-foreground">
+              <div className="rounded-lg border border-border bg-muted/25 p-2.5 sm:p-3 text-center space-y-0.5 sm:space-y-1">
+                <span className="text-[10px] sm:text-xxs font-bold text-foreground">
                   打診買いゾーン (30%)
                 </span>
-                <div className="font-mono font-black text-sm sm:text-base tabular-nums text-foreground">
+                <div className="font-mono font-black text-xs sm:text-base tabular-nums text-foreground">
                   {calculatedScenario.entryZone}
                 </div>
-                <span className="text-xxs text-muted-foreground">
+                <span className="text-[10px] sm:text-xxs text-muted-foreground">
                   現在値付近で分割買い
                 </span>
               </div>
 
               {/* 本命押し目ゾーン */}
-              <div className="rounded-lg border border-border bg-muted/25 p-3 text-center space-y-1">
-                <span className="text-xxs font-bold text-foreground">
+              <div className="rounded-lg border border-border bg-muted/25 p-2.5 sm:p-3 text-center space-y-0.5 sm:space-y-1">
+                <span className="text-[10px] sm:text-xxs font-bold text-foreground">
                   本命押し目ゾーン (70%)
                 </span>
-                <div className="font-mono font-black text-sm sm:text-base tabular-nums text-foreground">
+                <div className="font-mono font-black text-xs sm:text-base tabular-nums text-foreground">
                   {calculatedScenario.deepEntryZone}
                 </div>
-                <span className="text-xxs text-muted-foreground">
+                <span className="text-[10px] sm:text-xxs text-muted-foreground">
                   下値指値で待機
                 </span>
               </div>
 
               {/* 損切りライン */}
-              <div className="rounded-lg border border-border border-t-2 border-t-stock-down bg-background p-3 text-center space-y-1">
-                <span className="text-xxs font-bold text-stock-down">
+              <div className="col-span-2 sm:col-span-1 rounded-lg border border-border border-t-2 border-t-stock-down bg-background p-2.5 sm:p-3 text-center space-y-0.5 sm:space-y-1">
+                <span className="text-[10px] sm:text-xxs font-bold text-stock-down">
                   撤退・損切りライン
                 </span>
-                <div className="font-mono font-black text-lg tabular-nums text-foreground">
+                <div className="font-mono font-black text-base sm:text-lg tabular-nums text-foreground">
                   ¥{calculatedScenario.stopLossPrice.toLocaleString()} 割れ
                 </div>
-                <span className="text-xs text-stock-down font-bold">
+                <span className="text-xxs sm:text-xs text-stock-down font-bold">
                   最大 -{calculatedScenario.downsidePct.toFixed(1)}%
                 </span>
               </div>
@@ -1232,18 +1259,18 @@ export const StockDecisionSimulator = ({
             </div>
 
             {/* カルテ・チャートへの遷移CTA */}
-            <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
+            <div className="grid grid-cols-2 gap-2 pt-1 sm:flex sm:items-center sm:justify-end">
               <Link
                 to={`/chart?code=${scenarioStock.code}`}
-                className="inline-flex items-center rounded-md border border-border/80 bg-background px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted"
+                className="inline-flex items-center justify-center rounded-md border border-border/80 bg-background px-2.5 sm:px-3 py-1.5 text-[11px] sm:text-xs font-semibold text-foreground hover:bg-muted whitespace-nowrap"
               >
-                チャートで節目を確認
+                チャートで節目確認
               </Link>
               <Link
                 to={`/advisor?tab=health&code=${scenarioStock.code}`}
-                className="inline-flex items-center rounded-md bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground hover:bg-primary/90 shadow-xs"
+                className="inline-flex items-center justify-center rounded-md bg-primary px-2.5 sm:px-3 py-1.5 text-[11px] sm:text-xs font-bold text-primary-foreground hover:bg-primary/90 shadow-xs whitespace-nowrap"
               >
-                銘柄カルテで5軸詳細を見る
+                銘柄カルテで詳細
               </Link>
             </div>
           </div>
@@ -1253,7 +1280,7 @@ export const StockDecisionSimulator = ({
       {/* ========================================================== */}
       {/* セクション 3: 予算別ポートフォリオ自動生成 (Portfolio) */}
       {/* ========================================================== */}
-      <section id="portfolio-section" className="rounded border border-border bg-card">
+      <section id="portfolio-section" className="scroll-mt-4 rounded border border-border bg-card">
         <div className="flex flex-col gap-1 border-b border-border bg-table-header-bg px-3 py-2 md:flex-row md:items-center md:justify-between rounded-t">
           <div className="flex items-center gap-2">
             <Wallet className="h-4 w-4 text-foreground" />
@@ -1266,9 +1293,9 @@ export const StockDecisionSimulator = ({
             予算に応じた最適銘柄の組み合わせ・配当期待額・資産分散プラン
           </div>
         </div>
-        <div className="p-3 sm:p-4 space-y-3 sm:space-y-4">
+        <div className="p-2.5 sm:p-4 space-y-3 sm:space-y-4">
           {/* パラメータ設定カード */}
-          <div className="rounded border border-border bg-card p-3.5 space-y-4">
+          <div className="rounded border border-border bg-card p-2.5 sm:p-3.5 space-y-3 sm:space-y-4">
             {/* 予算選択 */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between text-xs font-bold">
@@ -1307,9 +1334,9 @@ export const StockDecisionSimulator = ({
                 </span>
                 <div className="grid grid-cols-3 gap-1.5">
                   {[
-                    { id: "dividend", label: "高配当・インカム" },
+                    { id: "dividend", label: "高配当重視" },
                     { id: "balanced", label: "安定バランス" },
-                    { id: "growth", label: "高成長キャピタル" },
+                    { id: "growth", label: "高成長狙い" },
                   ].map((p) => (
                     <button
                       key={p.id}
@@ -1319,7 +1346,7 @@ export const StockDecisionSimulator = ({
                           p.id as "dividend" | "growth" | "balanced"
                         )
                       }
-                      className={`rounded-md border p-2 text-center text-xs font-semibold transition-colors ${
+                      className={`rounded-md border px-1.5 py-2 text-center text-[11px] sm:text-xs font-semibold transition-colors whitespace-nowrap ${
                         portfolioStrategy === p.id
                           ? "border-primary bg-primary/10 font-bold text-primary"
                           : "border-border/70 bg-background text-muted-foreground hover:bg-muted"
@@ -1335,22 +1362,22 @@ export const StockDecisionSimulator = ({
                 <span className="text-xs font-bold text-foreground">
                   3. 購入方式
                 </span>
-                <div className="flex items-center gap-2 pt-1">
+                <div className="grid grid-cols-2 gap-1.5 pt-0.5">
                   <button
                     type="button"
                     onClick={() => setAllowOddLot(true)}
-                    className={`flex-1 rounded-md border p-2 text-center text-xs font-semibold ${
+                    className={`rounded-md border px-2 py-2 text-center text-[11px] sm:text-xs font-semibold leading-tight ${
                       allowOddLot
                         ? "border-primary bg-primary/10 text-primary font-bold"
                         : "border-border/70 bg-background text-muted-foreground hover:bg-muted"
                     }`}
                   >
-                    1株投資（単元未満株・少額分散）
+                    1株投資（少額分散）
                   </button>
                   <button
                     type="button"
                     onClick={() => setAllowOddLot(false)}
-                    className={`flex-1 rounded-md border p-2 text-center text-xs font-semibold ${
+                    className={`rounded-md border px-2 py-2 text-center text-[11px] sm:text-xs font-semibold leading-tight ${
                       !allowOddLot
                         ? "border-primary bg-primary/10 text-primary font-bold"
                         : "border-border/70 bg-background text-muted-foreground hover:bg-muted"
@@ -1364,53 +1391,53 @@ export const StockDecisionSimulator = ({
           </div>
 
           {/* 生成されたポートフォリオ結果 */}
-          <div className="rounded border border-border bg-card p-3.5 space-y-4">
+          <div className="rounded border border-border bg-card p-2.5 sm:p-3.5 space-y-3 sm:space-y-4">
             {/* KPIサマリー */}
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <div className="rounded-lg border border-border/60 bg-muted/20 p-3 text-center space-y-0.5">
-                <span className="text-xxs font-semibold text-muted-foreground">
+            <div className="grid grid-cols-2 gap-2 sm:gap-3 sm:grid-cols-4">
+              <div className="rounded-lg border border-border/60 bg-muted/20 p-2.5 sm:p-3 text-center space-y-0.5">
+                <span className="text-[10px] sm:text-xxs font-semibold text-muted-foreground">
                   想定投資総額
                 </span>
-                <div className="font-mono font-black text-xl sm:text-2xl tabular-nums text-foreground">
+                <div className="font-mono font-black text-base sm:text-2xl tabular-nums text-foreground">
                   ¥{generatedPortfolio.totalInvested.toLocaleString()}
                 </div>
-                <span className="text-xxs text-muted-foreground">
+                <span className="text-[10px] sm:text-xxs text-muted-foreground">
                   残余現金: ¥{generatedPortfolio.cashRemaining.toLocaleString()}
                 </span>
               </div>
 
-              <div className="rounded-lg border border-border border-t-2 border-t-primary bg-background p-3 text-center space-y-0.5">
-                <span className="text-xxs font-bold text-muted-foreground">
+              <div className="rounded-lg border border-border border-t-2 border-t-primary bg-background p-2.5 sm:p-3 text-center space-y-0.5">
+                <span className="text-[10px] sm:text-xxs font-bold text-muted-foreground">
                   年間予想配当金
                 </span>
-                <div className="font-mono font-black text-xl sm:text-2xl tabular-nums text-primary">
+                <div className="font-mono font-black text-base sm:text-2xl tabular-nums text-primary">
                   ¥{generatedPortfolio.totalExpectedDividend.toLocaleString()}
-                  <span className="text-xs font-bold"> /年</span>
+                  <span className="text-[10px] sm:text-xs font-bold"> /年</span>
                 </div>
-                <span className="text-xxs text-muted-foreground">
+                <span className="text-[10px] sm:text-xxs text-muted-foreground">
                   税引前受取額
                 </span>
               </div>
 
-              <div className="rounded-lg border border-border border-t-2 border-t-primary bg-background p-3 text-center space-y-0.5">
-                <span className="text-xxs font-bold text-muted-foreground">
-                  ポートフォリオ総合利回り
+              <div className="rounded-lg border border-border border-t-2 border-t-primary bg-background p-2.5 sm:p-3 text-center space-y-0.5">
+                <span className="text-[10px] sm:text-xxs font-bold text-muted-foreground">
+                  総合配当利回り
                 </span>
-                <div className="font-mono font-black text-xl sm:text-2xl tabular-nums text-primary">
+                <div className="font-mono font-black text-base sm:text-2xl tabular-nums text-primary">
                   {generatedPortfolio.overallYield.toFixed(2)}%
                 </div>
-                <span className="text-xxs text-muted-foreground">加重平均</span>
+                <span className="text-[10px] sm:text-xxs text-muted-foreground">加重平均</span>
               </div>
 
-              <div className="rounded-lg border border-border/60 bg-muted/20 p-3 text-center space-y-0.5">
-                <span className="text-xxs font-semibold text-muted-foreground">
+              <div className="rounded-lg border border-border/60 bg-muted/20 p-2.5 sm:p-3 text-center space-y-0.5">
+                <span className="text-[10px] sm:text-xxs font-semibold text-muted-foreground">
                   銘柄分散
                 </span>
-                <div className="font-mono font-black text-xl sm:text-2xl tabular-nums text-foreground">
+                <div className="font-mono font-black text-base sm:text-2xl tabular-nums text-foreground">
                   {generatedPortfolio.items.length} 銘柄
                 </div>
-                <span className="text-xxs text-muted-foreground font-semibold">
-                  セクター分散最適化済
+                <span className="text-[10px] sm:text-xxs text-muted-foreground font-semibold">
+                  セクター分散済
                 </span>
               </div>
             </div>
@@ -1459,7 +1486,10 @@ export const StockDecisionSimulator = ({
                     </div>
 
                     <div className="col-span-4 whitespace-nowrap text-right font-mono text-[11px] font-bold tabular-nums text-foreground sm:col-span-2 sm:text-xs">
-                      ¥{it.cost.toLocaleString()}
+                      <div>¥{it.cost.toLocaleString()}</div>
+                      <div className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 sm:hidden">
+                        利回り {it.dividendYield.toFixed(2)}%
+                      </div>
                     </div>
 
                     <div className="hidden whitespace-nowrap text-right font-mono font-bold tabular-nums text-emerald-600 dark:text-emerald-400 sm:col-span-2 sm:block">
@@ -1494,7 +1524,7 @@ export const StockDecisionSimulator = ({
       {/* ========================================================== */}
       {/* セクション 4: 3分スタイル診断 (Style Wizard) */}
       {/* ========================================================== */}
-      <section id="wizard-section" className="rounded border border-border bg-card">
+      <section id="wizard-section" className="scroll-mt-4 rounded border border-border bg-card">
         <div className="flex flex-col gap-1 border-b border-border bg-table-header-bg px-3 py-2 md:flex-row md:items-center md:justify-between rounded-t">
           <div className="flex items-center gap-2">
             <Compass className="h-4 w-4 text-foreground" />

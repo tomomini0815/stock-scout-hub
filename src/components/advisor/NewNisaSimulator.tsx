@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Area,
   AreaChart,
@@ -119,6 +119,7 @@ export const NewNisaSimulator = () => {
   const [chartTab, setChartTab] = useState<"assets" | "dividends">("assets");
   const [reverseTab, setReverseTab] = useState<"asset" | "dividend">("asset");
   const [showAllYears, setShowAllYears] = useState<boolean>(false);
+  const resultsRef = useRef<HTMLDivElement>(null);
 
   // 入力条件を自動保存（リロード時も前回の試算条件を維持）
   useEffect(() => {
@@ -160,6 +161,9 @@ export const NewNisaSimulator = () => {
     setActivePresetId(found.id);
     setInput(found.input);
     setInputMode("direct");
+    window.setTimeout(() => {
+      resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 60);
   };
 
   const result = useMemo(() => simulateNewNisa(input), [input]);
@@ -264,46 +268,61 @@ export const NewNisaSimulator = () => {
           </span>
         </div>
 
-        {/* モデルケース: 塗りボタン */}
-        <div className="mt-2.5 flex flex-wrap items-center gap-1.5 border-t border-border/70 pt-2">
-          <span className="inline-flex items-center gap-1 whitespace-nowrap text-xxs font-bold text-muted-foreground mr-0.5">
-            <Sparkles className="h-3 w-3 text-primary" />
-            モデルケース:
-          </span>
-          {NISA_PRESETS.map((preset) => {
-            const isSelected = activePresetId === preset.id;
-            return (
-              <button
-                key={preset.id}
-                type="button"
-                onClick={() => handleSelectPreset(preset.id)}
-                className={`inline-flex h-7 items-center gap-1 whitespace-nowrap rounded-full border px-2.5 text-xxs font-bold transition-colors ${
-                  isSelected
-                    ? "border-primary bg-primary text-primary-foreground shadow-sm"
-                    : "border-border bg-secondary text-secondary-foreground hover:bg-secondary/80"
-                }`}
-              >
-                <span>{preset.label}</span>
-                <span className={isSelected ? "text-[10px] opacity-85" : "text-[10px] text-muted-foreground"}>
-                  ({preset.badge})
-                </span>
-              </button>
-            );
-          })}
-              <span className="text-xxs text-muted-foreground">
+        {/* モデルケース: モバイル2カラム・PC横並び（押下で試算詳細へ自動スクロール） */}
+        <div className="mt-2.5 space-y-2 border-t border-border/70 pt-2">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className="inline-flex items-center gap-1 whitespace-nowrap text-xxs font-bold text-muted-foreground">
+                <Sparkles className="h-3 w-3 text-primary" />
+                モデルケース
+              </span>
+              <span className="hidden sm:inline text-xxs text-muted-foreground">
                 ※ 条件は自動保存されます
               </span>
-              <button
-                type="button"
-                onClick={handleResetDefault}
-                className="ml-auto inline-flex h-7 items-center gap-1 whitespace-nowrap rounded border border-border bg-background px-2 text-xxs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-                title="初期条件（王道インデックス）に戻す"
-              >
-                <RotateCcw className="h-3 w-3" />
-                <span>リセット</span>
-              </button>
             </div>
+            <button
+              type="button"
+              onClick={handleResetDefault}
+              className="inline-flex h-6 sm:h-7 items-center gap-1 whitespace-nowrap rounded border border-border bg-background px-2 text-xxs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+              title="初期条件（王道インデックス）に戻す"
+            >
+              <RotateCcw className="h-3 w-3" />
+              <span>リセット</span>
+            </button>
           </div>
+
+          <div className="grid grid-cols-2 gap-1.5 sm:flex sm:flex-wrap sm:items-center">
+            {NISA_PRESETS.map((preset) => {
+              const isSelected = activePresetId === preset.id;
+              return (
+                <button
+                  key={preset.id}
+                  type="button"
+                  onClick={() => handleSelectPreset(preset.id)}
+                  className={`flex min-w-0 flex-col items-start justify-center rounded-lg border px-2.5 py-1.5 text-left transition-colors sm:h-7 sm:flex-row sm:items-center sm:gap-1 sm:rounded-full sm:py-0 ${
+                    isSelected
+                      ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                      : "border-border bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                  }`}
+                >
+                  <span className="w-full truncate text-[11px] font-bold leading-tight sm:w-auto sm:text-xxs">
+                    {preset.label}
+                  </span>
+                  <span
+                    className={`w-full truncate text-[10px] leading-tight sm:w-auto ${
+                      isSelected ? "opacity-85" : "text-muted-foreground"
+                    }`}
+                  >
+                    <span className="hidden sm:inline">(</span>
+                    {preset.badge}
+                    <span className="hidden sm:inline">)</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
 
       {/* メインコンテンツ領域 */}
       <div className="space-y-4 p-3 sm:p-4">
@@ -848,14 +867,14 @@ export const NewNisaSimulator = () => {
           </section>
 
           {/* 右カラム: 結果サマリー → グラフ → 枠進捗 */}
-          <div className="lg:col-span-8 min-w-0 space-y-3">
+          <div ref={resultsRef} className="lg:col-span-8 min-w-0 space-y-3 scroll-mt-4">
             {/* KPI サマリーカード */}
-            <div className="grid grid-cols-2 gap-2.5 xl:grid-cols-4">
-              <div className="min-w-0 rounded border border-border bg-card p-3 border-t-2 border-t-primary">
+            <div className="grid grid-cols-2 gap-2 sm:gap-2.5 xl:grid-cols-4">
+              <div className="min-w-0 rounded border border-border bg-card p-2.5 sm:p-3 border-t-2 border-t-primary">
                 <div className="truncate text-xxs font-semibold text-muted-foreground">
                   {input.years}年後の総資産
                 </div>
-                <div className="mt-1.5 text-lg font-extrabold tracking-tight tabular-nums text-foreground">
+                <div className="mt-1 sm:mt-1.5 text-base sm:text-lg font-extrabold tracking-tight tabular-nums text-foreground">
                   {formatManYen(finalRow.totalAsset, 0)}
                 </div>
                 <div className="mt-1 text-[10px] leading-snug text-muted-foreground tabular-nums">
@@ -867,11 +886,11 @@ export const NewNisaSimulator = () => {
                 </div>
               </div>
 
-              <div className="min-w-0 rounded border border-emerald-500/35 bg-emerald-500/[0.04] p-3 border-t-2 border-t-emerald-500">
+              <div className="min-w-0 rounded border border-emerald-500/35 bg-emerald-500/[0.04] p-2.5 sm:p-3 border-t-2 border-t-emerald-500">
                 <div className="truncate text-xxs font-semibold text-emerald-700 dark:text-emerald-400">
                   NISA 非課税節税額
                 </div>
-                <div className="mt-1.5 text-lg font-extrabold tracking-tight tabular-nums text-emerald-700 dark:text-emerald-400">
+                <div className="mt-1 sm:mt-1.5 text-base sm:text-lg font-extrabold tracking-tight tabular-nums text-emerald-700 dark:text-emerald-400">
                   +{formatManYen(result.totalTaxSaved, 0)}
                 </div>
                 <div className="mt-1 text-[10px] leading-snug text-muted-foreground tabular-nums">
@@ -879,11 +898,11 @@ export const NewNisaSimulator = () => {
                 </div>
               </div>
 
-              <div className="min-w-0 rounded border border-border bg-card p-3">
+              <div className="min-w-0 rounded border border-border bg-card p-2.5 sm:p-3">
                 <div className="truncate text-xxs font-semibold text-muted-foreground">
                   最終年 年間配当
                 </div>
-                <div className="mt-1.5 text-base font-bold tabular-nums text-foreground">
+                <div className="mt-1 sm:mt-1.5 text-sm sm:text-base font-bold tabular-nums text-foreground">
                   {formatManYen(finalRow.annualDividend, 1)}
                 </div>
                 <div className="mt-1 text-[10px] leading-snug text-muted-foreground tabular-nums">
@@ -891,12 +910,12 @@ export const NewNisaSimulator = () => {
                 </div>
               </div>
 
-              <div className="min-w-0 rounded border border-border bg-card p-3">
+              <div className="min-w-0 rounded border border-border bg-card p-2.5 sm:p-3">
                 <div className="truncate text-xxs font-semibold text-muted-foreground">
                   {input.dividendMode === "reinvest" ? "再投資の複利効果" : "再投資との差額"}
                 </div>
                 <div
-                  className={`mt-1.5 text-base font-bold tabular-nums ${
+                  className={`mt-1 sm:mt-1.5 text-sm sm:text-base font-bold tabular-nums ${
                     result.reinvestAdvantage === 0
                       ? "text-muted-foreground"
                       : input.dividendMode === "reinvest"
@@ -930,21 +949,21 @@ export const NewNisaSimulator = () => {
 
             {/* グラフカード */}
             <div className="overflow-hidden rounded border border-border bg-card">
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-3 py-2">
-                <div className="flex flex-wrap items-center gap-1.5">
+              <div className="flex flex-col gap-1.5 border-b border-border px-2.5 py-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:px-3">
+                <div className="grid w-full grid-cols-2 gap-1.5 sm:flex sm:w-auto sm:items-center">
                   <button
                     type="button"
                     onClick={() => setChartTab("assets")}
-                    className={`h-7 ${toggleButtonClass(chartTab === "assets")}`}
+                    className={`h-7 px-2 ${toggleButtonClass(chartTab === "assets")}`}
                   >
-                    資産推移（NISA vs 特定口座）
+                    資産推移（NISA vs 特定）
                   </button>
                   <button
                     type="button"
                     onClick={() => setChartTab("dividends")}
-                    className={`h-7 ${toggleButtonClass(chartTab === "dividends")}`}
+                    className={`h-7 px-2 ${toggleButtonClass(chartTab === "dividends")}`}
                   >
-                    配当金推移 & 再投資比較
+                    配当推移・再投資比較
                   </button>
                 </div>
                 <span className="text-[10px] text-muted-foreground">

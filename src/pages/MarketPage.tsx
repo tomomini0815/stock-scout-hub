@@ -1170,7 +1170,7 @@ const MarketPage = () => {
           <div
             role="tablist"
             aria-label="スクリーニング対象指数・ランキング"
-            className="flex items-stretch overflow-x-auto border-b border-border bg-muted/40 no-scrollbar"
+            className="flex items-stretch overflow-x-auto overflow-y-hidden overscroll-x-contain touch-pan-x border-b border-border bg-muted/40 no-scrollbar"
           >
             {screeningIndices.map((item) => {
               const isActive = activeIndexId === item.id;
@@ -1181,7 +1181,7 @@ const MarketPage = () => {
                   role="tab"
                   aria-selected={isActive}
                   onClick={() => handleSelectIndex(item.id)}
-                  className={`relative -mb-px flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-4 px-3 py-2.5 text-xs transition-colors sm:px-4 ${
+                  className={`relative flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-4 px-3 py-2.5 text-xs transition-colors sm:px-4 ${
                     isActive
                       ? "border-primary bg-table-header-bg font-bold text-primary"
                       : "border-transparent font-semibold text-muted-foreground hover:bg-muted/70 hover:text-foreground"
@@ -1205,7 +1205,7 @@ const MarketPage = () => {
               role="tab"
               aria-selected={activeIndexId === "ranking"}
               onClick={() => handleSelectIndex("ranking")}
-              className={`relative -mb-px flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-4 px-3 py-2.5 text-xs transition-colors sm:px-4 ${
+              className={`relative flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-4 px-3 py-2.5 text-xs transition-colors sm:px-4 ${
                 activeIndexId === "ranking"
                   ? "border-primary bg-table-header-bg font-bold text-primary"
                   : "border-transparent font-semibold text-muted-foreground hover:bg-muted/70 hover:text-foreground"

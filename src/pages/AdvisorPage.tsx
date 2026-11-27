@@ -171,7 +171,7 @@ const AdvisorPage = () => {
           <div
             role="tablist"
             aria-label="銘柄診断・投資シミュレーター機能切替"
-            className="flex items-stretch overflow-x-auto border-b border-border bg-muted/40 no-scrollbar"
+            className="flex items-stretch overflow-x-auto overflow-y-hidden overscroll-x-contain touch-pan-x border-b border-border bg-muted/40 no-scrollbar"
           >
             {tabs.map((tab) => {
               const isActive = activeTab === tab.id;
@@ -183,7 +183,7 @@ const AdvisorPage = () => {
                   role="tab"
                   aria-selected={isActive}
                   onClick={() => handleTabChange(tab.id)}
-                  className={`relative -mb-px flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-4 px-3 py-2.5 text-xs transition-colors sm:px-4 ${
+                  className={`relative flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-4 px-3 py-2.5 text-xs transition-colors sm:px-4 ${
                     isActive
                       ? "border-primary bg-table-header-bg font-bold text-primary"
                       : "border-transparent font-semibold text-muted-foreground hover:bg-muted/70 hover:text-foreground"
