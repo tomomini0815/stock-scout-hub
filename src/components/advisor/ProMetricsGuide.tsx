@@ -4,6 +4,7 @@ import {
   Calculator,
   Compass,
   LineChart,
+  RotateCcw,
   Scale,
   ShieldCheck,
 } from "lucide-react";
@@ -12,6 +13,60 @@ interface ProMetricsGuideProps {
   initialMetric?: string;
   onNavigateToStockSearch?: (keyword: string) => void;
 }
+
+interface CalcPreset {
+  id: string;
+  name: string;
+  tag: string;
+  price: number;
+  eps: number;
+  bps: number;
+  growth: number;
+  dividend: number;
+}
+
+const CALC_PRESETS: CalcPreset[] = [
+  {
+    id: "toyota",
+    name: "トヨタ自動車",
+    tag: "割安バリュー",
+    price: 2750,
+    eps: 320,
+    bps: 2850,
+    growth: 8,
+    dividend: 90,
+  },
+  {
+    id: "mitsubishi",
+    name: "三菱商事",
+    tag: "高配当・PBR改善",
+    price: 3150,
+    eps: 280,
+    bps: 2450,
+    growth: 12,
+    dividend: 110,
+  },
+  {
+    id: "disco",
+    name: "ディスコ",
+    tag: "高成長グロース",
+    price: 43200,
+    eps: 1200,
+    bps: 8500,
+    growth: 45,
+    dividend: 380,
+  },
+  {
+    id: "trap",
+    name: "低迷バリュー例",
+    tag: "罠チェック用",
+    price: 1200,
+    eps: 55,
+    bps: 2000,
+    growth: 2,
+    dividend: 45,
+  },
+];
 
 // 4つの統合セクション定義（程よいアイコン配置）
 const sections = [
@@ -47,11 +102,21 @@ export const ProMetricsGuide = ({
   }, [initialMetric]);
 
   // 指標シミュレーター用の状態管理
-  const [calcPrice, setCalcPrice] = useState<number>(3000);
-  const [calcEps, setCalcEps] = useState<number>(200);
-  const [calcBps, setCalcBps] = useState<number>(2500);
-  const [calcGrowth, setCalcGrowth] = useState<number>(15);
+  const [activePresetId, setActivePresetId] = useState<string | null>("toyota");
+  const [calcPrice, setCalcPrice] = useState<number>(2750);
+  const [calcEps, setCalcEps] = useState<number>(320);
+  const [calcBps, setCalcBps] = useState<number>(2850);
+  const [calcGrowth, setCalcGrowth] = useState<number>(8);
   const [calcDividend, setCalcDividend] = useState<number>(90);
+
+  const applyPreset = (preset: CalcPreset) => {
+    setActivePresetId(preset.id);
+    setCalcPrice(preset.price);
+    setCalcEps(preset.eps);
+    setCalcBps(preset.bps);
+    setCalcGrowth(preset.growth);
+    setCalcDividend(preset.dividend);
+  };
 
   // 計算値の算出
   const calcPer = calcEps > 0 ? calcPrice / calcEps : 0;
@@ -59,6 +124,8 @@ export const ProMetricsGuide = ({
   const calcPeg = calcGrowth > 0 ? calcPer / calcGrowth : 0;
   const calcYield = calcPrice > 0 ? (calcDividend / calcPrice) * 100 : 0;
   const calcRoe = calcBps > 0 ? (calcEps / calcBps) * 100 : 0;
+  const calcPayoutRatio = calcEps > 0 ? (calcDividend / calcEps) * 100 : 0;
+  const calcMixFactor = calcPer > 0 && calcPbr > 0 ? calcPer * calcPbr : 0;
 
   // プロ判定ロジック
   const getProVerdict = () => {
@@ -75,31 +142,41 @@ export const ProMetricsGuide = ({
     }
 
     // PBR & ROE 連動判定
-    if (calcPbr < 1.0) {
+    if (calcPbr > 0 && calcPbr < 1.0) {
       if (calcRoe >= 8.0) {
         score += 35;
-        notes.push("【資本効率 (ROE×PBR)】PBR1倍割れかつROE 8%以上。東証改革の恩恵を受ける理想的なバリュー改善候補。");
+        notes.push("【資本効率 (ROE×PBR)】PBR1倍割れかつROE 8%以上。東証改革の恩恵を受ける理想的なバリュー改善候補です。");
       } else {
         score += 5;
-        notes.push("【バリュートラップ警戒】PBR1倍割れですがROEが低迷（8%未満）。万年低PBRの疑いがあります。");
+        notes.push("【バリュートラップ警戒】PBR1倍割れですがROEが8%未満。業績改善や還元の具体策がないか要確認です。");
       }
     } else if (calcRoe >= 15.0) {
       score += 25;
-      notes.push("【高収益性 (ROE)】ROE 15%超のグローバル基準の優良企業。高いPBRが正当化されます。");
+      notes.push("【高収益性 (ROE)】ROE 15%超の優良水準。高いPBRが正当化されやすい体質です。");
     }
 
-    // 配当利回り
+    // ミックス係数（グレアム基準 22.5以下）
+    if (calcMixFactor > 0 && calcMixFactor <= 22.5) {
+      score += 15;
+      notes.push(`【ミックス係数】${calcMixFactor.toFixed(1)}（22.5以下）。グレアムの割安基準を満たしています。`);
+    }
+
+    // 配当利回り & 配当性向
     if (calcYield >= 3.5) {
       score += 15;
-      notes.push("【インカム (利回り)】3.5%以上の高配当水準。キャッシュフローと配当方針の裏付けを確認してください。");
+      if (calcPayoutRatio > 70) {
+        notes.push(`【インカム警戒】利回り${calcYield.toFixed(2)}%ですが配当性向${calcPayoutRatio.toFixed(0)}%と高め。減配余地に注意。`);
+      } else {
+        notes.push(`【インカム優良】利回り${calcYield.toFixed(2)}%・配当性向${calcPayoutRatio.toFixed(0)}%と無理のない高還元水準です。`);
+      }
     }
 
-    let grade = "B";
+    let grade = "B (標準水準)";
     let badgeClass = "bg-muted text-foreground border-border";
-    let summary = "標準的な水準です。セクター特性や直近の業績推移を精査してください。";
+    let summary = "標準的な水準です。セクター特性や直近の業績推移と併せて精査してください。";
 
     if (score >= 60) {
-      grade = "S (買い妙味が高い水準)";
+      grade = "S (買い妙味が高い)";
       badgeClass = "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30";
       summary = "成長性と割安性、あるいは資本効率が極めて高いバランス。押し目で積極的に狙える水準です。";
     } else if (score >= 40) {
@@ -118,62 +195,53 @@ export const ProMetricsGuide = ({
   const verdict = getProVerdict();
 
   return (
-    <div className="space-y-5 text-foreground">
-      {/* 投資指標の実践ガイド ヘッダー & セクションタブ（他ページ統一タイトルバー・コンパクト設計） */}
-      <section className="rounded border border-border bg-card">
-        <div className="flex flex-col gap-2 border-b border-border bg-table-header-bg px-3 py-2 md:flex-row md:items-center md:justify-between rounded-t">
-          <div className="flex items-center gap-2 min-w-0">
-            <BookOpen className="h-4 w-4 shrink-0 text-foreground" />
-            <h2 className="text-xs sm:text-sm font-bold text-foreground whitespace-nowrap">
+    <div className="min-w-0 text-foreground">
+      {/* 上部バー: タイトル＋4セクション切替（新NISAシミュレーター統一トンマナ） */}
+      <div className="border-b border-border bg-table-header-bg px-3 py-2.5 sm:px-4">
+        <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-wrap items-center gap-1.5 min-w-0">
+            <h2 className="flex items-center gap-1.5 text-sm font-bold text-foreground">
+              <BookOpen className="h-4 w-4 shrink-0 text-primary" />
               投資指標の実践ガイド（PBR・PER・ROE）
             </h2>
-            <span className="rounded border border-border bg-muted px-2 py-0.5 text-xxs font-bold text-foreground/80 shrink-0">
-              実践ガイド
-            </span>
-            <span className="hidden xl:inline text-xxs text-muted-foreground truncate">
-              実際の売買で使える「真の割安判定」と「バリュートラップ回避」の要点
-            </span>
           </div>
+          <span className="text-xxs text-muted-foreground">
+            実際の売買で使える「真の割安判定」と「バリュートラップ回避」の要点
+          </span>
+        </div>
 
-          {/* 4つの統合タブナビゲーション（ヘッダー内右寄せ・コンパクト設計） */}
-          <div className="flex items-center">
-            <div className="flex max-w-full overflow-x-auto no-scrollbar rounded-md border border-border/70 bg-background/90 p-0.5 text-xs font-semibold whitespace-nowrap shadow-2xs">
-              {sections.map((sec) => {
-                const Icon = sec.icon;
-                const isActive = activeSection === sec.id;
-                return (
-                  <button
-                    key={sec.id}
-                    type="button"
-                    onClick={() => setActiveSection(sec.id)}
-                    className={`relative flex shrink-0 items-center gap-1.5 rounded px-2.5 py-1 text-xs transition-colors ${
-                      isActive
-                        ? "bg-muted text-foreground font-bold shadow-2xs"
-                        : "text-muted-foreground hover:text-foreground hover:bg-muted/40 font-medium"
+        {/* 4つの統合タブ（モバイル2カラム・PCピル塗りボタン） */}
+        <div className="mt-2.5 border-t border-border/70 pt-2">
+          <div className="grid grid-cols-2 gap-1.5 sm:flex sm:flex-wrap sm:items-center">
+            {sections.map((sec) => {
+              const Icon = sec.icon;
+              const isActive = activeSection === sec.id;
+              return (
+                <button
+                  key={sec.id}
+                  type="button"
+                  onClick={() => setActiveSection(sec.id)}
+                  className={`inline-flex min-w-0 items-center justify-center sm:justify-start gap-1.5 rounded-lg border px-2.5 py-1.5 text-xxs font-bold transition-colors sm:h-7 sm:rounded-full sm:py-0 ${
+                    isActive
+                      ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                      : "border-border bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                  }`}
+                >
+                  <Icon
+                    className={`h-3.5 w-3.5 shrink-0 ${
+                      isActive ? "text-primary-foreground" : "text-muted-foreground"
                     }`}
-                  >
-                    <Icon
-                      className={`h-3.5 w-3.5 transition-colors ${
-                        isActive ? "text-header-accent" : "text-muted-foreground/70"
-                      }`}
-                    />
-                    <span>{sec.label}</span>
-                    {isActive && (
-                      <span
-                        aria-hidden="true"
-                        className="absolute bottom-0 left-2 right-2 h-0.5 rounded-full bg-header-accent"
-                      />
-                    )}
-                  </button>
-                );
-              })}
-            </div>
+                  />
+                  <span className="truncate">{sec.label}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
-      </section>
+      </div>
 
       {/* メインコンテンツエリア */}
-      <div className="space-y-5">
+      <div className="space-y-4 p-3 sm:p-4">
         {/* 1. 全体像 ＆ 購入前チェック */}
         {activeSection === "overview" && (
           <div className="space-y-5 animate-in fade-in-50 duration-200">
@@ -522,211 +590,267 @@ export const ProMetricsGuide = ({
 
         {/* 4. 指標シミュレーター */}
         {activeSection === "calculator" && (
-          <div className="space-y-5 animate-in fade-in-50 duration-200">
-            <section className="rounded-xl border border-border/80 bg-card p-4 sm:p-5 shadow-xs space-y-5">
-              <div className="flex items-center gap-2 border-b border-border/60 pb-2.5">
-                <Calculator className="h-4 w-4 text-foreground" />
-                <h2 className="text-sm font-bold text-foreground sm:text-base">
-                  投資指標の簡易計算機
-                </h2>
+          <div className="space-y-4 animate-in fade-in-50 duration-200">
+            <section className="rounded border border-border bg-card overflow-hidden">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-table-header-bg px-3 py-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Calculator className="h-4 w-4 shrink-0 text-primary" />
+                  <h2 className="text-xs sm:text-sm font-bold text-foreground">
+                    投資指標の簡易計算機
+                  </h2>
+                  <span className="hidden sm:inline text-xxs text-muted-foreground">
+                    数値入力またはサンプル選択で6指標・ミックス係数・総合ランクを即時試算
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => applyPreset(CALC_PRESETS[0])}
+                  className="ml-auto inline-flex h-6 items-center gap-1 whitespace-nowrap rounded border border-border bg-background px-2 text-xxs font-semibold text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                >
+                  <RotateCcw className="h-3 w-3" />
+                  <span>リセット</span>
+                </button>
               </div>
 
-              {/* 使い方の3ステップ案内 */}
-              <div className="rounded-lg border border-border/80 bg-muted/20 p-3.5 space-y-2">
-                <div className="text-xs font-bold text-foreground">使い方の3ステップ</div>
-                <div className="grid gap-2 sm:grid-cols-3 text-xs">
-                  <div className="flex items-start gap-2">
-                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-foreground text-background text-xxs font-bold">1</span>
-                    <span className="text-muted-foreground"><strong className="text-foreground">数値を入力</strong>（または下のサンプル銘柄を押す）</span>
+              <div className="p-3 sm:p-4 space-y-3.5">
+                {/* ワンクリック・サンプル銘柄（モバイル2カラム・PC4カラム） */}
+                <div className="space-y-1.5">
+                  <span className="block text-xxs font-bold text-muted-foreground">
+                    サンプル銘柄で試す（タップで数値入力）
+                  </span>
+                  <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+                    {CALC_PRESETS.map((preset) => {
+                      const isActive = activePresetId === preset.id;
+                      return (
+                        <button
+                          key={preset.id}
+                          type="button"
+                          onClick={() => applyPreset(preset)}
+                          className={`flex min-w-0 flex-col items-start rounded border px-2.5 py-1.5 text-left transition-colors ${
+                            isActive
+                              ? "border-primary bg-primary/10 text-primary"
+                              : "border-border bg-background text-foreground hover:bg-muted/50"
+                          }`}
+                        >
+                          <span className="w-full truncate text-[11px] sm:text-xs font-bold leading-tight">
+                            {preset.name}
+                          </span>
+                          <span
+                            className={`w-full truncate text-[10px] leading-tight mt-0.5 ${
+                              isActive ? "text-primary/80" : "text-muted-foreground"
+                            }`}
+                          >
+                            {preset.tag}
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
-                  <div className="flex items-start gap-2">
-                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-foreground text-background text-xxs font-bold">2</span>
-                    <span className="text-muted-foreground"><strong className="text-foreground">指標が自動算出</strong>（PER・PBR・PEG・ROE）</span>
+                </div>
+
+                {/* 入力フォーム（モバイル2カラム・株価は-10%/+10%シミュレーション対応） */}
+                <div className="grid grid-cols-2 gap-2 sm:gap-2.5 lg:grid-cols-5 border-t border-border/70 pt-3">
+                  <div className="col-span-2 lg:col-span-1 space-y-1">
+                    <div className="flex items-center justify-between gap-1">
+                      <label htmlFor="calc-price" className="text-xxs font-bold text-foreground">
+                        株価（円）
+                      </label>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActivePresetId(null);
+                            setCalcPrice((prev) => Math.max(1, Math.round(prev * 0.9)));
+                          }}
+                          className="rounded border border-border bg-muted/50 px-1.5 py-0.5 text-[10px] font-bold text-stock-down hover:bg-muted"
+                        >
+                          -10%
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActivePresetId(null);
+                            setCalcPrice((prev) => Math.max(1, Math.round(prev * 1.1)));
+                          }}
+                          className="rounded border border-border bg-muted/50 px-1.5 py-0.5 text-[10px] font-bold text-stock-up hover:bg-muted"
+                        >
+                          +10%
+                        </button>
+                      </div>
+                    </div>
+                    <input
+                      id="calc-price"
+                      type="number"
+                      inputMode="decimal"
+                      min={0}
+                      value={calcPrice}
+                      onChange={(e) => {
+                        setActivePresetId(null);
+                        setCalcPrice(Math.max(0, Number(e.target.value) || 0));
+                      }}
+                      className="h-8 w-full rounded border border-border bg-background px-2.5 text-right font-mono text-xs sm:text-sm font-bold tabular-nums text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
                   </div>
-                  <div className="flex items-start gap-2">
-                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-foreground text-background text-xxs font-bold">3</span>
-                    <span className="text-muted-foreground"><strong className="text-foreground">プロ判定を確認</strong>（S〜Cランクと改善点）</span>
+
+                  <div className="space-y-1">
+                    <label htmlFor="calc-eps" className="block text-xxs font-bold text-foreground">
+                      予想EPS（円）
+                    </label>
+                    <input
+                      id="calc-eps"
+                      type="number"
+                      inputMode="decimal"
+                      min={0}
+                      value={calcEps}
+                      onChange={(e) => {
+                        setActivePresetId(null);
+                        setCalcEps(Math.max(0, Number(e.target.value) || 0));
+                      }}
+                      className="h-8 w-full rounded border border-border bg-background px-2.5 text-right font-mono text-xs sm:text-sm font-bold tabular-nums text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                    <span className="text-[10px] text-muted-foreground block">1株あたり利益</span>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label htmlFor="calc-bps" className="block text-xxs font-bold text-foreground">
+                      実績BPS（円）
+                    </label>
+                    <input
+                      id="calc-bps"
+                      type="number"
+                      inputMode="decimal"
+                      min={0}
+                      value={calcBps}
+                      onChange={(e) => {
+                        setActivePresetId(null);
+                        setCalcBps(Math.max(0, Number(e.target.value) || 0));
+                      }}
+                      className="h-8 w-full rounded border border-border bg-background px-2.5 text-right font-mono text-xs sm:text-sm font-bold tabular-nums text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                    <span className="text-[10px] text-muted-foreground block">1株あたり純資産</span>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label htmlFor="calc-growth" className="block text-xxs font-bold text-foreground">
+                      予想成長率（%）
+                    </label>
+                    <input
+                      id="calc-growth"
+                      type="number"
+                      inputMode="decimal"
+                      min={0}
+                      value={calcGrowth}
+                      onChange={(e) => {
+                        setActivePresetId(null);
+                        setCalcGrowth(Math.max(0, Number(e.target.value) || 0));
+                      }}
+                      className="h-8 w-full rounded border border-border bg-background px-2.5 text-right font-mono text-xs sm:text-sm font-bold tabular-nums text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                    <span className="text-[10px] text-muted-foreground block">今期の予想増益率</span>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label htmlFor="calc-dividend" className="block text-xxs font-bold text-foreground">
+                      年間配当（円）
+                    </label>
+                    <input
+                      id="calc-dividend"
+                      type="number"
+                      inputMode="decimal"
+                      min={0}
+                      value={calcDividend}
+                      onChange={(e) => {
+                        setActivePresetId(null);
+                        setCalcDividend(Math.max(0, Number(e.target.value) || 0));
+                      }}
+                      className="h-8 w-full rounded border border-border bg-background px-2.5 text-right font-mono text-xs sm:text-sm font-bold tabular-nums text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                    <span className="text-[10px] text-muted-foreground block">1株あたり年間配当</span>
                   </div>
                 </div>
-              </div>
 
-              {/* ワンクリック・サンプル銘柄 */}
-              <div className="space-y-1.5">
-                <span className="text-xs font-bold text-foreground">
-                  ワンクリックで試せるサンプル銘柄（クリックで自動入力）：
-                </span>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCalcPrice(2750);
-                      setCalcEps(320);
-                      setCalcBps(2850);
-                      setCalcGrowth(8);
-                      setCalcDividend(90);
-                    }}
-                    className="rounded border border-border bg-card px-2.5 py-1 text-xs font-medium text-foreground hover:bg-muted/70 hover:border-header-accent transition-colors"
-                  >
-                    🚗 トヨタ自動車（割安バリューの例）
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCalcPrice(3150);
-                      setCalcEps(280);
-                      setCalcBps(2450);
-                      setCalcGrowth(12);
-                      setCalcDividend(110);
-                    }}
-                    className="rounded border border-border bg-card px-2.5 py-1 text-xs font-medium text-foreground hover:bg-muted/70 hover:border-header-accent transition-colors"
-                  >
-                    💎 三菱商事（高配当・低PBR改善の例）
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCalcPrice(43200);
-                      setCalcEps(1200);
-                      setCalcBps(8500);
-                      setCalcGrowth(45);
-                      setCalcDividend(380);
-                    }}
-                    className="rounded border border-border bg-card px-2.5 py-1 text-xs font-medium text-foreground hover:bg-muted/70 hover:border-header-accent transition-colors"
-                  >
-                    ⚡ ディスコ（高成長グロースの例）
-                  </button>
-                </div>
-              </div>
+                {/* 算出結果カード（6指標・モバイル2カラム） */}
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6 text-center">
+                  <div className="rounded border border-border bg-muted/20 p-2.5">
+                    <span className="text-[10px] sm:text-xxs font-semibold text-muted-foreground block">予想PER</span>
+                    <span className="font-mono text-base sm:text-lg font-black tabular-nums text-foreground">
+                      {calcPer > 0 ? `${calcPer.toFixed(1)}倍` : "--"}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground block mt-0.5">
+                      {calcPer > 0 && calcPer <= 15 ? "割安圏" : calcPer > 25 ? "高期待" : "標準圏"}
+                    </span>
+                  </div>
 
-              {/* 入力フォーム */}
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5 border-t border-border/60 pt-4">
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-foreground">株価（円）</label>
-                  <input
-                    type="number"
-                    value={calcPrice}
-                    onChange={(e) => setCalcPrice(Number(e.target.value))}
-                    className="w-full rounded border border-border bg-background px-2.5 py-1.5 text-xs sm:text-sm font-medium text-foreground focus:outline-none focus:border-header-accent"
-                  />
-                  <span className="text-[11px] text-muted-foreground block">
-                    現在の購入株価
-                  </span>
-                </div>
+                  <div className="rounded border border-border bg-muted/20 p-2.5">
+                    <span className="text-[10px] sm:text-xxs font-semibold text-muted-foreground block">実績PBR</span>
+                    <span className={`font-mono text-base sm:text-lg font-black tabular-nums ${calcPbr > 0 && calcPbr < 1 ? "text-primary" : "text-foreground"}`}>
+                      {calcPbr > 0 ? `${calcPbr.toFixed(2)}倍` : "--"}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground block mt-0.5">
+                      {calcPbr > 0 && calcPbr < 1 ? "1倍割れ" : "1倍以上"}
+                    </span>
+                  </div>
 
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-foreground">予想EPS（円）</label>
-                  <input
-                    type="number"
-                    value={calcEps}
-                    onChange={(e) => setCalcEps(Number(e.target.value))}
-                    className="w-full rounded border border-border bg-background px-2.5 py-1.5 text-xs sm:text-sm font-medium text-foreground focus:outline-none focus:border-header-accent"
-                  />
-                  <span className="text-[11px] text-muted-foreground block">
-                    1株あたり当期純利益
-                  </span>
+                  <div className="rounded border border-border bg-muted/20 p-2.5">
+                    <span className="text-[10px] sm:text-xxs font-semibold text-muted-foreground block">ROE</span>
+                    <span className={`font-mono text-base sm:text-lg font-black tabular-nums ${calcRoe >= 10 ? "text-emerald-600 dark:text-emerald-400" : calcRoe > 0 && calcRoe < 8 ? "text-amber-600 dark:text-amber-400" : "text-foreground"}`}>
+                      {calcRoe > 0 ? `${calcRoe.toFixed(1)}%` : "--"}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground block mt-0.5">
+                      {calcRoe >= 10 ? "優良10%+" : calcRoe >= 8 ? "合格8%+" : "8%未満"}
+                    </span>
+                  </div>
+
+                  <div className="rounded border border-border bg-muted/20 p-2.5">
+                    <span className="text-[10px] sm:text-xxs font-semibold text-muted-foreground block">PEGレシオ</span>
+                    <span className={`font-mono text-base sm:text-lg font-black tabular-nums ${calcPeg > 0 && calcPeg < 1 ? "text-emerald-600 dark:text-emerald-400" : calcPeg >= 2 ? "text-amber-600 dark:text-amber-400" : "text-foreground"}`}>
+                      {calcPeg > 0 ? `${calcPeg.toFixed(2)}` : "--"}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground block mt-0.5">
+                      {calcPeg > 0 && calcPeg < 1 ? "成長割安" : calcPeg >= 2 ? "割高警戒" : "適正圏"}
+                    </span>
+                  </div>
+
+                  <div className="rounded border border-border bg-muted/20 p-2.5">
+                    <span className="text-[10px] sm:text-xxs font-semibold text-muted-foreground block">配当利回り</span>
+                    <span className="font-mono text-base sm:text-lg font-black tabular-nums text-foreground">
+                      {calcYield > 0 ? `${calcYield.toFixed(2)}%` : "--"}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground block mt-0.5">
+                      性向 {calcPayoutRatio > 0 ? `${calcPayoutRatio.toFixed(0)}%` : "--"}
+                    </span>
+                  </div>
+
+                  <div className="rounded border border-border bg-muted/20 p-2.5">
+                    <span className="text-[10px] sm:text-xxs font-semibold text-muted-foreground block">ミックス係数</span>
+                    <span className={`font-mono text-base sm:text-lg font-black tabular-nums ${calcMixFactor > 0 && calcMixFactor <= 22.5 ? "text-primary" : "text-foreground"}`}>
+                      {calcMixFactor > 0 ? calcMixFactor.toFixed(1) : "--"}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground block mt-0.5">
+                      {calcMixFactor > 0 && calcMixFactor <= 22.5 ? "22.5以下(割安)" : "PER×PBR"}
+                    </span>
+                  </div>
                 </div>
 
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-foreground">実績BPS（円）</label>
-                  <input
-                    type="number"
-                    value={calcBps}
-                    onChange={(e) => setCalcBps(Number(e.target.value))}
-                    className="w-full rounded border border-border bg-background px-2.5 py-1.5 text-xs sm:text-sm font-medium text-foreground focus:outline-none focus:border-header-accent"
-                  />
-                  <span className="text-[11px] text-muted-foreground block">
-                    1株あたり純資産
-                  </span>
+                {/* 総合判定結果 */}
+                <div className="rounded border border-border bg-muted/15 p-3 sm:p-3.5 space-y-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-xs font-bold text-foreground">総合判定結果</span>
+                    <span className={`ml-auto whitespace-nowrap rounded border px-2 py-0.5 text-xxs sm:text-xs font-bold ${verdict.badgeClass}`}>
+                      {verdict.grade}
+                    </span>
+                  </div>
+                  <p className="text-xs sm:text-sm text-foreground/90 leading-relaxed font-medium">
+                    {verdict.summary}
+                  </p>
+                  {verdict.notes.length > 0 && (
+                    <ul className="border-t border-border/60 pt-2 space-y-1 text-xxs sm:text-xs text-muted-foreground leading-relaxed">
+                      {verdict.notes.map((note, idx) => (
+                        <li key={idx}>・{note}</li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
-
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-foreground">予想利益成長率（%）</label>
-                  <input
-                    type="number"
-                    value={calcGrowth}
-                    onChange={(e) => setCalcGrowth(Number(e.target.value))}
-                    className="w-full rounded border border-border bg-background px-2.5 py-1.5 text-xs sm:text-sm font-medium text-foreground focus:outline-none focus:border-header-accent"
-                  />
-                  <span className="text-[11px] text-muted-foreground block">
-                    今期の予想増益率（例: 15）
-                  </span>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-foreground">予想配当金（円）</label>
-                  <input
-                    type="number"
-                    value={calcDividend}
-                    onChange={(e) => setCalcDividend(Number(e.target.value))}
-                    className="w-full rounded border border-border bg-background px-2.5 py-1.5 text-xs sm:text-sm font-medium text-foreground focus:outline-none focus:border-header-accent"
-                  />
-                  <span className="text-[11px] text-muted-foreground block">
-                    年間1株配当金
-                  </span>
-                </div>
-              </div>
-
-              {/* 算出結果カード */}
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-5 text-center">
-                <div className="rounded-lg border border-border/70 bg-muted/20 p-3">
-                  <span className="text-xs text-muted-foreground block">予想PER</span>
-                  <span className="text-base sm:text-lg font-bold text-foreground">
-                    {calcPer > 0 ? `${calcPer.toFixed(1)}倍` : "--"}
-                  </span>
-                  <span className="text-[10px] text-muted-foreground block mt-0.5">株価 ÷ 予想EPS</span>
-                </div>
-
-                <div className="rounded-lg border border-border/70 bg-muted/20 p-3">
-                  <span className="text-xs text-muted-foreground block">実績PBR</span>
-                  <span className="text-base sm:text-lg font-bold text-foreground">
-                    {calcPbr > 0 ? `${calcPbr.toFixed(2)}倍` : "--"}
-                  </span>
-                  <span className="text-[10px] text-muted-foreground block mt-0.5">株価 ÷ 実績BPS</span>
-                </div>
-
-                <div className="rounded-lg border border-border/70 bg-muted/20 p-3">
-                  <span className="text-xs text-muted-foreground block">PEGレシオ</span>
-                  <span className="text-base sm:text-lg font-bold text-foreground">
-                    {calcPeg > 0 ? `${calcPeg.toFixed(2)}` : "--"}
-                  </span>
-                  <span className="text-[10px] text-muted-foreground block mt-0.5">PER ÷ 成長率</span>
-                </div>
-
-                <div className="rounded-lg border border-border/70 bg-muted/20 p-3">
-                  <span className="text-xs text-muted-foreground block">予想配当利回り</span>
-                  <span className="text-base sm:text-lg font-bold text-foreground">
-                    {calcYield > 0 ? `${calcYield.toFixed(2)}%` : "--"}
-                  </span>
-                  <span className="text-[10px] text-muted-foreground block mt-0.5">配当 ÷ 株価</span>
-                </div>
-
-                <div className="rounded-lg border border-border/70 bg-muted/20 p-3 col-span-2 sm:col-span-1">
-                  <span className="text-xs text-muted-foreground block">ROE</span>
-                  <span className="text-base sm:text-lg font-bold text-foreground">
-                    {calcRoe > 0 ? `${calcRoe.toFixed(1)}%` : "--"}
-                  </span>
-                  <span className="text-[10px] text-muted-foreground block mt-0.5">EPS ÷ BPS</span>
-                </div>
-              </div>
-
-              {/* 総合判定結果 */}
-              <div className="rounded-lg border border-border/80 bg-muted/10 p-4 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-foreground">総合判定結果</span>
-                  <span className={`rounded border px-2 py-0.5 text-xs font-bold ${verdict.badgeClass}`}>
-                    {verdict.grade}
-                  </span>
-                </div>
-                <p className="text-xs sm:text-sm text-foreground/90 leading-relaxed font-medium">
-                  {verdict.summary}
-                </p>
-                {verdict.notes.length > 0 && (
-                  <ul className="border-t border-border/60 pt-2 space-y-1 text-xs text-muted-foreground">
-                    {verdict.notes.map((note, idx) => (
-                      <li key={idx}>・{note}</li>
-                    ))}
-                  </ul>
-                )}
               </div>
             </section>
           </div>

@@ -97,7 +97,18 @@ const AdvisorPage = () => {
 
   const handleInspectStockInHealthCheck = (code: string) => {
     setSelectedStockCode(code);
-    handleTabChange("health");
+    setActiveTab("health");
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set("tab", "health");
+      next.set("code", code);
+      next.delete("metric");
+      return next;
+    });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    window.setTimeout(() => {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }, 80);
   };
 
   const handleAskAdvisorWithStock = (code: string) => {
@@ -212,12 +223,10 @@ const AdvisorPage = () => {
             {activeTab === "nisa" && <NewNisaSimulator />}
 
             {activeTab === "simulator" && (
-              <div className="p-2.5 sm:p-3">
-                <StockDecisionSimulator
-                  initialStockCode={selectedStockCode}
-                  onInspectStockInHealthCheck={handleInspectStockInHealthCheck}
-                />
-              </div>
+              <StockDecisionSimulator
+                initialStockCode={selectedStockCode}
+                onInspectStockInHealthCheck={handleInspectStockInHealthCheck}
+              />
             )}
 
             {activeTab === "health" && (
@@ -231,12 +240,10 @@ const AdvisorPage = () => {
             )}
 
             {activeTab === "guide" && (
-              <div className="p-2.5 sm:p-3">
-                <ProMetricsGuide
-                  initialMetric={selectedMetric}
-                  onNavigateToStockSearch={(code) => handleInspectStockInHealthCheck(code)}
-                />
-              </div>
+              <ProMetricsGuide
+                initialMetric={selectedMetric}
+                onNavigateToStockSearch={(code) => handleInspectStockInHealthCheck(code)}
+              />
             )}
           </Suspense>
         </section>

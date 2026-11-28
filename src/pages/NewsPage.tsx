@@ -616,7 +616,7 @@ const NewsPage = () => {
             </span>
           </div>
           {/* Category Filter Tabs */}
-          <div className="flex gap-1.5 overflow-x-auto border-b border-border bg-muted/20 px-3 py-1.5 sm:flex-wrap sm:overflow-visible no-scrollbar">
+          <div className="flex gap-1.5 overflow-x-auto overflow-y-hidden overscroll-x-contain touch-pan-x border-b border-border bg-muted/20 px-2.5 py-1.5 sm:flex-wrap sm:overflow-visible sm:px-3 no-scrollbar">
             {categories.map((cat) => {
               const count =
                 cat === "すべて"

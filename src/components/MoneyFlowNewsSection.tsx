@@ -224,55 +224,55 @@ const MoneyFlowNewsSection = () => {
   return (
     <section className="mb-3 rounded border border-border bg-card">
       {/* ヘッダー */}
-      <div className="flex items-start justify-between gap-2 border-b border-border bg-table-header-bg px-3 py-1.5">
-        <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-xs font-bold text-foreground">資金フロー関連ニュース</h3>
-            <span
-              className={`whitespace-nowrap rounded border px-2 py-0.5 text-xxs font-bold ${getRegimeBadgeClass(
-                flowSnapshot.regimeTone
-              )}`}
-            >
-              {flowSnapshot.regimeLabel}
+      <div className="flex flex-col gap-1.5 border-b border-border bg-table-header-bg px-3 py-2 md:flex-row md:items-center md:gap-2 md:py-1.5">
+        <div className="flex items-center justify-between gap-2 md:contents">
+          <h3 className="whitespace-nowrap text-xs font-bold text-foreground md:order-1">
+            資金フロー関連ニュース
+          </h3>
+          {isLive && (
+            <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded border border-border bg-background px-1.5 py-0.5 text-xxs font-semibold text-foreground/85 md:order-5">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+              最新
             </span>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2 text-xxs">
-            <span className="text-muted-foreground">
-              資金集中:{" "}
-              {topCups.map((cup, idx) => (
-                <span key={cup.id}>
-                  {idx > 0 && " / "}
-                  <strong className="text-foreground">{cup.shortLabel}</strong>{" "}
-                  <span
-                    className={`tabular-nums font-bold ${
-                      cup.changePercent >= 0 ? "text-stock-up" : "text-stock-down"
-                    }`}
-                  >
-                    {formatSignedPercent(cup.changePercent)}
-                  </span>
-                </span>
-              ))}
-            </span>
-            <Link
-              to="/"
-              className="rounded border border-border bg-background px-2 py-0.5 font-semibold text-foreground/80 transition-colors hover:border-primary/40 hover:text-primary"
-            >
-              資金フローカップを見る
-            </Link>
-          </div>
+          )}
         </div>
 
-        {isLive && (
-          <span className="inline-flex shrink-0 self-start items-center gap-1 whitespace-nowrap rounded border border-border bg-background px-1.5 py-0.5 text-xxs font-semibold text-foreground/85">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-            最新
+        <div className="flex items-center justify-between gap-2 md:contents">
+          <span
+            className={`whitespace-nowrap rounded border px-2 py-0.5 text-xxs font-bold md:order-2 ${getRegimeBadgeClass(
+              flowSnapshot.regimeTone
+            )}`}
+          >
+            {flowSnapshot.regimeLabel}
           </span>
-        )}
+          <Link
+            to="/#money-flow-cups"
+            className="ml-auto whitespace-nowrap rounded border border-border bg-background px-2 py-0.5 text-xxs font-semibold text-foreground/80 transition-colors hover:border-primary/40 hover:text-primary md:order-4 md:ml-0"
+          >
+            資金フローカップを見る
+          </Link>
+        </div>
+
+        <div className="text-xxs text-muted-foreground md:order-3 md:ml-auto">
+          資金集中:{" "}
+          {topCups.map((cup, idx) => (
+            <span key={cup.id}>
+              {idx > 0 && " / "}
+              <strong className="text-foreground">{cup.shortLabel}</strong>{" "}
+              <span
+                className={`tabular-nums font-bold ${
+                  cup.changePercent >= 0 ? "text-stock-up" : "text-stock-down"
+                }`}
+              >
+                {formatSignedPercent(cup.changePercent)}
+              </span>
+            </span>
+          ))}
+        </div>
       </div>
 
       {/* アセット別フィルタタブ */}
-      <div className="flex gap-1.5 overflow-x-auto border-b border-border bg-muted/20 px-3 py-1.5 no-scrollbar">
+      <div className="flex gap-1.5 overflow-x-auto overflow-y-hidden overscroll-x-contain touch-pan-x border-b border-border bg-muted/20 px-3 py-1.5 no-scrollbar">
         <button
           type="button"
           onClick={() => setSelectedCupId("all")}

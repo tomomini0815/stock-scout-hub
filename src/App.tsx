@@ -45,15 +45,36 @@ class AppErrorBoundary extends Component<
 }
 
 const ScrollToTop = () => {
-  const { pathname } = useLocation();
+  const { pathname, hash } = useLocation();
 
   useEffect(() => {
+    if (hash) {
+      const targetId = hash.replace(/^#/, "");
+      const tryScroll = () => {
+        const el = document.getElementById(targetId);
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "start" });
+          return true;
+        }
+        return false;
+      };
+      if (!tryScroll()) {
+        const t1 = window.setTimeout(tryScroll, 120);
+        const t2 = window.setTimeout(tryScroll, 350);
+        return () => {
+          window.clearTimeout(t1);
+          window.clearTimeout(t2);
+        };
+      }
+      return;
+    }
+
     window.scrollTo(0, 0);
     const root = document.getElementById("root");
     if (root) {
       root.scrollTo(0, 0);
     }
-  }, [pathname]);
+  }, [pathname, hash]);
 
   return null;
 };

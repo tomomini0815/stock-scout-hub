@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { ExternalLink } from "lucide-react";
 import { type MarketIndex, type StockData } from "@/data/stockData";
@@ -297,6 +297,7 @@ const TIMEFRAMES: FlowTimeframe[] = ["1D", "1W", "1M"];
 
 const MoneyFlowCups = ({ indices, stocks = [] }: MoneyFlowCupsProps) => {
   const uid = useId().replace(/:/g, "");
+  const sectionRef = useRef<HTMLElement>(null);
   const [mode, setMode] = useState<FlowViewMode>("global");
   const [timeframe, setTimeframe] = useState<FlowTimeframe>("1D");
   const [activeArticle, setActiveArticle] = useState<FlowNewsImpact | null>(null);
@@ -425,8 +426,10 @@ const MoneyFlowCups = ({ indices, stocks = [] }: MoneyFlowCupsProps) => {
 
   return (
     <section
+      id="money-flow-cups"
+      ref={sectionRef}
       aria-label="資金集中マップ（コップで可視化）"
-      className="overflow-hidden rounded-md border border-border bg-card"
+      className="scroll-mt-14 overflow-hidden rounded-md border border-border bg-card"
     >
       {/* ヘッダー（モバイル: 1段目タイトル+右上LIVE / 2段目タブ右寄せ、PC: 1行集約） */}
       <div className="flex flex-col gap-1.5 border-b border-border bg-table-header-bg px-3 py-2 sm:px-3.5 lg:flex-row lg:items-center lg:justify-between">
@@ -935,8 +938,16 @@ const MoneyFlowCups = ({ indices, stocks = [] }: MoneyFlowCupsProps) => {
                   {mode === "global" && (
                     <button
                       type="button"
-                      onClick={() => setMode("sectors")}
-                      className="text-xs font-bold text-primary hover:underline"
+                      onClick={() => {
+                        setMode("sectors");
+                        window.setTimeout(() => {
+                          sectionRef.current?.scrollIntoView({
+                            behavior: "smooth",
+                            block: "start",
+                          });
+                        }, 50);
+                      }}
+                      className="ml-auto text-xs font-bold text-primary hover:underline"
                     >
                       日本株のセクター別コップを見る →
                     </button>

@@ -78,6 +78,11 @@ export const StockHealthCheck = ({
 }: StockHealthCheckProps) => {
   const [searchQuery, setSearchQuery] = useState(initialCode);
   const [selectedCode, setSelectedCode] = useState(initialCode);
+
+  useEffect(() => {
+    setSelectedCode(initialCode);
+    setSearchQuery(initialCode);
+  }, [initialCode]);
   const [stockNews, setStockNews] = useState<NewsItem[]>([]);
   const [isLoadingNews, setIsLoadingNews] = useState(false);
   const [liveMetrics, setLiveMetrics] = useState<Partial<StockDetailedMetrics> | null>(null);
@@ -476,7 +481,7 @@ export const StockHealthCheck = ({
                 <span className="text-xxs font-bold text-muted-foreground uppercase tracking-wider">
                   {isNikkei ? "現在値・市場動向" : "主要財務・バリュエーション指標"}
                 </span>
-                <div className="flex flex-wrap items-center gap-1.5">
+                <div className="ml-auto flex flex-wrap items-center justify-end gap-1.5">
                   {!isNikkei && (
                     <button
                       type="button"
@@ -681,60 +686,62 @@ export const StockHealthCheck = ({
                 </div>
               </div>
 
-              <div className="p-3 sm:p-4 space-y-3">
+              <div className="p-2.5 sm:p-4 space-y-2.5 sm:space-y-3">
                 {/* 投資スタンス & リスク許容度 */}
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <div className="space-y-1.5">
+                <div className="grid grid-cols-1 gap-2.5 sm:gap-3 sm:grid-cols-2">
+                  <div className="space-y-1">
                     <span className="block text-xxs font-bold text-muted-foreground">
                       投資スタンス
                     </span>
-                    <div className="grid grid-cols-3 gap-1.5">
+                    <div className="grid grid-cols-3 gap-1 sm:gap-1.5">
                       {(
                         [
-                          { id: "income", label: "配当・長期" },
-                          { id: "swing", label: "中期スイング" },
-                          { id: "value", label: "割安リバウンド" },
+                          { id: "income", label: "配当・長期", shortLabel: "配当・長期" },
+                          { id: "swing", label: "中期スイング", shortLabel: "スイング" },
+                          { id: "value", label: "割安リバウンド", shortLabel: "割安反発" },
                         ] as const
                       ).map((opt) => (
                         <button
                           key={opt.id}
                           type="button"
                           onClick={() => setTradeStance(opt.id)}
-                          className={`rounded border px-2 py-1.5 text-xxs font-bold transition-colors whitespace-nowrap ${
+                          className={`rounded border px-1.5 sm:px-2 py-1.5 text-[11px] sm:text-xxs font-bold transition-colors whitespace-nowrap ${
                             tradeStance === opt.id
                               ? "border-primary bg-primary/10 text-primary"
                               : "border-border bg-background text-muted-foreground hover:bg-muted/40 hover:text-foreground"
                           }`}
                         >
-                          {opt.label}
+                          <span className="sm:hidden">{opt.shortLabel}</span>
+                          <span className="hidden sm:inline">{opt.label}</span>
                         </button>
                       ))}
                     </div>
                   </div>
 
-                  <div className="space-y-1.5">
+                  <div className="space-y-1">
                     <span className="block text-xxs font-bold text-muted-foreground">
                       リスク許容度
                     </span>
-                    <div className="grid grid-cols-3 gap-1.5">
+                    <div className="grid grid-cols-3 gap-1 sm:gap-1.5">
                       {(
                         [
-                          { id: "safe", label: "慎重（損切り浅め）" },
-                          { id: "balanced", label: "標準バランス" },
-                          { id: "aggressive", label: "積極（上値追い）" },
+                          { id: "safe", label: "慎重（損切り浅め）", shortLabel: "慎重" },
+                          { id: "balanced", label: "標準バランス", shortLabel: "標準" },
+                          { id: "aggressive", label: "積極（上値追い）", shortLabel: "積極" },
                         ] as const
                       ).map((opt) => (
                         <button
                           key={opt.id}
                           type="button"
                           onClick={() => setRiskTolerance(opt.id)}
-                          className={`rounded border px-2 py-1.5 text-xxs font-bold transition-colors whitespace-nowrap ${
+                          className={`rounded border px-1.5 sm:px-2 py-1.5 text-[11px] sm:text-xxs font-bold transition-colors whitespace-nowrap ${
                             riskTolerance === opt.id
                               ? "border-primary bg-primary/10 text-primary"
                               : "border-border bg-background text-muted-foreground hover:bg-muted/40 hover:text-foreground"
                           }`}
                         >
-                          {opt.label}
+                          <span className="sm:hidden">{opt.shortLabel}</span>
+                          <span className="hidden sm:inline">{opt.label}</span>
                         </button>
                       ))}
                     </div>
@@ -742,8 +749,8 @@ export const StockHealthCheck = ({
                 </div>
 
                 {/* リスクリワード比 (RR) 設定バー */}
-                <div className="flex flex-col gap-2 rounded border border-border/60 bg-muted/20 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex items-center gap-2">
+                <div className="flex flex-col gap-2 rounded border border-border/60 bg-muted/20 px-2.5 sm:px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-center justify-between sm:justify-start gap-2">
                     <span className="text-xs font-bold text-foreground">
                       リスクリワード比 (RR)
                     </span>
@@ -751,7 +758,7 @@ export const StockHealthCheck = ({
                       1 : {calculatedScenario.riskReward}
                     </span>
                   </div>
-                  <div className="flex flex-wrap items-center gap-1">
+                  <div className="grid grid-cols-3 gap-1 sm:flex sm:flex-wrap sm:items-center">
                     {(
                       [
                         { value: null, label: "自動" },
@@ -768,7 +775,7 @@ export const StockHealthCheck = ({
                           key={opt.label}
                           type="button"
                           onClick={() => setTargetRiskReward(opt.value)}
-                          className={`rounded border px-2 py-1 font-mono text-xxs font-bold transition-colors whitespace-nowrap ${
+                          className={`rounded border px-2 py-1 font-mono text-xxs font-bold transition-colors whitespace-nowrap text-center ${
                             active
                               ? "border-primary bg-primary/10 text-primary"
                               : "border-border bg-background text-muted-foreground hover:bg-muted/40 hover:text-foreground"
@@ -782,68 +789,68 @@ export const StockHealthCheck = ({
                 </div>
 
                 {/* 5段階価格ラダー */}
-                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-5">
+                <div className="grid grid-cols-2 gap-2 lg:grid-cols-5 sm:gap-2.5">
                   {/* 第2目標 */}
-                  <div className="rounded-lg border border-border border-t-2 border-t-stock-up bg-background p-2.5 text-center space-y-1">
-                    <span className="text-xxs font-bold text-stock-up">
+                  <div className="rounded-lg border border-border border-t-2 border-t-stock-up bg-background p-2 sm:p-2.5 text-center space-y-0.5 sm:space-y-1">
+                    <span className="text-[10px] sm:text-xxs font-bold text-stock-up">
                       第2目標 (上値目途)
                     </span>
                     <div className="font-mono font-black text-base tabular-nums text-foreground">
                       ¥{calculatedScenario.targetPrice2.toLocaleString()}
                     </div>
-                    <span className="text-xxs text-stock-up font-bold">
+                    <span className="text-[10px] sm:text-xxs text-stock-up font-bold">
                       想定 +{calculatedScenario.upsidePct2.toFixed(1)}%
                     </span>
                   </div>
 
                   {/* 第1目標 */}
-                  <div className="rounded-lg border border-border border-t-2 border-t-primary/70 bg-background p-2.5 text-center space-y-1">
-                    <span className="text-xxs font-bold text-primary">
+                  <div className="rounded-lg border border-border border-t-2 border-t-primary/70 bg-background p-2 sm:p-2.5 text-center space-y-0.5 sm:space-y-1">
+                    <span className="text-[10px] sm:text-xxs font-bold text-primary">
                       第1目標 (直近高値)
                     </span>
                     <div className="font-mono font-black text-base tabular-nums text-foreground">
                       ¥{calculatedScenario.targetPrice1.toLocaleString()}
                     </div>
-                    <span className="text-xxs text-stock-up font-bold">
+                    <span className="text-[10px] sm:text-xxs text-stock-up font-bold">
                       想定 +{calculatedScenario.upsidePct.toFixed(1)}%
                     </span>
                   </div>
 
                   {/* 打診買いゾーン */}
-                  <div className="rounded-lg border border-border bg-muted/25 p-2.5 text-center space-y-1">
-                    <span className="text-xxs font-bold text-foreground">
+                  <div className="rounded-lg border border-border bg-muted/25 p-2 sm:p-2.5 text-center space-y-0.5 sm:space-y-1">
+                    <span className="text-[10px] sm:text-xxs font-bold text-foreground">
                       打診買いゾーン (30%)
                     </span>
                     <div className="font-mono font-black text-xs sm:text-sm tabular-nums text-foreground">
                       {calculatedScenario.entryZone}
                     </div>
-                    <span className="text-xxs text-muted-foreground">
+                    <span className="text-[10px] sm:text-xxs text-muted-foreground">
                       現在値付近で分割買い
                     </span>
                   </div>
 
                   {/* 本命押し目ゾーン */}
-                  <div className="rounded-lg border border-border bg-muted/25 p-2.5 text-center space-y-1">
-                    <span className="text-xxs font-bold text-foreground">
+                  <div className="rounded-lg border border-border bg-muted/25 p-2 sm:p-2.5 text-center space-y-0.5 sm:space-y-1">
+                    <span className="text-[10px] sm:text-xxs font-bold text-foreground">
                       本命押し目ゾーン (70%)
                     </span>
                     <div className="font-mono font-black text-xs sm:text-sm tabular-nums text-foreground">
                       {calculatedScenario.deepEntryZone}
                     </div>
-                    <span className="text-xxs text-muted-foreground">
+                    <span className="text-[10px] sm:text-xxs text-muted-foreground">
                       下値指値で待機
                     </span>
                   </div>
 
                   {/* 撤退・損切りライン */}
-                  <div className="rounded-lg border border-border border-t-2 border-t-stock-down bg-background p-2.5 text-center space-y-1">
-                    <span className="text-xxs font-bold text-stock-down">
+                  <div className="col-span-2 lg:col-span-1 rounded-lg border border-border border-t-2 border-t-stock-down bg-background p-2 sm:p-2.5 text-center space-y-0.5 sm:space-y-1">
+                    <span className="text-[10px] sm:text-xxs font-bold text-stock-down">
                       撤退・損切りライン
                     </span>
                     <div className="font-mono font-black text-base tabular-nums text-foreground">
                       ¥{calculatedScenario.stopLossPrice.toLocaleString()} 割れ
                     </div>
-                    <span className="text-xxs text-stock-down font-bold">
+                    <span className="text-[10px] sm:text-xxs text-stock-down font-bold">
                       最大 -{calculatedScenario.downsidePct.toFixed(1)}%
                     </span>
                   </div>

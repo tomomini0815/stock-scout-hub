@@ -627,8 +627,8 @@ const ChartPage = () => {
       <SiteHeader activeTab="銘柄・チャート" />
       <MarketTicker indices={marketIndices} />
 
-      <main className="container mx-auto px-4 py-3">
-        <div className="mb-3 flex items-center justify-between gap-2">
+      <main className="container mx-auto px-2.5 py-2.5 sm:px-4 sm:py-3">
+        <div className="mb-2.5 sm:mb-3 flex items-center justify-between gap-2">
           <h2 className="flex items-center gap-2 text-sm font-bold text-foreground">
             <BarChart3 className="h-4 w-4 text-primary" />
             銘柄・チャート
@@ -645,7 +645,7 @@ const ChartPage = () => {
 
         <div className="mb-3 grid min-h-0 grid-cols-1 items-stretch gap-3 lg:grid-cols-4">
           {/* Stock selector */}
-          <div className="flex min-h-[520px] min-w-0 lg:col-span-1 lg:h-full">
+          <div className="flex max-h-[320px] min-h-0 min-w-0 lg:col-span-1 lg:h-full lg:max-h-none lg:min-h-[520px]">
             <div className="flex min-h-0 w-full flex-col rounded border border-border bg-card lg:h-full">
               <div className="border-b border-border bg-table-header-bg px-3 py-1.5">
                 <div className="flex items-start justify-between gap-2">
@@ -924,17 +924,17 @@ const ChartPage = () => {
             {/* 銘柄カルテへのクイック導線 */}
             <div
               id="selected-stock-header"
-              className="scroll-mt-20 sm:scroll-mt-24 mb-2 flex flex-wrap items-center justify-between gap-2 rounded border border-border/80 bg-card px-3 py-1.5 shadow-2xs"
+              className="scroll-mt-20 sm:scroll-mt-24 mb-2 flex flex-wrap items-center justify-between gap-1.5 sm:gap-2 rounded border border-border/80 bg-card px-2.5 sm:px-3 py-1.5 shadow-2xs"
             >
-              <div className="flex flex-wrap items-center gap-1.5 text-xs">
-                <span className="font-semibold text-muted-foreground">選択銘柄:</span>
+              <div className="flex min-w-0 flex-wrap items-center gap-1 sm:gap-1.5 text-xs">
+                <span className="hidden sm:inline font-semibold text-muted-foreground">選択銘柄:</span>
                 <span className="rounded bg-primary px-1.5 py-0.5 font-mono text-xxs font-bold text-primary-foreground">
                   {selected?.code || featuredStock.code}
                 </span>
-                <span className="font-bold text-foreground">
+                <span className="truncate font-bold text-foreground">
                   {selected?.name || featuredStock.name}
                 </span>
-                <span className="text-xxs text-muted-foreground">
+                <span className="hidden sm:inline text-xxs text-muted-foreground">
                   ({selected?.market || featuredStock.market || "東証"})
                 </span>
                 {selected && (
@@ -957,7 +957,7 @@ const ChartPage = () => {
                   </button>
                 )}
               </div>
-              <div className="flex items-center gap-2">
+              <div className="ml-auto flex items-center gap-2">
                 <Link
                   to={`/advisor?tab=health&code=${encodeURIComponent(selected?.code || featuredStock.code)}`}
                   className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-2.5 py-1 text-xs font-semibold text-foreground transition-colors hover:border-primary hover:bg-muted"
@@ -979,17 +979,22 @@ const ChartPage = () => {
               hideHealthCheckLink
             />
 
-            <div className="mt-3 grid grid-cols-3 gap-2 md:grid-cols-5 md:gap-3">
+            <div className="mt-3 grid grid-cols-3 gap-1.5 sm:gap-2 md:grid-cols-5 md:gap-3">
               {[
-                { label: "始値", value: selected?.open?.toLocaleString() || "0" },
-                { label: "高値", value: selected?.high?.toLocaleString() || "0" },
-                { label: "安値", value: selected?.low?.toLocaleString() || "0" },
-                { label: "前日終値", value: selected?.previousClose?.toLocaleString() || "0" },
-                { label: "出来高", value: (selected?.volume?.toLocaleString() || "0") + "株" },
+                { label: "始値", value: selected?.open?.toLocaleString() || "0", wide: false },
+                { label: "高値", value: selected?.high?.toLocaleString() || "0", wide: false },
+                { label: "安値", value: selected?.low?.toLocaleString() || "0", wide: false },
+                { label: "前日終値", value: selected?.previousClose?.toLocaleString() || "0", wide: false },
+                { label: "出来高", value: (selected?.volume?.toLocaleString() || "0") + "株", wide: true },
               ].map((item) => (
-                <div key={item.label} className="min-w-0 rounded border border-border bg-card p-2 text-center">
+                <div
+                  key={item.label}
+                  className={`min-w-0 rounded border border-border bg-card p-2 text-center ${
+                    item.wide ? "col-span-2 md:col-span-1" : ""
+                  }`}
+                >
                   <div className="text-xxs text-muted-foreground">{item.label}</div>
-                  <div className="text-sm font-bold tabular-nums text-foreground">{item.value}</div>
+                  <div className="truncate text-xs sm:text-sm font-bold tabular-nums text-foreground">{item.value}</div>
                 </div>
               ))}
             </div>

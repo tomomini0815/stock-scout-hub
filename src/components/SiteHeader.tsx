@@ -14,7 +14,7 @@ import {
   ShieldAlert,
   SlidersHorizontal,
 } from "lucide-react";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useLayoutEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   Sheet,
@@ -102,7 +102,45 @@ const SiteHeader = ({ activeTab = "トップ" }: SiteHeaderProps) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  const navListRef = useRef<HTMLUListElement>(null);
+  const activeNavItemRef = useRef<HTMLLIElement>(null);
   const navigate = useNavigate();
+
+  // ページ遷移してもモバイルヘッダーの横スクロール位置を維持し、選択中タブを常に見える位置に保つ
+  useLayoutEffect(() => {
+    const list = navListRef.current;
+    if (!list) return;
+
+    try {
+      const saved = sessionStorage.getItem("site-header-nav-scroll-left");
+      if (saved !== null) {
+        const parsed = Number(saved);
+        if (Number.isFinite(parsed) && parsed >= 0) {
+          list.scrollLeft = parsed;
+        }
+      }
+    } catch {
+      // ignore storage access errors
+    }
+
+    const activeItem = activeNavItemRef.current;
+    if (!activeItem) return;
+
+    const itemLeft = activeItem.offsetLeft;
+    const itemRight = itemLeft + activeItem.offsetWidth;
+    const viewLeft = list.scrollLeft;
+    const viewRight = viewLeft + list.clientWidth;
+
+    if (itemLeft < viewLeft || itemRight > viewRight) {
+      const centered = Math.max(0, itemLeft - (list.clientWidth - activeItem.offsetWidth) / 2);
+      list.scrollLeft = centered;
+      try {
+        sessionStorage.setItem("site-header-nav-scroll-left", String(list.scrollLeft));
+      } catch {
+        // ignore storage access errors
+      }
+    }
+  }, [activeTab]);
   const todayLabel = new Intl.DateTimeFormat("ja-JP", {
     year: "numeric",
     month: "long",
@@ -266,7 +304,20 @@ const SiteHeader = ({ activeTab = "トップ" }: SiteHeaderProps) => {
       {/* Navigation bar（PC・モバイルともにスクロールしても常時表示） */}
       <nav aria-label="メインナビゲーション" className="sticky top-0 z-40 bg-nav-bg shadow-sm">
         <div className="container mx-auto flex items-center justify-between gap-2 px-2 sm:px-4">
-          <ul className="flex min-w-0 flex-1 items-center justify-start gap-0.5 overflow-x-auto overflow-y-hidden overscroll-x-contain touch-pan-x md:overflow-visible no-scrollbar text-xs sm:text-[13px]">
+          <ul
+            ref={navListRef}
+            onScroll={(event) => {
+              try {
+                sessionStorage.setItem(
+                  "site-header-nav-scroll-left",
+                  String(event.currentTarget.scrollLeft)
+                );
+              } catch {
+                // ignore storage access errors
+              }
+            }}
+            className="flex min-w-0 flex-1 items-center justify-start gap-0.5 overflow-x-auto overflow-y-hidden overscroll-x-contain touch-pan-x md:overflow-visible no-scrollbar text-xs sm:text-[13px]"
+          >
             {navItems.map((item) => {
               const normalizedActiveTab = activeTab === "チャートパターン" ? "銘柄・チャート" : activeTab;
               const isActive = normalizedActiveTab === item.label;
@@ -275,6 +326,7 @@ const SiteHeader = ({ activeTab = "トップ" }: SiteHeaderProps) => {
               return (
                 <li
                   key={item.label}
+                  ref={isActive ? activeNavItemRef : undefined}
                   className="relative shrink-0"
                   onMouseEnter={() => {
                     if (hasSubItems) setOpenDropdown(item.label);

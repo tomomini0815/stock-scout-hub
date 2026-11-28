@@ -198,7 +198,7 @@ const EarningsPage = () => {
       <SiteHeader activeTab="決算・IPO" />
       <MarketTicker indices={marketIndices} />
 
-      <main className="container mx-auto space-y-3 px-4 py-3">
+      <main className="container mx-auto space-y-2.5 sm:space-y-3 px-2.5 py-2.5 sm:px-4 sm:py-3">
         <h2 className="flex items-center gap-2 text-sm font-bold text-foreground">
           <CalendarDays className="h-4 w-4 text-primary" />
           決算・IPO材料
@@ -237,17 +237,17 @@ const EarningsPage = () => {
                 <span>5分ごとに自動更新・更新まで保存済み1カ月分を表示</span>
               </div>
             </div>
-            <div className="flex w-full flex-col gap-2 sm:flex-row lg:w-auto">
+            <div className="flex w-full items-center gap-1.5 sm:gap-2 lg:w-auto">
               <button
                 type="button"
                 onClick={refresh}
                 disabled={status === "loading"}
-                className="inline-flex h-8 items-center justify-center gap-1 rounded border border-border bg-background px-2 text-xxs font-semibold text-foreground transition-colors hover:bg-muted/60 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex h-8 shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded border border-border bg-background px-2.5 text-xxs font-semibold text-foreground transition-colors hover:bg-muted/60 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <RefreshCw className={`h-3.5 w-3.5 ${status === "loading" ? "animate-spin" : ""}`} />
                 更新
               </button>
-              <div className="relative w-full lg:w-80">
+              <div className="relative min-w-0 flex-1 lg:w-80">
                 <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                 <input
                   type="search"
@@ -260,7 +260,7 @@ const EarningsPage = () => {
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-1.5 border-b border-border px-3 py-2">
+          <div className="flex items-center gap-1.5 overflow-x-auto overflow-y-hidden overscroll-x-contain touch-pan-x no-scrollbar border-b border-border px-2.5 py-2 sm:flex-wrap sm:overflow-visible sm:px-3">
             {filterOptions.map((option) => {
               const isActive =
                 option.kind === "type"
@@ -280,7 +280,7 @@ const EarningsPage = () => {
                       setSelectedSignal(option.value);
                     }
                   }}
-                  className={`h-7 rounded border px-2 text-xxs font-semibold ${
+                  className={`h-7 shrink-0 whitespace-nowrap rounded border px-2 text-xxs font-semibold ${
                     isActive
                       ? "border-primary bg-primary text-primary-foreground"
                       : "border-border bg-background text-foreground hover:bg-muted/60"
@@ -317,23 +317,25 @@ const EarningsPage = () => {
                   href={item.url}
                   target="_blank"
                   rel="noreferrer"
-                  className="grid gap-2 px-3 py-2 transition-colors hover:bg-muted/50 md:grid-cols-[6rem_4.5rem_7.5rem_1fr_8rem]"
+                  className="grid gap-1.5 px-2.5 py-2.5 transition-colors hover:bg-muted/50 sm:px-3 md:grid-cols-[6rem_4.5rem_7.5rem_1fr_8rem] md:gap-2 md:py-2"
                 >
-                  <div className="tabular-nums text-xxs font-medium text-muted-foreground">
-                    {item.date} {item.time}
-                  </div>
-                  <div>
-                    <span className="rounded bg-muted px-1.5 py-0.5 text-xxs font-bold text-foreground">
-                      {type}
-                    </span>
-                  </div>
-                  <div>
-                    <span className={`rounded px-1.5 py-0.5 text-xxs font-bold ${signalTone[signal]}`}>
-                      {signal}
-                    </span>
+                  <div className="flex flex-wrap items-center gap-1.5 md:contents">
+                    <div className="tabular-nums text-xxs font-medium text-muted-foreground">
+                      {item.date} {item.time}
+                    </div>
+                    <div>
+                      <span className="whitespace-nowrap rounded bg-muted px-1.5 py-0.5 text-xxs font-bold text-foreground">
+                        {type}
+                      </span>
+                    </div>
+                    <div>
+                      <span className={`whitespace-nowrap rounded px-1.5 py-0.5 text-xxs font-bold ${signalTone[signal]}`}>
+                        {signal}
+                      </span>
+                    </div>
                   </div>
                   <div className="text-xs font-medium leading-relaxed text-foreground">
-                    <div>{item.title}</div>
+                    <div className="font-semibold">{item.title}</div>
                     {summaryText && (
                       <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
                         <span className="mr-1 text-xxs font-bold text-foreground">記事本文要約</span>
@@ -342,8 +344,8 @@ const EarningsPage = () => {
                     )}
                   </div>
                   <div className="flex items-center justify-end gap-1 text-xxs text-muted-foreground">
-                    {item.source}
-                    <ExternalLink className="h-3 w-3" />
+                    <span className="truncate">{item.source}</span>
+                    <ExternalLink className="h-3 w-3 shrink-0" />
                   </div>
                 </a>
               );

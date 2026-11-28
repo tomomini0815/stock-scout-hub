@@ -253,13 +253,13 @@ export const NewNisaSimulator = () => {
     <div className="min-w-0">
       {/* 上部バー: タイトル＋モデルケース（塗りボタン） */}
       <div className="border-b border-border bg-table-header-bg px-3 py-2.5 sm:px-4">
-        <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex flex-wrap items-center gap-1.5 min-w-0">
-            <h2 className="flex items-center gap-1.5 text-sm font-bold text-foreground">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-2">
+          <div className="flex min-w-0 items-center justify-between gap-1.5 sm:justify-start">
+            <h2 className="flex min-w-0 items-center gap-1.5 text-xs sm:text-sm font-bold text-foreground">
               <PiggyBank className="h-4 w-4 shrink-0 text-primary" />
-              新NISA 生涯枠シミュレーター
+              <span className="truncate">新NISA 生涯枠シミュレーター</span>
             </h2>
-            <span className="whitespace-nowrap rounded border border-border bg-muted px-1.5 py-0.5 text-xxs font-semibold text-foreground/80">
+            <span className="ml-auto shrink-0 whitespace-nowrap rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] sm:ml-0 sm:text-xxs font-semibold text-foreground/80">
               生涯1,800万 / 成長1,200万
             </span>
           </div>

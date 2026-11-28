@@ -550,34 +550,55 @@ export const StockDecisionSimulator = ({
     };
   }, [budget, portfolioStrategy, allowOddLot, portfolioLiveStocks]);
 
+  const [activeQuickNav, setActiveQuickNav] = useState<string>("versus-section");
+
   return (
-    <div className="space-y-3 sm:space-y-4">
-      {/* モバイル・PC共通 クイックセクションナビ（1タップで各診断へジャンプ） */}
+    <div className="min-w-0">
+      {/* 上部バー: 4機能ジャンプボタン（新NISA・指標ガイド統一トンマナ） */}
       <nav
         aria-label="シミュレーター機能ショートカット"
-        className="grid grid-cols-2 gap-1.5 sm:grid-cols-4"
+        className="border-b border-border bg-table-header-bg px-3 py-2 sm:px-4"
       >
-        {[
-          { id: "versus-section", label: "2銘柄ガチンコ比較" },
-          { id: "scenario-section", label: "売買シナリオ判定" },
-          { id: "portfolio-section", label: "予算別ポートフォリオ" },
-          { id: "wizard-section", label: "3分スタイル診断" },
-        ].map((nav) => (
-          <button
-            key={nav.id}
-            type="button"
-            onClick={() => {
-              document.getElementById(nav.id)?.scrollIntoView({
-                behavior: "smooth",
-                block: "start",
-              });
-            }}
-            className="flex h-8 items-center justify-center rounded border border-border bg-muted/40 px-2 text-[11px] sm:text-xs font-bold text-foreground/85 hover:bg-muted hover:text-foreground transition-colors whitespace-nowrap"
-          >
-            {nav.label}
-          </button>
-        ))}
+        <div className="grid grid-cols-2 gap-1.5 sm:flex sm:flex-wrap sm:items-center">
+          {[
+            { id: "versus-section", label: "2銘柄ガチンコ比較", icon: Scale },
+            { id: "scenario-section", label: "売買シナリオ判定", icon: Target },
+            { id: "portfolio-section", label: "予算別ポートフォリオ", icon: Wallet },
+            { id: "wizard-section", label: "3分スタイル診断", icon: Compass },
+          ].map((nav) => {
+            const Icon = nav.icon;
+            const isActive = activeQuickNav === nav.id;
+            return (
+              <button
+                key={nav.id}
+                type="button"
+                onClick={() => {
+                  setActiveQuickNav(nav.id);
+                  document.getElementById(nav.id)?.scrollIntoView({
+                    behavior: "smooth",
+                    block: "start",
+                  });
+                }}
+                className={`inline-flex min-w-0 items-center justify-center sm:justify-start gap-1.5 rounded-lg border px-2.5 py-1.5 text-xxs font-bold transition-colors sm:h-7 sm:rounded-full sm:py-0 ${
+                  isActive
+                    ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                    : "border-border bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                }`}
+              >
+                <Icon
+                  className={`h-3.5 w-3.5 shrink-0 ${
+                    isActive ? "text-primary-foreground" : "text-muted-foreground"
+                  }`}
+                />
+                <span className="truncate">{nav.label}</span>
+              </button>
+            );
+          })}
+        </div>
       </nav>
+
+      {/* メインコンテンツ領域 */}
+      <div className="space-y-3 sm:space-y-4 p-2.5 sm:p-4">
 
       {/* ========================================================== */}
       {/* セクション 1: 2銘柄ガチンコ比較 (Versus) */}
@@ -961,7 +982,7 @@ export const StockDecisionSimulator = ({
                   <button
                     type="button"
                     onClick={() => handleToggleWatchlist(scenarioStock)}
-                    className={`inline-flex h-6 items-center gap-1 whitespace-nowrap rounded border px-2 text-[10px] font-bold transition-colors ${
+                    className={`ml-auto inline-flex h-6 items-center gap-1 whitespace-nowrap rounded border px-2 text-[10px] font-bold transition-colors ${
                       watchlistCodes.includes(scenarioStock.code)
                         ? "border-primary/60 bg-primary/10 text-primary"
                         : "border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -1544,6 +1565,7 @@ export const StockDecisionSimulator = ({
           />
         </div>
       </section>
+      </div>
     </div>
   );
 };

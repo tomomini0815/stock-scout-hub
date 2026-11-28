@@ -130,7 +130,7 @@ export const PatternsPage: React.FC = () => {
         {/* ツールバー（カテゴリフィルター ＆ 検索バー） */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 rounded border border-border/70 bg-card p-1.5 shadow-2xs">
           {/* カテゴリフィルタータブ */}
-          <div className="flex flex-wrap items-center gap-1">
+          <div className="flex items-center gap-1 overflow-x-auto overflow-y-hidden overscroll-x-contain touch-pan-x no-scrollbar sm:flex-wrap sm:overflow-visible">
             {[
               { id: "all", label: "すべて (全20型)" },
               { id: "bullish", label: "🔴 買い (Bullish)" },
@@ -142,7 +142,7 @@ export const PatternsPage: React.FC = () => {
                 key={tab.id}
                 type="button"
                 onClick={() => setSelectedCategory(tab.id as FilterCategory)}
-                className={`px-2.5 py-1 rounded text-xs font-semibold transition-colors ${
+                className={`shrink-0 whitespace-nowrap px-2.5 py-1 rounded text-xs font-semibold transition-colors ${
                   selectedCategory === tab.id
                     ? "bg-primary text-primary-foreground font-bold shadow-2xs"
                     : "bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground font-medium"
@@ -219,28 +219,28 @@ export const PatternsPage: React.FC = () => {
         </section>
 
         {/* チャートパターン実戦攻略ガイド */}
-        <section className="bg-white dark:bg-card border-2 border-slate-200 dark:border-border rounded-2xl p-6 sm:p-7 shadow-sm space-y-4">
+        <section className="bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl p-3.5 sm:p-6 shadow-sm space-y-3 sm:space-y-4">
           <div className="flex items-center gap-2">
-            <BookOpen className="w-5 h-5 text-primary" />
-            <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">
+            <BookOpen className="w-4 h-4 sm:w-5 sm:h-5 shrink-0 text-primary" />
+            <h2 className="text-sm sm:text-lg font-bold text-slate-900 dark:text-slate-100">
               チャートパターントレードで勝率を高める「4つの鉄則」
             </h2>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-2">
-            <div className="bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-border p-4 rounded-xl space-y-1.5">
-              <div className="text-primary font-bold text-sm flex items-center gap-1.5">
-                <CheckCircle className="w-4 h-4 text-emerald-600" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4 pt-1">
+            <div className="bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-border p-3 sm:p-4 rounded-xl space-y-1.5">
+              <div className="text-primary font-bold text-xs sm:text-sm flex items-center gap-1.5">
+                <CheckCircle className="w-4 h-4 shrink-0 text-emerald-600" />
                 <span>1. 終値ブレイクを待つ</span>
               </div>
               <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                ザラ場中にラインを一瞬抜けただけの「ヒゲ」で飛びつくと、機関投資家のダマシ（騙し）に巻き込まれます。必ず日足や4時間足の**ローソク足実体が確定**したことを確認してエントリーしましょう。
+                ザラ場中にラインを一瞬抜けただけの「ヒゲ」で飛びつくと、機関投資家のダマシ（騙し）に巻き込まれます。必ず日足や4時間足の<strong className="text-foreground">ローソク足実体が確定</strong>したことを確認してエントリーしましょう。
               </p>
             </div>
 
-            <div className="bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-border p-4 rounded-xl space-y-1.5">
-              <div className="text-primary font-bold text-sm flex items-center gap-1.5">
-                <CheckCircle className="w-4 h-4 text-emerald-600" />
+            <div className="bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-border p-3 sm:p-4 rounded-xl space-y-1.5">
+              <div className="text-primary font-bold text-xs sm:text-sm flex items-center gap-1.5">
+                <CheckCircle className="w-4 h-4 shrink-0 text-emerald-600" />
                 <span>2. ネックラインのリテスト</span>
               </div>
               <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
@@ -248,13 +248,13 @@ export const PatternsPage: React.FC = () => {
               </p>
             </div>
 
-            <div className="bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-border p-4 rounded-xl space-y-1.5">
-              <div className="text-primary font-bold text-sm flex items-center gap-1.5">
-                <CheckCircle className="w-4 h-4 text-emerald-600" />
+            <div className="bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-border p-3 sm:p-4 rounded-xl space-y-1.5">
+              <div className="text-primary font-bold text-xs sm:text-sm flex items-center gap-1.5">
+                <CheckCircle className="w-4 h-4 shrink-0 text-emerald-600" />
                 <span>3. 出来高（ボリューム）の裏付け</span>
               </div>
               <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                本物のブレイクアウトには必ず**出来高の急増**が伴います。特にカップウィズハンドルやフラッグ、レクタングルの上放れでは、通常時の1.5倍〜2倍以上の大商いがあるか確認してください。
+                本物のブレイクアウトには必ず<strong className="text-foreground">出来高の急増</strong>が伴います。特にカップウィズハンドルやフラッグ、レクタングルの上放れでは、通常時の1.5倍〜2倍以上の大商いがあるか確認してください。
               </p>
             </div>
 

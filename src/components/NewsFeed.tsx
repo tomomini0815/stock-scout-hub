@@ -696,7 +696,7 @@ const NewsFeed = ({ news: incomingNews }: NewsFeedProps) => {
 
   return (
     <div className="rounded border border-border bg-card">
-      <div className="flex items-center gap-1 overflow-x-auto border-b border-border bg-table-header-bg px-2 py-1.5 no-scrollbar">
+      <div className="flex items-center gap-1 overflow-x-auto overflow-y-hidden overscroll-x-contain touch-pan-x border-b border-border bg-table-header-bg px-2 py-1.5 no-scrollbar">
         {orderedColumns.map((column) => (
           <button
             key={column.id}

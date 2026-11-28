@@ -879,61 +879,111 @@ export const detectSupportResistanceHits = (
     const spokenName = getSpokenIndexName(index);
 
     for (const level of levels) {
-      if (nowMs - (lastSrAlertAt[level.id] ?? 0) < cooldownMs) continue;
       const distPct = (Math.abs(currentPrice - level.price) / level.price) * 100;
+      const exceededMarginPct = Math.max(marginPct * 3, 0.3);
+      const breakKey = `${level.id}:break`;
+      const nearKey = `${level.id}:near`;
+      const isBreakCoolingDown =
+        nowMs - (lastSrAlertAt[breakKey] ?? lastSrAlertAt[level.id] ?? 0) < cooldownMs;
+      const isNearCoolingDown =
+        nowMs - (lastSrAlertAt[nearKey] ?? lastSrAlertAt[level.id] ?? 0) < cooldownMs;
 
       if (level.kind === "resistance") {
         if (settings.directionFilter === "down") continue;
         const crossed =
           typeof prevPrice === "number" && prevPrice < level.price && currentPrice >= level.price;
-        const near = distPct <= marginPct;
-        if (!crossed && !near) continue;
+        const exceeded = !crossed && currentPrice > level.price && distPct <= exceededMarginPct;
+        const near = currentPrice <= level.price && distPct <= marginPct;
 
-        const levelText = formatSpokenPrice(index.name, level.price);
-        const currText = formatSpokenPrice(index.name, currentPrice);
-        const raw = crossed
-          ? `サポレジ突破。${spokenName}が${periodLabel}${level.label}、${levelText}を突破しました。現在${currText}です。`
-          : `サポレジ到達。${spokenName}が${periodLabel}${level.label}、${levelText}付近に到達しました。現在${currText}です。`;
+        if (crossed || exceeded) {
+          if (isBreakCoolingDown) continue;
+          const levelText = formatSpokenPrice(index.name, level.price);
+          const currText = formatSpokenPrice(index.name, currentPrice);
+          const raw = crossed
+            ? `サポレジ突破。${spokenName}が${periodLabel}${level.label}、${levelText}を上抜け突破しました。現在${currText}です。`
+            : `サポレジ上抜け。${spokenName}が${periodLabel}${level.label}、${levelText}を超えて推移しています。現在${currText}です。`;
 
-        events.push({
-          id: `sr-${level.id}-${nowMs}`,
-          kind: "sr-line",
-          alertId: level.id,
-          indexName: index.name,
-          displayName: `${spokenName} ${level.label}`,
-          price: currentPrice,
-          prevPrice: level.price,
-          deltaPercent: ((currentPrice - level.price) / level.price) * 100,
-          direction: "up",
-          speechText: raw,
-          detectedAt: nowDate.toISOString(),
-        });
+          events.push({
+            id: `sr-${breakKey}-${nowMs}`,
+            kind: "sr-line",
+            alertId: breakKey,
+            indexName: index.name,
+            displayName: `${spokenName} ${level.label}`,
+            price: currentPrice,
+            prevPrice: level.price,
+            deltaPercent: ((currentPrice - level.price) / level.price) * 100,
+            direction: "up",
+            speechText: raw,
+            detectedAt: nowDate.toISOString(),
+          });
+        } else if (near) {
+          if (isNearCoolingDown) continue;
+          const levelText = formatSpokenPrice(index.name, level.price);
+          const currText = formatSpokenPrice(index.name, currentPrice);
+          const raw = `サポレジ到達。${spokenName}が${periodLabel}${level.label}、${levelText}付近に接近しました。現在${currText}です。`;
+
+          events.push({
+            id: `sr-${nearKey}-${nowMs}`,
+            kind: "sr-line",
+            alertId: nearKey,
+            indexName: index.name,
+            displayName: `${spokenName} ${level.label}`,
+            price: currentPrice,
+            prevPrice: level.price,
+            deltaPercent: ((currentPrice - level.price) / level.price) * 100,
+            direction: "up",
+            speechText: raw,
+            detectedAt: nowDate.toISOString(),
+          });
+        }
       } else {
         if (settings.directionFilter === "up") continue;
         const crossed =
           typeof prevPrice === "number" && prevPrice > level.price && currentPrice <= level.price;
-        const near = distPct <= marginPct;
-        if (!crossed && !near) continue;
+        const exceeded = !crossed && currentPrice < level.price && distPct <= exceededMarginPct;
+        const near = currentPrice >= level.price && distPct <= marginPct;
 
-        const levelText = formatSpokenPrice(index.name, level.price);
-        const currText = formatSpokenPrice(index.name, currentPrice);
-        const raw = crossed
-          ? `サポレジ割れ。${spokenName}が${periodLabel}${level.label}、${levelText}を割り込みました。現在${currText}です。`
-          : `サポレジ到達。${spokenName}が${periodLabel}${level.label}、${levelText}付近に到達しました。現在${currText}です。`;
+        if (crossed || exceeded) {
+          if (isBreakCoolingDown) continue;
+          const levelText = formatSpokenPrice(index.name, level.price);
+          const currText = formatSpokenPrice(index.name, currentPrice);
+          const raw = crossed
+            ? `サポレジ割れ。${spokenName}が${periodLabel}${level.label}、${levelText}を下抜け割り込みました。現在${currText}です。`
+            : `サポレジ下抜け。${spokenName}が${periodLabel}${level.label}、${levelText}を割り込んで推移しています。現在${currText}です。`;
 
-        events.push({
-          id: `sr-${level.id}-${nowMs}`,
-          kind: "sr-line",
-          alertId: level.id,
-          indexName: index.name,
-          displayName: `${spokenName} ${level.label}`,
-          price: currentPrice,
-          prevPrice: level.price,
-          deltaPercent: ((currentPrice - level.price) / level.price) * 100,
-          direction: "down",
-          speechText: raw,
-          detectedAt: nowDate.toISOString(),
-        });
+          events.push({
+            id: `sr-${breakKey}-${nowMs}`,
+            kind: "sr-line",
+            alertId: breakKey,
+            indexName: index.name,
+            displayName: `${spokenName} ${level.label}`,
+            price: currentPrice,
+            prevPrice: level.price,
+            deltaPercent: ((currentPrice - level.price) / level.price) * 100,
+            direction: "down",
+            speechText: raw,
+            detectedAt: nowDate.toISOString(),
+          });
+        } else if (near) {
+          if (isNearCoolingDown) continue;
+          const levelText = formatSpokenPrice(index.name, level.price);
+          const currText = formatSpokenPrice(index.name, currentPrice);
+          const raw = `サポレジ到達。${spokenName}が${periodLabel}${level.label}、${levelText}付近に接近しました。現在${currText}です。`;
+
+          events.push({
+            id: `sr-${nearKey}-${nowMs}`,
+            kind: "sr-line",
+            alertId: nearKey,
+            indexName: index.name,
+            displayName: `${spokenName} ${level.label}`,
+            price: currentPrice,
+            prevPrice: level.price,
+            deltaPercent: ((currentPrice - level.price) / level.price) * 100,
+            direction: "down",
+            speechText: raw,
+            detectedAt: nowDate.toISOString(),
+          });
+        }
       }
     }
   }
@@ -967,58 +1017,108 @@ export const detectUsdJpySupportResistanceHits = (
   const events: RateSpikeEvent[] = [];
 
   for (const level of levels) {
-    if (nowMs - (lastSrAlertAt[level.id] ?? 0) < cooldownMs) continue;
+    const breakKey = `${level.id}:break`;
+    const nearKey = `${level.id}:near`;
+    const isBreakCoolingDown =
+      nowMs - (lastSrAlertAt[breakKey] ?? lastSrAlertAt[level.id] ?? 0) < cooldownMs;
+    const isNearCoolingDown =
+      nowMs - (lastSrAlertAt[nearKey] ?? lastSrAlertAt[level.id] ?? 0) < cooldownMs;
+    const exceededMargin = Math.max(margin * 3, 0.3);
 
     if (level.kind === "resistance") {
       if (settings.directionFilter === "down") continue;
       const crossed = typeof prevPrice === "number" && prevPrice < level.price && currentPrice >= level.price;
-      const near = Math.abs(currentPrice - level.price) <= margin;
-      if (!crossed && !near) continue;
+      const exceeded = !crossed && currentPrice > level.price && currentPrice - level.price <= exceededMargin;
+      const near = currentPrice <= level.price && level.price - currentPrice <= margin;
 
-      const levelText = formatSpokenPrice("USD/JPY", level.price);
-      const currText = formatSpokenPrice("USD/JPY", currentPrice);
-      const raw = crossed
-        ? `サポレジ突破。ドル円が${level.label}、${levelText}を突破しました。現在${currText}です。`
-        : `サポレジ到達。ドル円が${level.label}、${levelText}付近に到達しました。現在${currText}です。`;
+      if (crossed || exceeded) {
+        if (isBreakCoolingDown) continue;
+        const levelText = formatSpokenPrice("USD/JPY", level.price);
+        const currText = formatSpokenPrice("USD/JPY", currentPrice);
+        const raw = crossed
+          ? `サポレジ突破。ドル円が${level.label}、${levelText}を上抜け突破しました。現在${currText}です。`
+          : `サポレジ上抜け。ドル円が${level.label}、${levelText}を超えて推移しています。現在${currText}です。`;
 
-      events.push({
-        id: `sr-${level.id}-${nowMs}`,
-        kind: "sr-line",
-        alertId: level.id,
-        indexName: "USD/JPY",
-        displayName: `ドル円 ${level.label}`,
-        price: currentPrice,
-        prevPrice: level.price,
-        deltaPercent: ((currentPrice - level.price) / level.price) * 100,
-        direction: "up",
-        speechText: raw,
-        detectedAt: nowDate.toISOString(),
-      });
+        events.push({
+          id: `sr-${breakKey}-${nowMs}`,
+          kind: "sr-line",
+          alertId: breakKey,
+          indexName: "USD/JPY",
+          displayName: `ドル円 ${level.label}`,
+          price: currentPrice,
+          prevPrice: level.price,
+          deltaPercent: ((currentPrice - level.price) / level.price) * 100,
+          direction: "up",
+          speechText: raw,
+          detectedAt: nowDate.toISOString(),
+        });
+      } else if (near) {
+        if (isNearCoolingDown) continue;
+        const levelText = formatSpokenPrice("USD/JPY", level.price);
+        const currText = formatSpokenPrice("USD/JPY", currentPrice);
+        const raw = `サポレジ到達。ドル円が${level.label}、${levelText}付近に接近しました。現在${currText}です。`;
+
+        events.push({
+          id: `sr-${nearKey}-${nowMs}`,
+          kind: "sr-line",
+          alertId: nearKey,
+          indexName: "USD/JPY",
+          displayName: `ドル円 ${level.label}`,
+          price: currentPrice,
+          prevPrice: level.price,
+          deltaPercent: ((currentPrice - level.price) / level.price) * 100,
+          direction: "up",
+          speechText: raw,
+          detectedAt: nowDate.toISOString(),
+        });
+      }
     } else {
       if (settings.directionFilter === "up") continue;
       const crossed = typeof prevPrice === "number" && prevPrice > level.price && currentPrice <= level.price;
-      const near = Math.abs(currentPrice - level.price) <= margin;
-      if (!crossed && !near) continue;
+      const exceeded = !crossed && currentPrice < level.price && level.price - currentPrice <= exceededMargin;
+      const near = currentPrice >= level.price && currentPrice - level.price <= margin;
 
-      const levelText = formatSpokenPrice("USD/JPY", level.price);
-      const currText = formatSpokenPrice("USD/JPY", currentPrice);
-      const raw = crossed
-        ? `サポレジ割れ。ドル円が${level.label}、${levelText}を割り込みました。現在${currText}です。`
-        : `サポレジ到達。ドル円が${level.label}、${levelText}付近に到達しました。現在${currText}です。`;
+      if (crossed || exceeded) {
+        if (isBreakCoolingDown) continue;
+        const levelText = formatSpokenPrice("USD/JPY", level.price);
+        const currText = formatSpokenPrice("USD/JPY", currentPrice);
+        const raw = crossed
+          ? `サポレジ割れ。ドル円が${level.label}、${levelText}を下抜け割り込みました。現在${currText}です。`
+          : `サポレジ下抜け。ドル円が${level.label}、${levelText}を割り込んで推移しています。現在${currText}です。`;
 
-      events.push({
-        id: `sr-${level.id}-${nowMs}`,
-        kind: "sr-line",
-        alertId: level.id,
-        indexName: "USD/JPY",
-        displayName: `ドル円 ${level.label}`,
-        price: currentPrice,
-        prevPrice: level.price,
-        deltaPercent: ((currentPrice - level.price) / level.price) * 100,
-        direction: "down",
-        speechText: raw,
-        detectedAt: nowDate.toISOString(),
-      });
+        events.push({
+          id: `sr-${breakKey}-${nowMs}`,
+          kind: "sr-line",
+          alertId: breakKey,
+          indexName: "USD/JPY",
+          displayName: `ドル円 ${level.label}`,
+          price: currentPrice,
+          prevPrice: level.price,
+          deltaPercent: ((currentPrice - level.price) / level.price) * 100,
+          direction: "down",
+          speechText: raw,
+          detectedAt: nowDate.toISOString(),
+        });
+      } else if (near) {
+        if (isNearCoolingDown) continue;
+        const levelText = formatSpokenPrice("USD/JPY", level.price);
+        const currText = formatSpokenPrice("USD/JPY", currentPrice);
+        const raw = `サポレジ到達。ドル円が${level.label}、${levelText}付近に接近しました。現在${currText}です。`;
+
+        events.push({
+          id: `sr-${nearKey}-${nowMs}`,
+          kind: "sr-line",
+          alertId: nearKey,
+          indexName: "USD/JPY",
+          displayName: `ドル円 ${level.label}`,
+          price: currentPrice,
+          prevPrice: level.price,
+          deltaPercent: ((currentPrice - level.price) / level.price) * 100,
+          direction: "down",
+          speechText: raw,
+          detectedAt: nowDate.toISOString(),
+        });
+      }
     }
   }
 

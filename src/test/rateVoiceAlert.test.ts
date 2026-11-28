@@ -244,4 +244,61 @@ describe("rateVoiceAlert", () => {
     expect(hits[0].speechText).toContain("200日上値抵抗線");
     expect(hits[0].speechText).toContain("突破しました");
   });
+
+  it("announces breakout even right after near alert and handles already-exceeded SR levels", () => {
+    const levels = {
+      "USD/JPY": [
+        { id: "usdjpy-60d-r1", kind: "resistance" as const, label: "上値抵抗線 R1", price: 160.0 },
+        { id: "usdjpy-60d-s1", kind: "support" as const, label: "下値支持線 S1", price: 158.0 },
+      ],
+    };
+    const settings = {
+      ...DEFAULT_VOICE_ALERT_SETTINGS,
+      enabled: true,
+      srEnabled: true,
+      srTargets: ["USD/JPY"],
+      srLookbackDays: 60 as const,
+      srMarginPercent: 0.1,
+    };
+    const baseMs = Date.parse("2026-11-24T01:00:00Z");
+    const lastSrAt: Record<string, number> = {};
+
+    // 1. 接近アラート（159.92）
+    const nearHits = detectSupportResistanceHits(
+      [{ name: "USD/JPY", value: 159.92, change: 0.5, changePercent: 0.3 }],
+      { "USD/JPY": 159.8 },
+      levels,
+      settings,
+      lastSrAt,
+      baseMs
+    );
+    expect(nearHits).toHaveLength(1);
+    expect(nearHits[0].speechText).toContain("接近しました");
+    if (nearHits[0].alertId) lastSrAt[nearHits[0].alertId] = baseMs;
+
+    // 2. 20秒後に160.0を上抜け突破（接近クールダウン中でも突破は読み上げる）
+    const breakHits = detectSupportResistanceHits(
+      [{ name: "USD/JPY", value: 160.08, change: 0.7, changePercent: 0.45 }],
+      { "USD/JPY": 159.92 },
+      levels,
+      settings,
+      lastSrAt,
+      baseMs + 20_000
+    );
+    expect(breakHits).toHaveLength(1);
+    expect(breakHits[0].speechText).toContain("上抜け突破しました");
+
+    // 3. 初回監視時に既にサポートを割り込んでいる場合（prevPriceなし）は「下抜け」と読み上げる
+    const exceededSupportHits = detectSupportResistanceHits(
+      [{ name: "USD/JPY", value: 157.85, change: -0.9, changePercent: -0.55 }],
+      {},
+      levels,
+      settings,
+      {},
+      baseMs
+    );
+    expect(exceededSupportHits).toHaveLength(1);
+    expect(exceededSupportHits[0].speechText).toContain("サポレジ下抜け");
+    expect(exceededSupportHits[0].speechText).toContain("割り込んで推移しています");
+  });
 });

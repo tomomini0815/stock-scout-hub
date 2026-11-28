@@ -431,7 +431,7 @@ const ThemesPage = () => {
       <SiteHeader activeTab="テーマ別" />
       <MarketTicker indices={marketIndices} />
 
-      <main className="container mx-auto px-4 py-3">
+      <main className="container mx-auto px-2.5 py-2.5 sm:px-4 sm:py-3">
         <div className="mb-3 flex items-center justify-between gap-2">
           <h2 className="flex items-center gap-2 text-sm font-bold text-foreground">
             <Layers className="h-4 w-4 text-primary" />
@@ -559,12 +559,12 @@ const ThemesPage = () => {
 
                   <div className="mb-2 space-y-1">
                     {signal.leaders.map((leader) => (
-                      <div key={leader.code} className="flex items-center justify-between rounded bg-muted/40 px-2 py-1 text-xxs">
-                        <span>
+                      <div key={leader.code} className="flex items-center justify-between gap-2 rounded bg-muted/40 px-2 py-1 text-xxs">
+                        <span className="min-w-0 truncate">
                           <span className="font-mono font-bold text-primary">{leader.code}</span>
                           <span className="ml-1 text-foreground">{leader.name}</span>
                         </span>
-                        <span className="font-bold tabular-nums text-primary">{leader.score || "-"}</span>
+                        <span className="shrink-0 font-bold tabular-nums text-primary">{leader.score || "-"}</span>
                       </div>
                     ))}
                   </div>
@@ -608,12 +608,12 @@ const ThemesPage = () => {
                     {stocks.map((stock) => {
                       const stockUp = stock.changePercent > 0;
                       return (
-                        <div key={stock.code} className="flex items-center justify-between">
-                          <div>
+                        <div key={stock.code} className="flex items-center justify-between gap-2">
+                          <div className="min-w-0 truncate">
                             <span className="font-mono text-xxs font-semibold text-primary">{stock.code}</span>
                             <span className="ml-1 text-xxs text-foreground">{stock.name}</span>
                           </div>
-                          <span className={`text-xxs tabular-nums font-semibold ${stockUp ? "text-stock-up" : "text-stock-down"}`}>
+                          <span className={`shrink-0 text-xxs tabular-nums font-semibold ${stockUp ? "text-stock-up" : "text-stock-down"}`}>
                             {stockUp ? "+" : ""}{stock.changePercent.toFixed(2)}%
                           </span>
                         </div>
